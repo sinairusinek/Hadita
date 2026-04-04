@@ -1,0 +1,18 @@
+# Images (large, not suitable for git)
+*.jpg
+
+# ML models
+*.mlmodel
+
+# Python
+__pycache__/
+*.pyc
+
+# OCR cache (generated)
+.ocr_cache/
+
+# OS
+.DS_Store
+
+# Claude
+.claude/
