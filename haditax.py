@@ -28,7 +28,7 @@ PAGE_METADATA_FILE = PROJECT_DIR / "page_metadata.tsv"
 
 META_FIELDS = [
     "Tax_Payer_Arabic", "Tax_Payer_Romanized",
-    "Village_Arabic", "Village_Romanized",
+    "Tax_Payer_ID_Arabic", "Tax_Payer_ID_Romanized",
 ]
 
 # ── Column definitions (must match compare_ocr.py) ───────────
@@ -50,7 +50,7 @@ ALL_DATA_COLS = LEFT_COLS + RIGHT_COLS + META_COLS
 GT_COLS = [
     "Page_Number", "Folio_Number",
     "Tax_Payer_Arabic", "Tax_Payer_Romanized",
-    "Village_Arabic", "Village_Romanized",
+    "Tax_Payer_ID_Arabic", "Tax_Payer_ID_Romanized",
     "Serial_No", "Date", "Block_No", "Parcel_No", "Cat_No", "Area",
     "Nature_of_Entry", "New_Serial_No", "Volume_No", "Serial_No_Vol",
     "Tax_LP", "Tax_Mils", "Total_Tax_LP", "Total_Tax_Mils",
@@ -626,16 +626,16 @@ if view_mode == "Correction View":
             m["Tax_Payer_Arabic"] = st.text_input(
                 "Tax Payer (Arabic)", value=m.get("Tax_Payer_Arabic", ""),
                 key=f"meta_tpa_{page_num}")
-            m["Village_Arabic"] = st.text_input(
-                "Village (Arabic)", value=m.get("Village_Arabic", ""),
-                key=f"meta_va_{page_num}")
+            m["Tax_Payer_ID_Arabic"] = st.text_input(
+                "Tax Payer ID (Arabic)", value=m.get("Tax_Payer_ID_Arabic", ""),
+                key=f"meta_tpia_{page_num}")
         with mc2:
             m["Tax_Payer_Romanized"] = st.text_input(
                 "Tax Payer (Romanized)", value=m.get("Tax_Payer_Romanized", ""),
                 key=f"meta_tpr_{page_num}")
-            m["Village_Romanized"] = st.text_input(
-                "Village (Romanized)", value=m.get("Village_Romanized", ""),
-                key=f"meta_vr_{page_num}")
+            m["Tax_Payer_ID_Romanized"] = st.text_input(
+                "Tax Payer ID (Romanized)", value=m.get("Tax_Payer_ID_Romanized", ""),
+                key=f"meta_tpir_{page_num}")
 
     col_img, col_tbl = st.columns([1, 1])
 
