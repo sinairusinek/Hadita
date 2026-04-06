@@ -64,6 +64,36 @@ HEADER_HEIGHT_FRAC = 0.08
 LEFT_TABLE_WIDTH_FRAC = 0.455
 
 
+# ── Digit conversion ─────────────────────────────────────────
+
+_AR_DIGITS = "٠١٢٣٤٥٦٧٨٩"
+_W_DIGITS  = "0123456789"
+_AR_TO_W = str.maketrans(_AR_DIGITS, _W_DIGITS)
+_W_TO_AR = str.maketrans(_W_DIGITS, _AR_DIGITS)
+
+def convert_digits(text: str, mode: str) -> str:
+    """Convert digits in text. mode='western' or 'arabic'."""
+    if not isinstance(text, str):
+        text = str(text)
+    if mode == "western":
+        return text.translate(_AR_TO_W)
+    else:
+        return text.translate(_W_TO_AR)
+
+
+def convert_df_digits(df: pd.DataFrame, mode: str, skip_cols: list[str] | None = None) -> pd.DataFrame:
+    """Return a copy of df with digit conversion applied to all string columns."""
+    if mode == "arabic":
+        return df  # OCR data is already in Arabic digits
+    df = df.copy()
+    for col in df.columns:
+        if skip_cols and col in skip_cols:
+            continue
+        if pd.api.types.is_string_dtype(df[col]) or df[col].dtype == object:
+            df[col] = df[col].apply(lambda v: convert_digits(str(v), mode) if pd.notna(v) else v)
+    return df
+
+
 # ── Helpers ──────────────────────────────────────────────────
 
 def page_image_path(page_num: int) -> Path:
@@ -509,12 +539,21 @@ st.title("Haditax — Ground Truth Editor")
 ALL_COLS = LEFT_COLS + RIGHT_COLS
 PAGES = list(PAGE_FOLIO.keys())  # [3, 10, 50]
 
-page_num = st.selectbox(
-    "Page",
-    PAGES,
-    format_func=lambda p: f"Page {p}  (Folio {PAGE_FOLIO.get(p, '?')})",
-    key="shared_page",
-)
+ctrl_col1, ctrl_col2 = st.columns([2, 1])
+with ctrl_col1:
+    page_num = st.selectbox(
+        "Page",
+        PAGES,
+        format_func=lambda p: f"Page {p}  (Folio {PAGE_FOLIO.get(p, '?')})",
+        key="shared_page",
+    )
+with ctrl_col2:
+    digit_mode = st.radio(
+        "Digits",
+        ["Arabic", "Western"],
+        horizontal=True,
+        key="digit_mode",
+    ).lower()
 view_mode = "Correction View"
 
 # ═══════════════════════════════════════════════════════════════
@@ -557,6 +596,8 @@ if view_mode == "Correction View":
         for c in ["_page"] + ALL_COLS:
             df[c] = df[c].astype(str)
 
+        display_df = convert_df_digits(df, digit_mode, skip_cols=["#", "_page"])
+
         col_config = {
             "#": st.column_config.NumberColumn("#", width="small", disabled=True),
             "_page": st.column_config.TextColumn("Page", width="small", disabled=True),
@@ -565,21 +606,22 @@ if view_mode == "Correction View":
             col_config[c] = st.column_config.TextColumn(c, width="small")
 
         edited_df = st.data_editor(
-            df,
+            display_df,
             column_config=col_config,
             use_container_width=True,
             num_rows="fixed",
             height=PANEL_H,
-            key="cv_editor",
+            key=f"cv_editor_{digit_mode}",
             disabled=["#", "_page"],
         )
 
-        # Sync edits back to session state
+        # Sync edits back to session state (always store as Arabic digits)
         for i in range(len(all_rows)):
             for col in ALL_COLS:
                 if col in edited_df.columns:
                     val = edited_df.at[i, col]
-                    all_rows[i][col] = str(val) if pd.notna(val) else ""
+                    s = str(val) if pd.notna(val) else ""
+                    all_rows[i][col] = convert_digits(s, "arabic")
 
 # ═══════════════════════════════════════════════════════════════
 # GRID VIEW — uses shared page_num from top selector
@@ -633,7 +675,8 @@ else:
         row_dict = {"#": row_idx + 1}
         for col_name in ALL_COLS:
             row_dict[f"{col_name}_img"] = cell_imgs.get((row_idx, col_name), "")
-            row_dict[col_name] = edit_rows[row_idx].get(col_name, "") or ""
+            raw_val = edit_rows[row_idx].get(col_name, "") or ""
+            row_dict[col_name] = convert_digits(raw_val, digit_mode)
         df_data.append(row_dict)
 
     df = pd.DataFrame(df_data)
