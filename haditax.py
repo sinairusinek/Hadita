@@ -24,6 +24,12 @@ PROJECT_DIR = Path(__file__).parent
 IMAGE_PATTERN = "000nvrj-432316TAX 1-85_page-{:04d}.jpg"
 CACHE_DIR = PROJECT_DIR / ".ocr_cache"
 GROUND_TRUTH_FILE = PROJECT_DIR / "ground_truth.tsv"
+PAGE_METADATA_FILE = PROJECT_DIR / "page_metadata.tsv"
+
+META_FIELDS = [
+    "Tax_Payer_Arabic", "Tax_Payer_Romanized",
+    "Village_Arabic", "Village_Romanized",
+]
 
 # ── Column definitions (must match compare_ocr.py) ───────────
 LEFT_COLS = [
@@ -432,6 +438,34 @@ def save_ground_truth(all_gt_rows: list[dict]):
         writer.writerows(all_gt_rows)
 
 
+def load_page_metadata() -> dict[int, dict]:
+    """Load page_metadata.tsv → {page_num: {field: value}}."""
+    if not PAGE_METADATA_FILE.exists():
+        return {}
+    result = {}
+    with open(PAGE_METADATA_FILE, "r", encoding="utf-8-sig") as f:
+        for row in csv.DictReader(f, delimiter="\t"):
+            try:
+                p = int(row["Page_Number"])
+            except (KeyError, ValueError):
+                continue
+            result[p] = {k: row.get(k, "") for k in META_FIELDS}
+    return result
+
+
+def save_page_metadata(meta: dict[int, dict]):
+    """Write {page_num: {field: value}} to page_metadata.tsv."""
+    fieldnames = ["Page_Number", "Folio_Number"] + META_FIELDS
+    with open(PAGE_METADATA_FILE, "w", encoding="utf-8", newline="\r\n") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t",
+                                extrasaction="ignore", lineterminator="\r\n")
+        writer.writeheader()
+        for p in sorted(meta):
+            row = {"Page_Number": str(p), "Folio_Number": PAGE_FOLIO.get(p, "")}
+            row.update(meta[p])
+            writer.writerow(row)
+
+
 # ── PAGE XML export ──────────────────────────────────────────
 
 def export_page_xml(page_num: int, img_cv: np.ndarray,
@@ -571,7 +605,37 @@ if view_mode == "Correction View":
                 combined.append(row)
         st.session_state["cv_all_rows"] = combined
 
+    if "page_meta" not in st.session_state:
+        st.session_state["page_meta"] = load_page_metadata()
+        # Ensure every known page has an entry
+        for p in PAGES:
+            st.session_state["page_meta"].setdefault(p, {f: "" for f in META_FIELDS})
+
     all_rows = st.session_state["cv_all_rows"]
+    page_meta = st.session_state["page_meta"]
+
+    # ── Page metadata section ────────────────────────────────────
+    with st.expander(
+        f"Page metadata — Folio {PAGE_FOLIO.get(page_num, '?')}  "
+        f"(Tax payer: {page_meta[page_num].get('Tax_Payer_Arabic') or '—'})",
+        expanded=not any(page_meta[page_num].values()),
+    ):
+        m = page_meta[page_num]
+        mc1, mc2 = st.columns(2)
+        with mc1:
+            m["Tax_Payer_Arabic"] = st.text_input(
+                "Tax Payer (Arabic)", value=m.get("Tax_Payer_Arabic", ""),
+                key=f"meta_tpa_{page_num}")
+            m["Village_Arabic"] = st.text_input(
+                "Village (Arabic)", value=m.get("Village_Arabic", ""),
+                key=f"meta_va_{page_num}")
+        with mc2:
+            m["Tax_Payer_Romanized"] = st.text_input(
+                "Tax Payer (Romanized)", value=m.get("Tax_Payer_Romanized", ""),
+                key=f"meta_tpr_{page_num}")
+            m["Village_Romanized"] = st.text_input(
+                "Village (Romanized)", value=m.get("Village_Romanized", ""),
+                key=f"meta_vr_{page_num}")
 
     col_img, col_tbl = st.columns([1, 1])
 
@@ -767,4 +831,5 @@ if view_mode == "Correction View":
         all_gt.sort(key=lambda r: (int(r.get("Page_Number", 0) or 0),
                                     int(r.get("Serial_No", 0) or 0)))
         save_ground_truth(all_gt)
-        st.success(f"Saved {len(new_gt_rows)} rows across {len(cv_pages)} pages.")
+        save_page_metadata(st.session_state.get("page_meta", {}))
+        st.success(f"Saved {len(new_gt_rows)} rows across {len(cv_pages)} pages + page metadata.")
