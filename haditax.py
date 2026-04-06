@@ -468,6 +468,76 @@ def save_page_metadata(meta: dict[int, dict]):
 
 # ── PAGE XML export ──────────────────────────────────────────
 
+def extract_header_metadata(page_num: int, force: bool = False) -> dict:
+    """Use Gemini to extract tax payer name and ID from the page header image.
+
+    Results are cached in .ocr_cache/meta_page{N}.json.
+    Pass force=True to bypass cache and re-extract.
+    """
+    import io as _io
+    import os
+    import re
+
+    cache_file = CACHE_DIR / f"meta_page{page_num}.json"
+    if not force and cache_file.exists():
+        data = json.loads(cache_file.read_text())
+        # Return only if it has the expected keys
+        if all(k in data for k in META_FIELDS):
+            return data
+
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    if not api_key:
+        raise EnvironmentError("GOOGLE_API_KEY not set")
+
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=api_key)
+
+    # Crop the header strip (top 12% of deskewed image)
+    deskewed = deskew_page(page_num)
+    h = deskewed.shape[0]
+    header_cv = deskewed[:int(h * 0.12), :]
+    pil_header = Image.fromarray(cv2.cvtColor(header_cv, cv2.COLOR_BGR2RGB))
+
+    prompt = """\
+This is the header of a British Mandate Palestine property tax register page (Form TR/39).
+The printed label "Tax-Payer" is followed by handwritten Arabic text giving the taxpayer's name,
+and a handwritten number or code serving as the taxpayer's identifier.
+
+Extract exactly these four fields and return ONLY valid JSON, no markdown:
+{
+  "Tax_Payer_Arabic": "<taxpayer name in Arabic script as written>",
+  "Tax_Payer_Romanized": "<taxpayer name romanized / transliterated to Latin>",
+  "Tax_Payer_ID_Arabic": "<identifier number/code in Arabic-Indic or Eastern Arabic digits as written, or empty string if absent>",
+  "Tax_Payer_ID_Romanized": "<identifier romanized to Latin digits/characters, or empty string if absent>"
+}
+If a field is not legible, return an empty string for it."""
+
+    buf = _io.BytesIO()
+    pil_header.save(buf, format="JPEG", quality=92)
+    parts = [
+        types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg"),
+        types.Part.from_text(text=prompt),
+    ]
+
+    resp = client.models.generate_content(
+        model="gemini-2.5-pro",
+        contents=parts,
+        config=types.GenerateContentConfig(max_output_tokens=512),
+    )
+    raw = resp.text or ""
+    m = re.search(r'\{.*\}', raw, re.DOTALL)
+    if not m:
+        return {k: "" for k in META_FIELDS}
+
+    result = json.loads(m.group())
+    for k in META_FIELDS:
+        result.setdefault(k, "")
+    cache_file.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    return result
+
+
 def export_page_xml(page_num: int, img_cv: np.ndarray,
                     h_left: list[int], v_left: list[int],
                     h_right: list[int], v_right: list[int],
@@ -621,6 +691,27 @@ if view_mode == "Correction View":
         expanded=not any(page_meta[page_num].values()),
     ):
         m = page_meta[page_num]
+        btn_col, _ = st.columns([1, 3])
+        with btn_col:
+            autofill = st.button("Auto-fill from image (Gemini)",
+                                 key=f"meta_autofill_{page_num}")
+        if autofill:
+            with st.spinner("Extracting header with Gemini…"):
+                try:
+                    extracted = extract_header_metadata(page_num, force=True)
+                    for k, wk in [
+                        ("Tax_Payer_Arabic",    f"meta_tpa_{page_num}"),
+                        ("Tax_Payer_Romanized", f"meta_tpr_{page_num}"),
+                        ("Tax_Payer_ID_Arabic",    f"meta_tpia_{page_num}"),
+                        ("Tax_Payer_ID_Romanized", f"meta_tpir_{page_num}"),
+                    ]:
+                        val = extracted.get(k, "")
+                        m[k] = val
+                        st.session_state[wk] = val
+                    st.success("Done — review and edit the fields below if needed.")
+                except Exception as e:
+                    st.error(f"Gemini extraction failed: {e}")
+
         mc1, mc2 = st.columns(2)
         with mc1:
             m["Tax_Payer_Arabic"] = st.text_input(

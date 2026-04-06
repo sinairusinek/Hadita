@@ -115,8 +115,9 @@ You are an expert palaeographer specialising in British Mandate Palestine admini
 The image shows a page (or portion of a page) from a Tax Register, Form TR/39.
 
 The page header contains:
-  - "Tax-Payer" followed by an Arabic name
-  - "Village" followed by an Arabic village name
+  - "Tax-Payer" followed by an Arabic name and, immediately after the name, a handwritten
+    identifier/reference number (in Eastern Arabic or Western digits)
+  - "Village" followed by an Arabic village name (always الحديثة for this register)
   - "Folio No." followed by a number
 
 The LEFT side of the page is a table with these columns (right-to-left reading order):
@@ -174,8 +175,11 @@ Return ONLY valid JSON in this exact structure (no markdown fences, no extra tex
 {
   "page_meta": {
     "folio_number": "...",
-    "tax_payer_arabic": "...",
-    "village_arabic": "..."
+    "tax_payer_arabic": "<name in Arabic script as written>",
+    "tax_payer_romanized": "<name romanized to Latin>",
+    "tax_payer_id_arabic": "<identifier in Arabic-Indic/Eastern Arabic digits as written, or empty>",
+    "tax_payer_id_romanized": "<identifier in Latin/Western digits, or empty>",
+    "village_arabic": "<village name in Arabic>"
   },
   "rows": [
     {
@@ -689,6 +693,20 @@ def run_gemini25_full_fewshot(page_num: int) -> list[dict]:
     data = parse_json(raw)
     rows = [normalize_row(r, ALL_DATA_COLS) for r in data.get("rows", [])]
     save_cache("M", page_num, rows)
+
+    # Save page-level metadata for haditax (meta_page{N}.json)
+    raw_meta = data.get("page_meta", {})
+    if raw_meta:
+        meta = {
+            "Tax_Payer_Arabic":    raw_meta.get("tax_payer_arabic", ""),
+            "Tax_Payer_Romanized": raw_meta.get("tax_payer_romanized", ""),
+            "Tax_Payer_ID_Arabic":    raw_meta.get("tax_payer_id_arabic", ""),
+            "Tax_Payer_ID_Romanized": raw_meta.get("tax_payer_id_romanized", ""),
+        }
+        (CACHE_DIR / f"meta_page{page_num}.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2)
+        )
+
     return rows
 
 
