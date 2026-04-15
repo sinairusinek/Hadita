@@ -16,7 +16,6 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from PIL import Image
-from streamlit_image_zoom import image_zoom
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 
 # ── Project paths ────────────────────────────────────────────
@@ -798,36 +797,81 @@ if view_mode == "Correction View":
     PANEL_H = 800  # shared height for both panels in pixels
 
     with col_img:
-        st.caption("Scroll to zoom in/out · move mouse to track position · stay inside image to hold zoom")
         with st.spinner("Loading page image..."):
             deskewed = deskew_page(page_num)
         pil_img = Image.fromarray(cv2.cvtColor(deskewed, cv2.COLOR_BGR2RGB))
 
-        # Compute display size that preserves the true aspect ratio (library bug:
-        # passing a tuple for `size` ignores keep_aspect_ratio and stretches the image).
         DISPLAY_W = 700
         display_h = int(pil_img.height * DISPLAY_W / pil_img.width)
 
-        # Prepare a full-resolution zoom source capped at 3000 px wide so the
-        # component can show crisp detail without sending an enormous data URL.
-        ZOOM_MAX_W = 3000
-        if pil_img.width > ZOOM_MAX_W:
-            zoom_scale = ZOOM_MAX_W / pil_img.width
-            zoom_img = pil_img.resize(
-                (ZOOM_MAX_W, int(pil_img.height * zoom_scale)), Image.LANCZOS
-            )
-        else:
-            zoom_img = pil_img
+        # ── Pan/zoom session state ───────────────────────────────
+        if "img_zoom" not in st.session_state:
+            st.session_state["img_zoom"] = 1.0
+        if "img_pan_x" not in st.session_state:
+            st.session_state["img_pan_x"] = 0.5  # fraction of image width (centre)
+        if "img_pan_y" not in st.session_state:
+            st.session_state["img_pan_y"] = 0.5  # fraction of image height (centre)
 
-        image_zoom(
-            zoom_img,
-            mode="scroll",
-            size=(DISPLAY_W, display_h),
-            keep_aspect_ratio=False,   # aspect ratio already baked into size
-            keep_resolution=True,      # swap in high-res source when zoomed
-            zoom_factor=8.0,           # up to 8× = reads individual characters
-            increment=0.15,            # each scroll step = 15% zoom
+        zoom   = st.session_state["img_zoom"]
+        pan_x  = st.session_state["img_pan_x"]
+        pan_y  = st.session_state["img_pan_y"]
+
+        # ── Navigation controls ──────────────────────────────────
+        ZOOM_LEVELS = [1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0]
+        zoom_idx    = min(range(len(ZOOM_LEVELS)), key=lambda i: abs(ZOOM_LEVELS[i] - zoom))
+        pan_step    = 0.15 / zoom  # smaller steps at higher zoom
+
+        btn_z_out, btn_z_lbl, btn_z_in, _, btn_left, btn_up, btn_down, btn_right, _, btn_reset = st.columns(
+            [1, 1, 1, 0.3, 1, 1, 1, 1, 0.3, 1]
         )
+        with btn_z_out:
+            if st.button("−", key="zoom_out", disabled=zoom_idx == 0):
+                st.session_state["img_zoom"] = ZOOM_LEVELS[zoom_idx - 1]
+                st.rerun()
+        with btn_z_lbl:
+            st.markdown(f"<div style='text-align:center;padding-top:6px'>{zoom:.1f}×</div>",
+                        unsafe_allow_html=True)
+        with btn_z_in:
+            if st.button("+", key="zoom_in", disabled=zoom_idx == len(ZOOM_LEVELS) - 1):
+                st.session_state["img_zoom"] = ZOOM_LEVELS[zoom_idx + 1]
+                st.rerun()
+        with btn_left:
+            if st.button("←", key="pan_left"):
+                st.session_state["img_pan_x"] = max(0.0, pan_x - pan_step)
+                st.rerun()
+        with btn_up:
+            if st.button("↑", key="pan_up"):
+                st.session_state["img_pan_y"] = max(0.0, pan_y - pan_step)
+                st.rerun()
+        with btn_down:
+            if st.button("↓", key="pan_down"):
+                st.session_state["img_pan_y"] = min(1.0, pan_y + pan_step)
+                st.rerun()
+        with btn_right:
+            if st.button("→", key="pan_right"):
+                st.session_state["img_pan_x"] = min(1.0, pan_x + pan_step)
+                st.rerun()
+        with btn_reset:
+            if st.button("Reset", key="zoom_reset"):
+                st.session_state["img_zoom"]  = 1.0
+                st.session_state["img_pan_x"] = 0.5
+                st.session_state["img_pan_y"] = 0.5
+                st.rerun()
+
+        # ── Compute crop and display ─────────────────────────────
+        img_w, img_h = pil_img.size
+        crop_w = img_w / zoom
+        crop_h = img_h / zoom
+        # Centre the crop on (pan_x, pan_y), clamped to image bounds
+        x0 = int(max(0, min(pan_x * img_w - crop_w / 2, img_w - crop_w)))
+        y0 = int(max(0, min(pan_y * img_h - crop_h / 2, img_h - crop_h)))
+        x1 = int(x0 + crop_w)
+        y1 = int(y0 + crop_h)
+
+        crop = pil_img.crop((x0, y0, x1, y1)).resize(
+            (DISPLAY_W, display_h), Image.LANCZOS
+        )
+        st.image(crop, width=DISPLAY_W)
 
     with col_tbl:
         st.caption("Click a cell to edit · Tab / Enter to navigate")
