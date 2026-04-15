@@ -138,6 +138,30 @@ def expand_dittos_df(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     return df
 
 
+def _expand_date_val(val: str) -> str:
+    """Prepend '١' to a 3-digit Eastern-Arabic year, or '1' to a 3-digit Western year."""
+    v = val.strip()
+    if len(v) == 3 and all('\u0660' <= c <= '\u0669' for c in v):
+        return '\u0661' + v   # Eastern Arabic 1 + e.g. ٩٣٨ → ١٩٣٨
+    if len(v) == 3 and v.isdigit():
+        return '1' + v        # Western digits: 938 → 1938
+    return val
+
+
+def expand_dates(rows: list[dict]) -> list[dict]:
+    """Return a new list of dicts with 3-digit Date values expanded to 4 digits."""
+    return [{**r, "Date": _expand_date_val(str(r.get("Date", "") or ""))} for r in rows]
+
+
+def expand_dates_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy of df with 3-digit Date values expanded to 4 digits."""
+    if "Date" not in df.columns:
+        return df
+    df = df.copy()
+    df["Date"] = df["Date"].apply(lambda v: _expand_date_val(str(v) if pd.notna(v) else ""))
+    return df
+
+
 # ── Helpers ──────────────────────────────────────────────────
 
 def page_image_path(page_num: int) -> Path:
@@ -892,6 +916,7 @@ if view_mode == "Correction View":
         display_df = convert_df_digits(df, digit_mode, skip_cols=["#", "_page"])
         if expand_ditto_view:
             display_df = expand_dittos_df(display_df, ALL_COLS)
+            display_df = expand_dates_df(display_df)
             # Inject page-level metadata as read-only columns
             meta_now = page_meta.get(page_num, {})
             for mf in META_FIELDS:
@@ -1068,6 +1093,7 @@ if view_mode == "Correction View":
             save_rows = list(st.session_state.get("cv_all_rows", []))
             if expand_ditto_save:
                 save_rows = expand_dittos(save_rows, LEFT_COLS + RIGHT_COLS)
+                save_rows = expand_dates(save_rows)
             cv_pages = {r["_page"] for r in save_rows}
             other_pages = [r for r in existing
                            if int(r.get("Page_Number", 0) or 0) not in cv_pages]
