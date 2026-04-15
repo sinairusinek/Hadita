@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Haditax OCR Benchmarking Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #f5f4ef; color: #222;
+       padding: 28px 36px; max-width: 1200px; }
+h1 { font-size: 1.7rem; margin-bottom: 4px; }
+.subtitle { color: #666; font-size: .88rem; margin-bottom: 28px; }
+h2 { font-size: 1.1rem; margin: 32px 0 12px; border-bottom: 2px solid #c8c0a4;
+     padding-bottom: 6px; color: #333; }
+h3 { font-size: .9rem; margin: 0 0 10px; color: #555; font-weight: 600; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.card { background: #fff; border-radius: 8px; padding: 18px;
+        box-shadow: 0 1px 5px rgba(0,0,0,.07); }
+.cw  { position: relative; height: 240px; }
+.cwm { position: relative; height: 320px; }
+table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+th { background: #e8e2cc; text-align: left; padding: 7px 10px;
+     font-weight: 600; white-space: nowrap; }
+td { padding: 5px 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
+tr:hover td { background: #faf8f2; }
+code { font-family: monospace; font-size: .85em; background: #f0ede4;
+       padding: 1px 4px; border-radius: 3px; }
+.insight { background: #fffbf0; border-left: 4px solid #d4a820; padding: 10px 14px;
+           font-size: .85rem; border-radius: 0 6px 6px 0; margin: 12px 0; line-height: 1.6; }
+.caveat  { background: #f0f4ff; border-left: 4px solid #5a7ab5; padding: 10px 14px;
+           font-size: .85rem; border-radius: 0 6px 6px 0; margin: 12px 0; line-height: 1.6; }
+.srow { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+.sbox { text-align:center; padding:10px 16px; min-width:90px; border-radius:6px;
+        background:#f8f7f2; }
+.snum { font-size:1.6rem; font-weight:700; line-height:1; }
+.slbl { font-size:.7rem; color:#888; margin-top:3px; }
+.good { color:#2d6a2d; } .bad { color:#9b2020; } .mid { color:#7a5a00; }
+</style>
+</head>
+<body>
+<h1>Haditax OCR Benchmarking Report</h1>
+<p class="subtitle">British Mandate Palestine Property Tax Register &nbsp;&middot;&nbsp;
+Ground-truth evaluation on Page 3 (Folio 1, 35 rows) &nbsp;&middot;&nbsp; 2026-04-15</p>
+<div class="caveat">
+  <strong>Scope:</strong> Ground truth (manually verified) exists only for <strong>Page 3</strong>.
+  All 9 approaches that produced a Page 3 output were evaluated against it.
+  Pages 10 and 50 appear at the bottom with proxy metrics only (fill rate / confidence) &mdash;
+  those do <em>not</em> measure accuracy.
+</div>
+
+<h2>0 &middot; What Each Approach Means</h2>
+<div class="card" style="overflow-x:auto">
+  <table>
+    <tr>
+      <th style="width:2.5rem">ID</th>
+      <th>Model</th>
+      <th>Strategy</th>
+      <th>Description</th>
+      <th style="text-align:right">Exact&nbsp;%</th>
+    </tr>
+<tr><td style='font-weight:700;font-size:1.1rem;color:#e74c3c;font-family:monospace'>M</td><td style='font-weight:600'>Gemini 2.5 Pro</td><td>Few-shot full page</td><td>Send the full page to Gemini 2.5 Pro together with a few worked examples (few-shot prompting) so the model learns the expected output format and field conventions. <strong>Best overall.</strong></td><td style='background:hsl(50,80%,88%);font-weight:600;text-align:right'>69.3%</td></tr>
+<tr><td style='font-weight:700;font-size:1.1rem;color:#e67e22;font-family:monospace'>O</td><td style='font-weight:600'>Gemini 2.5 Pro</td><td>Few-shot + cell crops</td><td>Start with approach M as a base, then re-run the hardest columns (Area, Block_No, Tax) with zoomed cell-level crops for a second pass.</td><td style='background:hsl(50,80%,88%);font-weight:600;text-align:right'>64.9%</td></tr>
+<tr><td style='font-weight:700;font-size:1.1rem;color:#27ae60;font-family:monospace'>P</td><td style='font-weight:600'>M + C + E ensemble</td><td>Majority vote</td><td>Run three models independently (M, C, E) and take the majority answer cell by cell. If two or more agree, use that value; otherwise fall back to M.</td><td style='background:hsl(50,80%,88%);font-weight:600;text-align:right'>61.4%</td></tr>
+<tr><td style='font-weight:700;font-size:1.1rem;color:#c0392b;font-family:monospace'>Q</td><td style='font-weight:600'>Gemini 2.5 Pro</td><td>5× few-shot vote</td><td>Run 5 variants of approach M with different few-shot example subsets, then majority-vote per cell. Expected to reduce variance — but in practice performed worse than a single M run.</td><td style='background:hsl(50,80%,88%);font-weight:600;text-align:right'>57.8%</td></tr>
+<tr><td style='font-weight:700;font-size:1.1rem;color:#5ba35b;font-family:monospace'>C</td><td style='font-weight:600'>Gemini 2.5 Pro</td><td>Full page</td><td>Send the full page image to Gemini 2.5 Pro (no examples) and ask it to transcribe.</td><td style='background:hsl(50,80%,88%);font-weight:600;text-align:right'>56.6%</td></tr>
+<tr><td style='font-weight:700;font-size:1.1rem;color:#c4853d;font-family:monospace'>E</td><td style='font-weight:600'>Gemini 3.x Pro</td><td>Full page</td><td>Same as C but using the newer Gemini 3.x Pro model.</td><td style='background:hsl(0,60%,90%);font-weight:600;text-align:right'>43.4%</td></tr>
+<tr><td style='font-weight:700;font-size:1.1rem;color:#9b59b6;font-family:monospace'>K</td><td style='font-weight:600'>Gemini 3 Flash</td><td>Full page</td><td>Same full-page strategy using the lighter/faster Gemini 3 Flash model.</td><td style='background:hsl(0,60%,90%);font-weight:600;text-align:right'>31.6%</td></tr>
+<tr><td style='font-weight:700;font-size:1.1rem;color:#4c8cbf;font-family:monospace'>A</td><td style='font-weight:600'>Claude Opus 4.6</td><td>Full page</td><td>Send the full page image to Claude Opus 4.6 and ask it to transcribe the table.</td><td style='background:hsl(0,60%,90%);font-weight:600;text-align:right'>29.5%</td></tr>
+<tr><td style='font-weight:700;font-size:1.1rem;color:#3a6d99;font-family:monospace'>N</td><td style='font-weight:600'>Claude Opus 4.6</td><td>Few-shot full page</td><td>Same few-shot strategy as M but using Claude Opus 4.6 instead of Gemini.</td><td style='background:hsl(0,60%,90%);font-weight:600;text-align:right'>29.5%</td></tr>  </table>
+  <p style="font-size:.75rem;color:#999;margin-top:8px">
+    Approaches B, D, F, L (zoomed crops variants) were not run on page 3 so they have no GT score.
+  </p>
+</div>
+
+<h2>1 &middot; Overall Accuracy &mdash; Page 3 (all 9 approaches)</h2>
+<div class="insight">
+  <strong>M is the clear winner</strong> at 69.3% exact match.
+  Few-shot prompting (telling the model what the output should look like with worked examples)
+  made the biggest single improvement. The hybrid approaches O and P come next but don't beat
+  the simplicity of a single well-prompted M run. Majority voting (Q) actually <em>hurts</em>
+  relative to M alone.
+</div>
+<div class="grid-2">
+  <div class="card"><h3>Exact Match % (sorted best to worst)</h3><div class="cw"><canvas id="cExact"></canvas></div></div>
+  <div class="card"><h3>Character Error Rate — lower is better</h3><div class="cw"><canvas id="cCER"></canvas></div></div>
+</div>
+
+<h2>2 &middot; Full Results Table</h2>
+<div class="card" style="overflow-x:auto">
+  <table>
+    <tr><th>#</th><th>ID</th><th>Model</th><th>Strategy</th>
+        <th>Exact %</th><th>CER</th><th>Cells compared</th></tr>
+<tr><td style='color:#888'>1</td><td style='font-weight:700;color:#e74c3c;font-size:1.05rem;font-family:monospace'>M</td><td>Gemini 2.5 Pro</td><td>Few-shot full page</td><td style='background:hsl(50,80%,88%);font-weight:700'>69.3%</td><td style='color:#888'>0.2309</td><td>251</td></tr>
+<tr><td style='color:#888'>2</td><td style='font-weight:700;color:#e67e22;font-size:1.05rem;font-family:monospace'>O</td><td>Gemini 2.5 Pro</td><td>Few-shot + cell crops</td><td style='background:hsl(50,80%,88%);font-weight:700'>64.9%</td><td style='color:#888'>0.2467</td><td>251</td></tr>
+<tr><td style='color:#888'>3</td><td style='font-weight:700;color:#27ae60;font-size:1.05rem;font-family:monospace'>P</td><td>M + C + E ensemble</td><td>Majority vote</td><td style='background:hsl(50,80%,88%);font-weight:700'>61.4%</td><td style='color:#888'>0.2479</td><td>251</td></tr>
+<tr><td style='color:#888'>4</td><td style='font-weight:700;color:#c0392b;font-size:1.05rem;font-family:monospace'>Q</td><td>Gemini 2.5 Pro</td><td>5× few-shot vote</td><td style='background:hsl(50,80%,88%);font-weight:700'>57.8%</td><td style='color:#888'>0.2929</td><td>251</td></tr>
+<tr><td style='color:#888'>5</td><td style='font-weight:700;color:#5ba35b;font-size:1.05rem;font-family:monospace'>C</td><td>Gemini 2.5 Pro</td><td>Full page</td><td style='background:hsl(50,80%,88%);font-weight:700'>56.6%</td><td style='color:#888'>0.2938</td><td>251</td></tr>
+<tr><td style='color:#888'>6</td><td style='font-weight:700;color:#c4853d;font-size:1.05rem;font-family:monospace'>E</td><td>Gemini 3.x Pro</td><td>Full page</td><td style='background:hsl(0,60%,90%);font-weight:700'>43.4%</td><td style='color:#888'>0.4455</td><td>251</td></tr>
+<tr><td style='color:#888'>7</td><td style='font-weight:700;color:#9b59b6;font-size:1.05rem;font-family:monospace'>K</td><td>Gemini 3 Flash</td><td>Full page</td><td style='background:hsl(0,60%,90%);font-weight:700'>31.6%</td><td style='color:#888'>0.4885</td><td>244</td></tr>
+<tr><td style='color:#888'>8</td><td style='font-weight:700;color:#4c8cbf;font-size:1.05rem;font-family:monospace'>A</td><td>Claude Opus 4.6</td><td>Full page</td><td style='background:hsl(0,60%,90%);font-weight:700'>29.5%</td><td style='color:#888'>0.6650</td><td>237</td></tr>
+<tr><td style='color:#888'>9</td><td style='font-weight:700;color:#3a6d99;font-size:1.05rem;font-family:monospace'>N</td><td>Claude Opus 4.6</td><td>Few-shot full page</td><td style='background:hsl(0,60%,90%);font-weight:700'>29.5%</td><td style='color:#888'>0.6052</td><td>237</td></tr></table></div>
+<h2>3 &middot; Per-Column Accuracy Heatmap &mdash; Exact Match %</h2>
+<div class="insight">
+  Every approach gets Serial_No and Date right (printed/unambiguous).
+  <strong>Area</strong> and <strong>Tax_LP</strong> are the hardest columns across the board &mdash;
+  large comma-formatted numbers prone to digit transposition.
+  <strong>Cat_No</strong> errors are systematic: most models read "1" instead of "10" (the trailing zero is faint).
+</div>
+<div class="card" style="overflow-x:auto">
+  <table>
+    <tr>
+      <th>Column</th>
+<th style='text-align:center;color:#e74c3c;font-family:monospace'>M</th><th style='text-align:center;color:#e67e22;font-family:monospace'>O</th><th style='text-align:center;color:#27ae60;font-family:monospace'>P</th><th style='text-align:center;color:#c0392b;font-family:monospace'>Q</th><th style='text-align:center;color:#5ba35b;font-family:monospace'>C</th><th style='text-align:center;color:#c4853d;font-family:monospace'>E</th><th style='text-align:center;color:#9b59b6;font-family:monospace'>K</th><th style='text-align:center;color:#4c8cbf;font-family:monospace'>A</th><th style='text-align:center;color:#3a6d99;font-family:monospace'>N</th></tr><tr><td><code>Serial_No</code></td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td></tr>
+<tr><td><code>Date</code></td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td><td style='background:hsl(130,55%,88%);text-align:center'>100%</td></tr>
+<tr><td><code>Block_No</code></td><td style='background:hsl(130,55%,88%);text-align:center'>91%</td><td style='background:hsl(130,55%,88%);text-align:center'>91%</td><td style='background:hsl(0,60%,90%);text-align:center'>30%</td><td style='background:hsl(0,60%,90%);text-align:center'>27%</td><td style='background:hsl(0,60%,90%);text-align:center'>27%</td><td style='background:hsl(0,60%,90%);text-align:center'>30%</td><td style='background:hsl(0,60%,90%);text-align:center'>28%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td></tr>
+<tr><td><code>Parcel_No</code></td><td style='background:hsl(130,55%,88%);text-align:center'>87%</td><td style='background:hsl(130,55%,88%);text-align:center'>87%</td><td style='background:hsl(130,55%,88%);text-align:center'>83%</td><td style='background:hsl(50,80%,88%);text-align:center'>74%</td><td style='background:hsl(50,80%,88%);text-align:center'>65%</td><td style='background:hsl(50,80%,88%);text-align:center'>65%</td><td style='background:hsl(50,80%,88%);text-align:center'>65%</td><td style='background:hsl(0,60%,90%);text-align:center'>32%</td><td style='background:hsl(0,60%,90%);text-align:center'>18%</td></tr>
+<tr><td><code>Cat_No</code></td><td style='background:hsl(50,80%,88%);text-align:center'>64%</td><td style='background:hsl(0,60%,90%);text-align:center'>39%</td><td style='background:hsl(50,80%,88%);text-align:center'>61%</td><td style='background:hsl(50,80%,88%);text-align:center'>64%</td><td style='background:hsl(0,60%,90%);text-align:center'>33%</td><td style='background:hsl(0,60%,90%);text-align:center'>21%</td><td style='background:hsl(0,60%,90%);text-align:center'>9%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td></tr>
+<tr><td><code>Area</code></td><td style='background:hsl(0,60%,90%);text-align:center'>21%</td><td style='background:hsl(0,60%,90%);text-align:center'>18%</td><td style='background:hsl(0,60%,90%);text-align:center'>24%</td><td style='background:hsl(0,60%,90%);text-align:center'>21%</td><td style='background:hsl(0,60%,90%);text-align:center'>18%</td><td style='background:hsl(0,60%,90%);text-align:center'>15%</td><td style='background:hsl(0,60%,90%);text-align:center'>6%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>3%</td></tr>
+<tr><td><code>Tax_Mils</code></td><td style='background:hsl(0,60%,90%);text-align:center'>48%</td><td style='background:hsl(0,60%,90%);text-align:center'>46%</td><td style='background:hsl(0,60%,90%);text-align:center'>48%</td><td style='background:hsl(0,60%,90%);text-align:center'>46%</td><td style='background:hsl(50,80%,88%);text-align:center'>70%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>25%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td></tr>
+<tr><td><code>New_Serial_No</code></td><td style='background:hsl(50,80%,88%);text-align:center'>71%</td><td style='background:hsl(50,80%,88%);text-align:center'>71%</td><td style='background:hsl(50,80%,88%);text-align:center'>76%</td><td style='background:hsl(50,80%,88%);text-align:center'>59%</td><td style='background:hsl(50,80%,88%);text-align:center'>65%</td><td style='background:hsl(0,60%,90%);text-align:center'>35%</td><td style='background:hsl(0,60%,90%);text-align:center'>47%</td><td style='background:hsl(0,60%,90%);text-align:center'>6%</td><td style='background:hsl(0,60%,90%);text-align:center'>6%</td></tr>
+<tr><td><code>Tax_LP</code></td><td style='background:hsl(0,60%,90%);text-align:center'>11%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>11%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>11%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td></tr>
+<tr><td><code>Volume_No</code></td><td style='background:hsl(50,80%,88%);text-align:center'>50%</td><td style='background:hsl(50,80%,88%);text-align:center'>50%</td><td style='background:hsl(50,80%,88%);text-align:center'>50%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(50,80%,88%);text-align:center'>50%</td></tr>
+<tr><td><code>Serial_No_Vol</code></td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(0,60%,90%);text-align:center'>0%</td><td style='background:hsl(50,80%,88%);text-align:center'>50%</td></tr></table></div>
+<h2>4 &middot; Per-Column Exact Match % — Chart View</h2>
+<div class="card"><div class="cwm"><canvas id="cColChart"></canvas></div></div>
+
+<h2>5 &middot; Proxy Metrics &mdash; Pages 10 &amp; 50 (no ground truth)</h2>
+<div class="caveat">
+  No manually verified GT exists for pages 10 and 50, so accuracy cannot be measured.
+  The charts below show fill rate (% non-empty cells) and self-reported model confidence
+  as rough proxies for output completeness only.
+</div>
+<div class="grid-2">
+  <div class="card">
+    <h3>Page 10 &mdash; Fill Rate by Approach</h3>
+    <div class="cw"><canvas id="cp10"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Page 50 &mdash; Fill Rate by Approach</h3>
+    <div class="cw"><canvas id="cp50"></canvas></div>
+  </div>
+</div>
+<script>const COLORS={"A": "#4c8cbf", "C": "#5ba35b", "E": "#c4853d", "K": "#9b59b6", "M": "#e74c3c", "N": "#3a6d99", "O": "#e67e22", "P": "#27ae60", "Q": "#c0392b"};const ac=a=>COLORS[a]||'#aaa';const ORDER=["M", "O", "P", "Q", "C", "E", "K", "A", "N"];const EXACT={"A": 29.5, "C": 56.6, "E": 43.4, "K": 31.6, "M": 69.3, "N": 29.5, "O": 64.9, "P": 61.4, "Q": 57.8};const CER={"A": 0.665, "C": 0.2938, "E": 0.4455, "K": 0.4885, "M": 0.2309, "N": 0.6052, "O": 0.2467, "P": 0.2479, "Q": 0.2929};const PERCOL={"A": [100.0, 100.0, 0.0, 31.8, 0.0, 0.0, 0.0, 5.9, 0.0, 0.0, 0.0], "C": [100.0, 100.0, 27.3, 65.2, 33.3, 18.2, 69.7, 64.7, 11.1, 0.0, 0.0], "E": [100.0, 100.0, 30.3, 65.2, 21.2, 15.2, 0.0, 35.3, 0.0, 0.0, 0.0], "K": [100.0, 0.0, 28.1, 65.2, 9.4, 6.2, 25.0, 47.1, 0.0, 0.0, 0.0], "M": [100.0, 100.0, 90.9, 87.0, 63.6, 21.2, 48.5, 70.6, 11.1, 50.0, 0.0], "N": [100.0, 100.0, 0.0, 18.2, 0.0, 3.2, 0.0, 5.9, 0.0, 50.0, 50.0], "O": [100.0, 100.0, 90.9, 87.0, 39.4, 18.2, 45.5, 70.6, 0.0, 50.0, 0.0], "P": [100.0, 100.0, 30.3, 82.6, 60.6, 24.2, 48.5, 76.5, 11.1, 50.0, 0.0], "Q": [100.0, 100.0, 27.3, 73.9, 63.6, 21.2, 45.5, 58.8, 0.0, 0.0, 0.0]};const COLS=["Serial_No", "Date", "Block_No", "Parcel_No", "Cat_No", "Area", "Tax_Mils", "New_Serial_No", "Tax_LP", "Volume_No", "Serial_No_Vol"];const PROXY={"10_A": 18.0, "10_B": 36.5, "10_C": 33.5, "10_D": 32.2, "10_E": 27.6, "10_F": 32.0, "10_K": 28.8, "10_L": 40.5, "50_B": 43.7, "50_C": 40.8, "50_D": 45.2, "50_E": 38.1, "50_F": 41.5, "50_K": 34.0, "50_L": 42.2};
+const pctOpts = (horiz) => ({
+  responsive:true, maintainAspectRatio:false,
+  plugins:{legend:{display:false}},
+  scales: horiz
+    ? {x:{min:0,max:100,ticks:{callback:v=>v+"%"}}, y:{ticks:{font:{size:11}}}}
+    : {y:{min:0,max:100,ticks:{callback:v=>v+"%"}}}
+});
+
+// Exact match — horizontal bar, sorted best first
+new Chart(document.getElementById("cExact"),{
+  type:"bar",
+  data:{
+    labels: ORDER.map(a=>a+": "+["Gemini 2.5 few-shot","Few-shot+crops","M+C+E vote","5x few-shot vote","Gemini 2.5 base","Gemini 3.x Pro","Claude Opus few-shot","Claude Opus","Gemini Flash"][["M","O","P","Q","C","E","N","A","K"].indexOf(a)]),
+    datasets:[{data:ORDER.map(a=>EXACT[a]),backgroundColor:ORDER.map(ac),borderRadius:4}]
+  },
+  options:{...pctOpts(true), scales:{x:{min:0,max:100,ticks:{callback:v=>v+"%"}},y:{ticks:{font:{size:11}}}}}
+});
+
+// CER — horizontal bar
+new Chart(document.getElementById("cCER"),{
+  type:"bar",
+  data:{
+    labels: ORDER.map(a=>a),
+    datasets:[{data:ORDER.map(a=>CER[a]),backgroundColor:ORDER.map(ac),borderRadius:4}]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{x:{beginAtZero:true},y:{ticks:{font:{size:11}}}}
+  }
+});
+
+// Per-column grouped bar
+new Chart(document.getElementById("cColChart"),{
+  type:"bar",
+  data:{
+    labels: COLS,
+    datasets: Object.keys(PERCOL).map(a=>({
+      label:a, data:PERCOL[a], backgroundColor:ac(a), borderRadius:2
+    }))
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:"top",labels:{boxWidth:12,font:{size:11}}}},
+    scales:{
+      x:{ticks:{maxRotation:45,font:{size:10}}},
+      y:{min:0,max:100,ticks:{callback:v=>v+"%"}}
+    }
+  }
+});
+
+// Proxy fill charts
+function proxyChart(canvasId, page){
+  const apps=Object.keys(PROXY).filter(k=>k.startsWith(page+"_")).map(k=>k.split("_")[1]).sort();
+  new Chart(document.getElementById(canvasId),{
+    type:"bar",
+    data:{labels:apps,datasets:[{data:apps.map(a=>PROXY[page+"_"+a]||0),backgroundColor:apps.map(ac),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{y:{min:0,max:100,ticks:{callback:v=>v+"%"}}}
+    }
+  });
+}
+proxyChart("cp10",10);
+proxyChart("cp50",50);
+</script></body></html>

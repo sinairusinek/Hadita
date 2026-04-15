@@ -100,6 +100,45 @@ def convert_df_digits(df: pd.DataFrame, mode: str, skip_cols: list[str] | None =
     return df
 
 
+# ── Ditto mark expansion ─────────────────────────────────────
+
+DITTO_CHARS = {'"', '״', '〃', '\u201c', '\u201d', '\u2033'}
+
+
+def expand_dittos(rows: list[dict], cols: list[str]) -> list[dict]:
+    """Return a new list of dicts with ditto marks replaced by the value from the row above."""
+    prev: dict[str, str] = {c: "" for c in cols}
+    result = []
+    for row in rows:
+        new_row = dict(row)
+        for c in cols:
+            val = str(row.get(c, "") or "").strip()
+            if val in DITTO_CHARS:
+                new_row[c] = prev[c]
+            else:
+                if val:
+                    prev[c] = val
+        result.append(new_row)
+    return result
+
+
+def expand_dittos_df(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+    """Return a copy of df with ditto marks in the given columns replaced from the row above."""
+    df = df.copy()
+    prev: dict[str, str] = {}
+    for i in range(len(df)):
+        for c in cols:
+            if c not in df.columns:
+                continue
+            val = str(df.at[i, c]).strip() if pd.notna(df.at[i, c]) else ""
+            if val in DITTO_CHARS:
+                df.at[i, c] = prev.get(c, "")
+            else:
+                if val:
+                    prev[c] = val
+    return df
+
+
 # ── Helpers ──────────────────────────────────────────────────
 
 def page_image_path(page_num: int) -> Path:
@@ -130,12 +169,16 @@ def _order_corners(pts: np.ndarray) -> np.ndarray:
 def deskew_page(page_num: int) -> np.ndarray:
     """Crop black borders, detect page corners, perspective-warp to a rectangle.
 
-    Caches result to .ocr_cache/deskewed_page{N}.jpg.
+    Caches result to .ocr_cache/deskewed_page{N}.png (lossless).
+    Falls back to the legacy .jpg cache if the PNG does not exist yet.
     Returns the deskewed image as a BGR numpy array.
     """
-    cache_path = CACHE_DIR / f"deskewed_page{page_num}.jpg"
-    if cache_path.exists():
-        return cv2.imread(str(cache_path))
+    cache_png = CACHE_DIR / f"deskewed_page{page_num}.png"
+    cache_jpg = CACHE_DIR / f"deskewed_page{page_num}.jpg"
+    if cache_png.exists():
+        return cv2.imread(str(cache_png))
+    if cache_jpg.exists():
+        return cv2.imread(str(cache_jpg))
 
     img = cv2.imread(str(page_image_path(page_num)))
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -178,7 +221,7 @@ def deskew_page(page_num: int) -> np.ndarray:
                                    borderValue=(255, 255, 255))
 
     CACHE_DIR.mkdir(exist_ok=True)
-    cv2.imwrite(str(cache_path), deskewed, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    cv2.imwrite(str(cache_png), deskewed)  # PNG = lossless, no quality loss
     return deskewed
 
 
@@ -524,7 +567,7 @@ If a field is not legible, return an empty string for it."""
     resp = client.models.generate_content(
         model="gemini-2.5-pro",
         contents=parts,
-        config=types.GenerateContentConfig(max_output_tokens=512),
+        config=types.GenerateContentConfig(max_output_tokens=8192),
     )
     raw = resp.text or ""
     m = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -643,7 +686,7 @@ st.title("Haditax — Ground Truth Editor")
 ALL_COLS = LEFT_COLS + RIGHT_COLS
 PAGES = list(PAGE_FOLIO.keys())  # [3, 10, 50]
 
-ctrl_col1, ctrl_col2 = st.columns([2, 1])
+ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([2, 1, 1])
 with ctrl_col1:
     page_num = st.selectbox(
         "Page",
@@ -658,6 +701,11 @@ with ctrl_col2:
         horizontal=True,
         key="digit_mode",
     ).lower()
+with ctrl_col3:
+    expand_ditto_view = st.checkbox(
+        'Post-processing (ditto marks and metadata) in view',
+        key="expand_ditto_view",
+    )
 view_mode = "Correction View"
 
 # ═══════════════════════════════════════════════════════════════
@@ -733,16 +781,45 @@ if view_mode == "Correction View":
     PANEL_H = 800  # shared height for both panels in pixels
 
     with col_img:
-        st.caption("Click to zoom · drag to pan · scroll to navigate")
+        st.caption("Scroll to zoom in/out · move mouse to track position · stay inside image to hold zoom")
         with st.spinner("Loading page image..."):
             deskewed = deskew_page(page_num)
         pil_img = Image.fromarray(cv2.cvtColor(deskewed, cv2.COLOR_BGR2RGB))
-        image_zoom(pil_img, mode="dragmove", size=(700, PANEL_H), keep_aspect_ratio=True)
+
+        # Compute display size that preserves the true aspect ratio (library bug:
+        # passing a tuple for `size` ignores keep_aspect_ratio and stretches the image).
+        DISPLAY_W = 700
+        display_h = int(pil_img.height * DISPLAY_W / pil_img.width)
+
+        # Prepare a full-resolution zoom source capped at 3000 px wide so the
+        # component can show crisp detail without sending an enormous data URL.
+        ZOOM_MAX_W = 3000
+        if pil_img.width > ZOOM_MAX_W:
+            zoom_scale = ZOOM_MAX_W / pil_img.width
+            zoom_img = pil_img.resize(
+                (ZOOM_MAX_W, int(pil_img.height * zoom_scale)), Image.LANCZOS
+            )
+        else:
+            zoom_img = pil_img
+
+        image_zoom(
+            zoom_img,
+            mode="scroll",
+            size=(DISPLAY_W, display_h),
+            keep_aspect_ratio=False,   # aspect ratio already baked into size
+            keep_resolution=True,      # swap in high-res source when zoomed
+            zoom_factor=8.0,           # up to 8× = reads individual characters
+            increment=0.15,            # each scroll step = 15% zoom
+        )
 
     with col_tbl:
         st.caption("Click a cell to edit · Tab / Enter to navigate")
 
-        df = pd.DataFrame(all_rows)
+        # Filter to the currently selected page
+        page_indices = [i for i, r in enumerate(all_rows) if r["_page"] == page_num]
+        page_rows = [all_rows[i] for i in page_indices]
+
+        df = pd.DataFrame(page_rows) if page_rows else pd.DataFrame(columns=["_page"] + ALL_COLS)
         for c in ALL_COLS:
             if c not in df.columns:
                 df[c] = ""
@@ -752,31 +829,46 @@ if view_mode == "Correction View":
             df[c] = df[c].astype(str)
 
         display_df = convert_df_digits(df, digit_mode, skip_cols=["#", "_page"])
+        if expand_ditto_view:
+            display_df = expand_dittos_df(display_df, ALL_COLS)
+            # Inject page-level metadata as read-only columns
+            meta_now = page_meta.get(page_num, {})
+            for mf in META_FIELDS:
+                display_df.insert(2 + META_FIELDS.index(mf), mf, meta_now.get(mf, ""))
 
         col_config = {
             "#": st.column_config.NumberColumn("#", width="small", disabled=True),
             "_page": st.column_config.TextColumn("Page", width="small", disabled=True),
         }
+        if expand_ditto_view:
+            for mf in META_FIELDS:
+                col_config[mf] = st.column_config.TextColumn(mf, width="medium", disabled=True)
         for c in ALL_COLS:
             col_config[c] = st.column_config.TextColumn(c, width="small")
 
+        disabled_cols = ["#", "_page"] + (META_FIELDS if expand_ditto_view else [])
         edited_df = st.data_editor(
             display_df,
             column_config=col_config,
             use_container_width=True,
             num_rows="fixed",
             height=PANEL_H,
-            key=f"cv_editor_{digit_mode}",
-            disabled=["#", "_page"],
+            key=f"cv_editor_{page_num}_{digit_mode}_{expand_ditto_view}",
+            disabled=disabled_cols,
         )
 
-        # Sync edits back to session state (always store as Arabic digits)
-        for i in range(len(all_rows)):
+        # Sync edits back to session state (always store as Arabic digits).
+        # Only update a cell if the user actually changed it — this preserves
+        # ditto marks when expand_ditto_view is on and the cell wasn't touched.
+        for j, orig_idx in enumerate(page_indices):
             for col in ALL_COLS:
-                if col in edited_df.columns:
-                    val = edited_df.at[i, col]
-                    s = str(val) if pd.notna(val) else ""
-                    all_rows[i][col] = convert_digits(s, "arabic")
+                if col not in edited_df.columns:
+                    continue
+                displayed_val = str(display_df.at[j, col]) if j < len(display_df) else ""
+                raw_edited = edited_df.at[j, col]
+                edited_val = str(raw_edited) if pd.notna(raw_edited) else ""
+                if edited_val != displayed_val:
+                    all_rows[orig_idx][col] = convert_digits(edited_val, "arabic")
 
 # ═══════════════════════════════════════════════════════════════
 # GRID VIEW — uses shared page_num from top selector
@@ -902,25 +994,42 @@ else:
 # ── Correction View save button ───────────────────────────────
 if view_mode == "Correction View":
     st.markdown("---")
-    if st.button("Save all corrections to ground_truth.tsv", type="primary", key="cv_save"):
-        existing = load_existing_gt()
-        cv_pages = {r["_page"] for r in st.session_state.get("cv_all_rows", [])}
-        other_pages = [r for r in existing
-                       if int(r.get("Page_Number", 0) or 0) not in cv_pages]
-        new_gt_rows = []
-        for row in st.session_state.get("cv_all_rows", []):
-            p = row["_page"]
-            gt_row = {c: "" for c in GT_COLS}
-            gt_row["Page_Number"] = str(p)
-            gt_row["Folio_Number"] = PAGE_FOLIO.get(p, "")
-            for col in LEFT_COLS + RIGHT_COLS + META_COLS:
-                if col in gt_row:
-                    gt_row[col] = row.get(col, "")
-            gt_row["OCR_Method"] = "ground_truth"
-            new_gt_rows.append(gt_row)
-        all_gt = other_pages + new_gt_rows
-        all_gt.sort(key=lambda r: (int(r.get("Page_Number", 0) or 0),
-                                    int(r.get("Serial_No", 0) or 0)))
-        save_ground_truth(all_gt)
-        save_page_metadata(st.session_state.get("page_meta", {}))
-        st.success(f"Saved {len(new_gt_rows)} rows across {len(cv_pages)} pages + page metadata.")
+    save_btn_col, save_opt_col = st.columns([1, 2])
+    with save_opt_col:
+        expand_ditto_save = st.checkbox(
+            'Post-processing (ditto marks and metadata) on save',
+            key="expand_ditto_save",
+            help='Expand ditto marks and fill Tax_Payer columns from page metadata before writing to ground_truth.tsv',
+        )
+    with save_btn_col:
+        if st.button("Save all corrections to ground_truth.tsv", type="primary", key="cv_save"):
+            existing = load_existing_gt()
+            save_rows = list(st.session_state.get("cv_all_rows", []))
+            if expand_ditto_save:
+                save_rows = expand_dittos(save_rows, LEFT_COLS + RIGHT_COLS)
+            cv_pages = {r["_page"] for r in save_rows}
+            other_pages = [r for r in existing
+                           if int(r.get("Page_Number", 0) or 0) not in cv_pages]
+            saved_meta = st.session_state.get("page_meta", {})
+            new_gt_rows = []
+            for row in save_rows:
+                p = row["_page"]
+                gt_row = {c: "" for c in GT_COLS}
+                gt_row["Page_Number"] = str(p)
+                gt_row["Folio_Number"] = PAGE_FOLIO.get(p, "")
+                for col in LEFT_COLS + RIGHT_COLS + META_COLS:
+                    if col in gt_row:
+                        gt_row[col] = row.get(col, "")
+                if expand_ditto_save:
+                    # Fill Tax_Payer fields from page metadata into every row
+                    for mf in META_FIELDS:
+                        gt_row[mf] = saved_meta.get(p, {}).get(mf, "")
+                gt_row["OCR_Method"] = "ground_truth"
+                new_gt_rows.append(gt_row)
+            all_gt = other_pages + new_gt_rows
+            all_gt.sort(key=lambda r: (int(r.get("Page_Number", 0) or 0),
+                                        int(r.get("Serial_No", 0) or 0)))
+            save_ground_truth(all_gt)
+            save_page_metadata(st.session_state.get("page_meta", {}))
+            pp_note = " (post-processing applied)" if expand_ditto_save else ""
+            st.success(f"Saved {len(new_gt_rows)} rows across {len(cv_pages)} pages + page metadata{pp_note}.")
