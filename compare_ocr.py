@@ -116,7 +116,9 @@ The image shows a page (or portion of a page) from a Tax Register, Form TR/39.
 
 The page header contains:
   - "Tax-Payer" followed by an Arabic name and, immediately after the name, a handwritten
-    identifier/reference number (in Eastern Arabic or Western digits)
+    identifier/reference number (in Eastern Arabic or Western digits).
+    The name may have 3–4 components. Transcribe every component exactly as written — do not
+    skip or merge any part of the name.
   - "Village" followed by an Arabic village name (always الحديثة for this register)
   - "Folio No." followed by a number
 
@@ -129,6 +131,9 @@ IMPORTANT column order note: The SECOND column (immediately after Serial_No) is 
 It contains a year-like number (e.g., 938) that is typically the same for every row on the page
 and repeats with ditto marks. Do NOT assign this value to "Block_No". The "Block_No" column
 comes THIRD (after Date). Count columns carefully from the right edge of the left table.
+
+Date values in this register typically fall between 938 and 949 (representing 1938–1949).
+Block_No values in this register typically fall between 4132 and 4152.
 
 The RIGHT side is labelled "Assessment to Account" with columns:
   Assessment_Year | Amount_Assessed_LP | Amount_Assessed_Mils |
@@ -170,6 +175,11 @@ Rules:
 - NIL / DASH: A horizontal dash or line meaning nil / zero → output -
 - ENGLISH TEXT: Preserve English abbreviations and text verbatim (e.g., T.D.L, T.P.L, D.L).
 - If a row is entirely empty, omit it.
+- MULTI-CATEGORY PARCELS: A single parcel may have more than one cultivation category (Cat_No),
+  recorded as multiple consecutive rows. In such rows, cells for fields like Serial_No, Block_No,
+  Parcel_No, Date, Nature_of_Entry, or New_Serial_No may be genuinely blank in the image — not
+  ditto marks, just empty. Output "" for those cells. Do NOT invent values or insert ditto marks
+  for cells that are visually blank.
 
 Return ONLY valid JSON in this exact structure (no markdown fences, no extra text):
 {

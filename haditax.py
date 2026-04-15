@@ -482,17 +482,32 @@ def save_ground_truth(all_gt_rows: list[dict]):
 
 
 def load_page_metadata() -> dict[int, dict]:
-    """Load page_metadata.tsv → {page_num: {field: value}}."""
-    if not PAGE_METADATA_FILE.exists():
-        return {}
+    """Load page_metadata.tsv → {page_num: {field: value}}.
+
+    For any page not present in the TSV, falls back to the Gemini cache file
+    (.ocr_cache/meta_pageN.json) if it exists.
+    """
     result = {}
-    with open(PAGE_METADATA_FILE, "r", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f, delimiter="\t"):
-            try:
-                p = int(row["Page_Number"])
-            except (KeyError, ValueError):
-                continue
-            result[p] = {k: row.get(k, "") for k in META_FIELDS}
+    if PAGE_METADATA_FILE.exists():
+        with open(PAGE_METADATA_FILE, "r", encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f, delimiter="\t"):
+                try:
+                    p = int(row["Page_Number"])
+                except (KeyError, ValueError):
+                    continue
+                result[p] = {k: row.get(k, "") for k in META_FIELDS}
+
+    # Seed any missing pages from Gemini cache files
+    for p in PAGES:
+        if p not in result:
+            cache_file = CACHE_DIR / f"meta_page{p}.json"
+            if cache_file.exists():
+                try:
+                    data = json.loads(cache_file.read_text(encoding="utf-8"))
+                    result[p] = {k: data.get(k, "") for k in META_FIELDS}
+                except Exception:
+                    pass
+
     return result
 
 
@@ -547,6 +562,8 @@ def extract_header_metadata(page_num: int, force: bool = False) -> dict:
 This is the header of a British Mandate Palestine property tax register page (Form TR/39).
 The printed label "Tax-Payer" is followed by handwritten Arabic text giving the taxpayer's name,
 and a handwritten number or code serving as the taxpayer's identifier.
+The name may have 3–4 components. Transcribe every component exactly as written — do not
+skip or merge any part of the name.
 
 Extract exactly these four fields and return ONLY valid JSON, no markdown:
 {
