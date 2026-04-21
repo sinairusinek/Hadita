@@ -32,33 +32,38 @@ META_FIELDS = [
 
 # ── Column definitions (must match compare_ocr.py) ───────────
 LEFT_COLS = [
-    "Serial_No", "Date", "Block_No", "Parcel_No", "Cat_No", "Area",
-    "Nature_of_Entry", "New_Serial_No", "Volume_No", "Serial_No_Vol",
+    "Serial_No", "Date",
+    "Property_recorded_under_Block_No", "Property_recorded_under_Parcel_No",
+    "Parcel_Cat_No", "Parcel_Area",
+    "Nature_of_Entry", "New_Serial_No",
+    "Reference_to_Register_of_Changes_Volume_No", "Reference_to_Register_of_Changes_Serial_No",
     "Tax_LP", "Tax_Mils", "Total_Tax_LP", "Total_Tax_Mils",
-    "Entry_No", "Remarks",
+    "Reference_to_Register_of_Exemptions_Entry_No",
+    "Reference_to_Register_of_Exemptions_Amount_LP",
+    "Reference_to_Register_of_Exemptions_Amount_Mils",
+    "Net_Assessment_LP", "Net_Assessment_Mils",
+    "Remarks",
 ]
-RIGHT_COLS = [
-    "Assessment_Year", "Amount_Assessed_LP", "Amount_Assessed_Mils",
-    "Date_of_Payment", "Receipt_No",
-    "Amount_Paid_LP", "Amount_Paid_Mils",
-    "Balance_LP", "Balance_Mils", "Right_Side_Notes",
-]
+RIGHT_COLS = []  # right page not captured
 META_COLS = ["Row_Confidence", "Red_Ink", "Disagreements"]
-ALL_DATA_COLS = LEFT_COLS + RIGHT_COLS + META_COLS
+ALL_DATA_COLS = LEFT_COLS + META_COLS
 
 GT_COLS = [
     "Page_Number", "Folio_Number",
     "Tax_Payer_Arabic", "Tax_Payer_Romanized",
     "Tax_Payer_ID_Arabic", "Tax_Payer_ID_Romanized",
-    "Serial_No", "Date", "Block_No", "Parcel_No", "Cat_No", "Area",
-    "Nature_of_Entry", "New_Serial_No", "Volume_No", "Serial_No_Vol",
+    "Serial_No", "Date",
+    "Property_recorded_under_Block_No", "Property_recorded_under_Parcel_No",
+    "Parcel_Cat_No", "Parcel_Area",
+    "Nature_of_Entry", "New_Serial_No",
+    "Reference_to_Register_of_Changes_Volume_No", "Reference_to_Register_of_Changes_Serial_No",
     "Tax_LP", "Tax_Mils", "Total_Tax_LP", "Total_Tax_Mils",
     "\u05d4\u05e2\u05e8\u05d5\u05ea",  # Hebrew Remarks column header
-    "Entry_No", "Remarks",
-    "Assessment_Year", "Amount_Assessed_LP", "Amount_Assessed_Mils",
-    "Date_of_Payment", "Receipt_No",
-    "Amount_Paid_LP", "Amount_Paid_Mils",
-    "Balance_LP", "Balance_Mils", "Right_Side_Notes",
+    "Reference_to_Register_of_Exemptions_Entry_No",
+    "Reference_to_Register_of_Exemptions_Amount_LP",
+    "Reference_to_Register_of_Exemptions_Amount_Mils",
+    "Net_Assessment_LP", "Net_Assessment_Mils",
+    "Remarks",
     "Row_Confidence", "Red_Ink", "OCR_Method",
 ]
 
@@ -723,7 +728,7 @@ st.set_page_config(page_title="Haditax", layout="wide")
 st.title("Haditax — Ground Truth Editor")
 
 # ── Shared page selector + view mode ─────────────────────────
-ALL_COLS = LEFT_COLS + RIGHT_COLS
+ALL_COLS = LEFT_COLS
 PAGES = list(PAGE_FOLIO.keys())  # [3, 10, 50]
 
 ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([2, 1, 1])
@@ -754,13 +759,29 @@ view_mode = "Correction View"
 if view_mode == "Correction View":
     # Load all pages into combined session state
     if "cv_all_rows" not in st.session_state:
+        # Pages that already have GT → load from ground_truth.tsv so RAs see verified data.
+        # Pages without GT → fall back to Approach M OCR cache.
+        gt_by_page: dict[int, list[dict]] = {}
+        for row in load_existing_gt():
+            try:
+                p = int(row.get("Page_Number") or 0)
+            except ValueError:
+                continue
+            if p in PAGES and row.get("Serial_No", "").strip():
+                gt_by_page.setdefault(p, []).append(row)
+
         combined = []
         for p in PAGES:
-            page_rows = load_approach_m(p)
-            for r in page_rows:
-                row = dict(r)
-                row["_page"] = p
-                combined.append(row)
+            if p in gt_by_page:
+                for r in gt_by_page[p]:
+                    row = {c: r.get(c, "") for c in LEFT_COLS}
+                    row["_page"] = p
+                    combined.append(row)
+            else:
+                for r in load_approach_m(p):
+                    row = dict(r)
+                    row["_page"] = p
+                    combined.append(row)
         st.session_state["cv_all_rows"] = combined
 
     if "page_meta" not in st.session_state:
@@ -1056,7 +1077,7 @@ else:
                 gt_row = {c: "" for c in GT_COLS}
                 gt_row["Page_Number"] = str(page_num)
                 gt_row["Folio_Number"] = folio
-                for col in LEFT_COLS + RIGHT_COLS + META_COLS:
+                for col in LEFT_COLS + META_COLS:
                     if col in gt_row:
                         gt_row[col] = row.get(col, "")
                 gt_row["OCR_Method"] = "ground_truth"
@@ -1092,7 +1113,7 @@ if view_mode == "Correction View":
             existing = load_existing_gt()
             save_rows = list(st.session_state.get("cv_all_rows", []))
             if expand_ditto_save:
-                save_rows = expand_dittos(save_rows, LEFT_COLS + RIGHT_COLS)
+                save_rows = expand_dittos(save_rows, LEFT_COLS)
                 save_rows = expand_dates(save_rows)
             cv_pages = {r["_page"] for r in save_rows}
             other_pages = [r for r in existing
@@ -1104,7 +1125,7 @@ if view_mode == "Correction View":
                 gt_row = {c: "" for c in GT_COLS}
                 gt_row["Page_Number"] = str(p)
                 gt_row["Folio_Number"] = PAGE_FOLIO.get(p, "")
-                for col in LEFT_COLS + RIGHT_COLS + META_COLS:
+                for col in LEFT_COLS + META_COLS:
                     if col in gt_row:
                         gt_row[col] = row.get(col, "")
                 if expand_ditto_save:

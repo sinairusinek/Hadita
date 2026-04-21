@@ -6,10 +6,17 @@ def normalize(val):
     return val.strip().replace('\u200e','')
 
 LEFT_COLS = [
-    "Serial_No", "Date", "Block_No", "Parcel_No", "Cat_No", "Area",
-    "Nature_of_Entry", "New_Serial_No", "Volume_No", "Serial_No_Vol",
+    "Serial_No", "Date",
+    "Property_recorded_under_Block_No", "Property_recorded_under_Parcel_No",
+    "Parcel_Cat_No", "Parcel_Area",
+    "Nature_of_Entry", "New_Serial_No",
+    "Reference_to_Register_of_Changes_Volume_No", "Reference_to_Register_of_Changes_Serial_No",
     "Tax_LP", "Tax_Mils", "Total_Tax_LP", "Total_Tax_Mils",
-    "Entry_No", "Remarks",
+    "Reference_to_Register_of_Exemptions_Entry_No",
+    "Reference_to_Register_of_Exemptions_Amount_LP",
+    "Reference_to_Register_of_Exemptions_Amount_Mils",
+    "Net_Assessment_LP", "Net_Assessment_Mils",
+    "Remarks",
 ]
 
 gt_rows = []

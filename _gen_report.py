@@ -11,7 +11,7 @@ APPROACH_DESC = {
     "K": ("Gemini 3 Flash",     "Full page",            "Same full-page strategy using the lighter/faster Gemini 3 Flash model."),
     "M": ("Gemini 2.5 Pro",     "Few-shot full page",   "Send the full page to Gemini 2.5 Pro together with a few worked examples (few-shot prompting) so the model learns the expected output format and field conventions. <strong>Best overall.</strong>"),
     "N": ("Claude Opus 4.6",    "Few-shot full page",   "Same few-shot strategy as M but using Claude Opus 4.6 instead of Gemini."),
-    "O": ("Gemini 2.5 Pro",     "Few-shot + cell crops","Start with approach M as a base, then re-run the hardest columns (Area, Block_No, Tax) with zoomed cell-level crops for a second pass."),
+    "O": ("Gemini 2.5 Pro",     "Few-shot + cell crops","Start with approach M as a base, then re-run the hardest columns (Parcel_Area, Property_recorded_under_Block_No, Tax) with zoomed cell-level crops for a second pass."),
     "P": ("M + C + E ensemble", "Majority vote",        "Run three models independently (M, C, E) and take the majority answer cell by cell. If two or more agree, use that value; otherwise fall back to M."),
     "Q": ("Gemini 2.5 Pro",     "5× few-shot vote",     "Run 5 variants of approach M with different few-shot example subsets, then majority-vote per cell. Expected to reduce variance — but in practice performed worse than a single M run."),
 }
@@ -19,37 +19,49 @@ APPROACH_DESC = {
 # ── GT accuracy results (from evaluate_page3.py run above) ───
 GT = {
     "A": {"cells":237,"exact":70, "exact_pct":29.5,"cer":0.6650,
-          "per_col":{"Serial_No":(31,31,100.0,0.0),"Date":(31,31,100.0,0.0),"Block_No":(0,31,0.0,0.992),"Parcel_No":(7,22,31.8,0.614),"Cat_No":(0,31,0.0,0.645),"Area":(0,31,0.0,0.836),"Tax_Mils":(0,31,0.0,1.0),"New_Serial_No":(1,17,5.9,1.275),"Tax_LP":(0,8,0.0,1.0),"Volume_No":(0,2,0.0,1.0),"Serial_No_Vol":(0,2,0.0,2.375)},
-          "mismatches":[("Block_No","4132","3225"),("Cat_No","10","1"),("Area","34,925","4,950"),("Tax_Mils","629","720"),("Block_No","4133","3228"),("Cat_No","10","1")]},
+          "per_col":{"Serial_No":(31,31,100.0,0.0),"Date":(31,31,100.0,0.0),"Property_recorded_under_Block_No":(0,31,0.0,0.992),"Property_recorded_under_Parcel_No":(7,22,31.8,0.614),"Parcel_Cat_No":(0,31,0.0,0.645),"Parcel_Area":(0,31,0.0,0.836),"Tax_Mils":(0,31,0.0,1.0),"New_Serial_No":(1,17,5.9,1.275),"Tax_LP":(0,8,0.0,1.0),"Reference_to_Register_of_Changes_Volume_No":(0,2,0.0,1.0),"Reference_to_Register_of_Changes_Serial_No":(0,2,0.0,2.375)},
+          "mismatches":[("Property_recorded_under_Block_No","4132","3225"),("Parcel_Cat_No","10","1"),("Parcel_Area","34,925","4,950"),("Tax_Mils","629","720"),("Property_recorded_under_Block_No","4133","3228"),("Parcel_Cat_No","10","1")]},
     "C": {"cells":251,"exact":142,"exact_pct":56.6,"cer":0.2938,
-          "per_col":{"Serial_No":(33,33,100.0,0.0),"Date":(33,33,100.0,0.0),"Block_No":(9,33,27.3,0.205),"Parcel_No":(15,23,65.2,0.391),"Cat_No":(11,33,33.3,0.333),"Area":(6,33,18.2,0.414),"Tax_Mils":(23,33,69.7,0.136),"New_Serial_No":(11,17,64.7,0.990),"Tax_LP":(1,9,11.1,0.889),"Volume_No":(0,2,0.0,1.0),"Serial_No_Vol":(0,2,0.0,1.0)},
-          "mismatches":[("Block_No","4132","4122"),("Cat_No","10","1"),("Area","34,925","24,925"),("Block_No","4133","4122"),("Cat_No","10","1"),("Block_No","4133","4122")]},
+          "per_col":{"Serial_No":(33,33,100.0,0.0),"Date":(33,33,100.0,0.0),"Property_recorded_under_Block_No":(9,33,27.3,0.205),"Property_recorded_under_Parcel_No":(15,23,65.2,0.391),"Parcel_Cat_No":(11,33,33.3,0.333),"Parcel_Area":(6,33,18.2,0.414),"Tax_Mils":(23,33,69.7,0.136),"New_Serial_No":(11,17,64.7,0.990),"Tax_LP":(1,9,11.1,0.889),"Reference_to_Register_of_Changes_Volume_No":(0,2,0.0,1.0),"Reference_to_Register_of_Changes_Serial_No":(0,2,0.0,1.0)},
+          "mismatches":[("Property_recorded_under_Block_No","4132","4122"),("Parcel_Cat_No","10","1"),("Parcel_Area","34,925","24,925"),("Property_recorded_under_Block_No","4133","4122"),("Parcel_Cat_No","10","1"),("Property_recorded_under_Block_No","4133","4122")]},
     "E": {"cells":251,"exact":109,"exact_pct":43.4,"cer":0.4455,
-          "per_col":{"Serial_No":(33,33,100.0,0.0),"Date":(33,33,100.0,0.0),"Block_No":(10,33,30.3,0.197),"Parcel_No":(15,23,65.2,0.217),"Cat_No":(7,33,21.2,0.500),"Area":(5,33,15.2,0.553),"Tax_Mils":(0,33,0.0,1.0),"New_Serial_No":(6,17,35.3,1.069),"Tax_LP":(0,9,0.0,1.0),"Volume_No":(0,2,0.0,1.7),"Serial_No_Vol":(0,2,0.0,1.0)},
-          "mismatches":[("Block_No","4132","4122"),("Cat_No","10","1"),("Area","34,925","24,925"),("Tax_Mils","629","(empty)"),("Block_No","4133","4122"),("Cat_No","10","1")]},
+          "per_col":{"Serial_No":(33,33,100.0,0.0),"Date":(33,33,100.0,0.0),"Property_recorded_under_Block_No":(10,33,30.3,0.197),"Property_recorded_under_Parcel_No":(15,23,65.2,0.217),"Parcel_Cat_No":(7,33,21.2,0.500),"Parcel_Area":(5,33,15.2,0.553),"Tax_Mils":(0,33,0.0,1.0),"New_Serial_No":(6,17,35.3,1.069),"Tax_LP":(0,9,0.0,1.0),"Reference_to_Register_of_Changes_Volume_No":(0,2,0.0,1.7),"Reference_to_Register_of_Changes_Serial_No":(0,2,0.0,1.0)},
+          "mismatches":[("Property_recorded_under_Block_No","4132","4122"),("Parcel_Cat_No","10","1"),("Parcel_Area","34,925","24,925"),("Tax_Mils","629","(empty)"),("Property_recorded_under_Block_No","4133","4122"),("Parcel_Cat_No","10","1")]},
     "K": {"cells":244,"exact":77, "exact_pct":31.6,"cer":0.4885,
-          "per_col":{"Serial_No":(32,32,100.0,0.0),"Date":(0,32,0.0,0.667),"Block_No":(9,32,28.1,0.203),"Parcel_No":(15,23,65.2,0.261),"Cat_No":(3,32,9.4,0.625),"Area":(2,32,6.2,0.733),"Tax_Mils":(8,32,25.0,0.573),"New_Serial_No":(8,17,47.1,0.598),"Tax_LP":(0,8,0.0,1.0),"Volume_No":(0,2,0.0,1.7),"Serial_No_Vol":(0,2,0.0,1.0)},
-          "mismatches":[("Date","938","9/28"),("Block_No","4132","4124"),("Cat_No","10","1"),("Area","34,925","10,4955"),("Date","938","9/28"),("Block_No","4133","4123")]},
-    "M": {"cells":251,"exact":174,"exact_pct":69.3,"cer":0.2309,
-          "per_col":{"Serial_No":(33,33,100.0,0.0),"Date":(33,33,100.0,0.0),"Block_No":(30,33,90.9,0.045),"Parcel_No":(20,23,87.0,0.065),"Cat_No":(21,33,63.6,0.182),"Area":(7,33,21.2,0.372),"Tax_Mils":(16,33,48.5,0.692),"New_Serial_No":(12,17,70.6,0.304),"Tax_LP":(1,9,11.1,0.889),"Volume_No":(1,2,50.0,0.100),"Serial_No_Vol":(0,2,0.0,0.250)},
-          "mismatches":[("Block_No","4132","4122"),("Area","34,925","24,925"),("Block_No","4133","4123"),("Serial_No_Vol","1940","1941"),("Area","19,286","19,486"),("Parcel_No","34","14")]},
+          "per_col":{"Serial_No":(32,32,100.0,0.0),"Date":(0,32,0.0,0.667),"Property_recorded_under_Block_No":(9,32,28.1,0.203),"Property_recorded_under_Parcel_No":(15,23,65.2,0.261),"Parcel_Cat_No":(3,32,9.4,0.625),"Parcel_Area":(2,32,6.2,0.733),"Tax_Mils":(8,32,25.0,0.573),"New_Serial_No":(8,17,47.1,0.598),"Tax_LP":(0,8,0.0,1.0),"Reference_to_Register_of_Changes_Volume_No":(0,2,0.0,1.7),"Reference_to_Register_of_Changes_Serial_No":(0,2,0.0,1.0)},
+          "mismatches":[("Date","938","9/28"),("Property_recorded_under_Block_No","4132","4124"),("Parcel_Cat_No","10","1"),("Parcel_Area","34,925","10,4955"),("Date","938","9/28"),("Property_recorded_under_Block_No","4133","4123")]},
+    "M": {"cells":230,"exact":144,"exact_pct":62.6,"cer":0.2246,
+          "per_col":{"Serial_No":(30,30,100.0,0.0),"Date":(30,30,100.0,0.0),
+                     "Property_recorded_under_Block_No":(6,30,20.0,0.275),"Property_recorded_under_Parcel_No":(17,22,77.3,0.136),
+                     "Parcel_Cat_No":(20,30,66.7,0.167),"Parcel_Area":(7,30,23.3,0.330),
+                     "Tax_Mils":(22,30,73.3,0.128),"New_Serial_No":(11,17,64.7,0.686),
+                     "Tax_LP":(1,7,14.3,0.857),
+                     "Reference_to_Register_of_Changes_Volume_No":(0,2,0.0,1.000),
+                     "Reference_to_Register_of_Changes_Serial_No":(0,2,0.0,1.000)},
+          "mismatches":[("Property_recorded_under_Block_No","4132","4122"),("Parcel_Area","34,925","24,925"),
+                        ("Property_recorded_under_Block_No","4133","4122"),("Property_recorded_under_Block_No","4134","4124"),
+                        ("New_Serial_No","102","102 T.D.L 1940"),("Parcel_Area","8,546","1,546")]},
     "N": {"cells":237,"exact":70, "exact_pct":29.5,"cer":0.6052,
-          "per_col":{"Serial_No":(31,31,100.0,0.0),"Date":(31,31,100.0,0.0),"Block_No":(0,31,0.0,0.645),"Parcel_No":(4,22,18.2,0.795),"Cat_No":(0,31,0.0,0.613),"Area":(1,31,3.2,0.831),"Tax_Mils":(0,31,0.0,1.263),"New_Serial_No":(1,17,5.9,0.706),"Tax_LP":(0,8,0.0,1.0),"Volume_No":(1,2,50.0,0.5),"Serial_No_Vol":(1,2,50.0,0.5)},
-          "mismatches":[("Block_No","4132","4226"),("Cat_No","10","1"),("Area","34,925","4,950"),("Tax_Mils","629","280"),("Block_No","4133","4228"),("Cat_No","10","1")]},
+          "per_col":{"Serial_No":(31,31,100.0,0.0),"Date":(31,31,100.0,0.0),"Property_recorded_under_Block_No":(0,31,0.0,0.645),"Property_recorded_under_Parcel_No":(4,22,18.2,0.795),"Parcel_Cat_No":(0,31,0.0,0.613),"Parcel_Area":(1,31,3.2,0.831),"Tax_Mils":(0,31,0.0,1.263),"New_Serial_No":(1,17,5.9,0.706),"Tax_LP":(0,8,0.0,1.0),"Reference_to_Register_of_Changes_Volume_No":(1,2,50.0,0.5),"Reference_to_Register_of_Changes_Serial_No":(1,2,50.0,0.5)},
+          "mismatches":[("Property_recorded_under_Block_No","4132","4226"),("Parcel_Cat_No","10","1"),("Parcel_Area","34,925","4,950"),("Tax_Mils","629","280"),("Property_recorded_under_Block_No","4133","4228"),("Parcel_Cat_No","10","1")]},
     "O": {"cells":251,"exact":163,"exact_pct":64.9,"cer":0.2467,
-          "per_col":{"Serial_No":(33,33,100.0,0.0),"Date":(33,33,100.0,0.0),"Block_No":(30,33,90.9,0.045),"Parcel_No":(20,23,87.0,0.065),"Cat_No":(13,33,39.4,0.303),"Area":(6,33,18.2,0.674),"Tax_Mils":(15,33,45.5,0.359),"New_Serial_No":(12,17,70.6,0.304),"Tax_LP":(0,9,0.0,1.0),"Volume_No":(1,2,50.0,0.100),"Serial_No_Vol":(0,2,0.0,0.250)},
-          "mismatches":[("Block_No","4132","4122"),("Tax_Mils","629","625"),("Block_No","4133","4123"),("Tax_Mils","85","84"),("Block_No","4133","4123"),("Tax_LP","2","(empty)")]},
+          "per_col":{"Serial_No":(33,33,100.0,0.0),"Date":(33,33,100.0,0.0),"Property_recorded_under_Block_No":(30,33,90.9,0.045),"Property_recorded_under_Parcel_No":(20,23,87.0,0.065),"Parcel_Cat_No":(13,33,39.4,0.303),"Parcel_Area":(6,33,18.2,0.674),"Tax_Mils":(15,33,45.5,0.359),"New_Serial_No":(12,17,70.6,0.304),"Tax_LP":(0,9,0.0,1.0),"Reference_to_Register_of_Changes_Volume_No":(1,2,50.0,0.100),"Reference_to_Register_of_Changes_Serial_No":(0,2,0.0,0.250)},
+          "mismatches":[("Property_recorded_under_Block_No","4132","4122"),("Tax_Mils","629","625"),("Property_recorded_under_Block_No","4133","4123"),("Tax_Mils","85","84"),("Property_recorded_under_Block_No","4133","4123"),("Tax_LP","2","(empty)")]},
     "P": {"cells":251,"exact":154,"exact_pct":61.4,"cer":0.2479,
-          "per_col":{"Serial_No":(33,33,100.0,0.0),"Date":(33,33,100.0,0.0),"Block_No":(10,33,30.3,0.197),"Parcel_No":(19,23,82.6,0.087),"Cat_No":(20,33,60.6,0.197),"Area":(8,33,24.2,0.329),"Tax_Mils":(16,33,48.5,0.692),"New_Serial_No":(13,17,76.5,0.284),"Tax_LP":(1,9,11.1,0.889),"Volume_No":(1,2,50.0,0.100),"Serial_No_Vol":(0,2,0.0,0.250)},
-          "mismatches":[("Block_No","4132","4122"),("Cat_No","10","1"),("Area","34,925","24,925"),("Block_No","4133","4122"),("Cat_No","10","1"),("Block_No","4133","4122")]},
+          "per_col":{"Serial_No":(33,33,100.0,0.0),"Date":(33,33,100.0,0.0),"Property_recorded_under_Block_No":(10,33,30.3,0.197),"Property_recorded_under_Parcel_No":(19,23,82.6,0.087),"Parcel_Cat_No":(20,33,60.6,0.197),"Parcel_Area":(8,33,24.2,0.329),"Tax_Mils":(16,33,48.5,0.692),"New_Serial_No":(13,17,76.5,0.284),"Tax_LP":(1,9,11.1,0.889),"Reference_to_Register_of_Changes_Volume_No":(1,2,50.0,0.100),"Reference_to_Register_of_Changes_Serial_No":(0,2,0.0,0.250)},
+          "mismatches":[("Property_recorded_under_Block_No","4132","4122"),("Parcel_Cat_No","10","1"),("Parcel_Area","34,925","24,925"),("Property_recorded_under_Block_No","4133","4122"),("Parcel_Cat_No","10","1"),("Property_recorded_under_Block_No","4133","4122")]},
     "Q": {"cells":251,"exact":145,"exact_pct":57.8,"cer":0.2929,
-          "per_col":{"Serial_No":(33,33,100.0,0.0),"Date":(33,33,100.0,0.0),"Block_No":(9,33,27.3,0.205),"Parcel_No":(17,23,73.9,0.152),"Cat_No":(21,33,63.6,0.182),"Area":(7,33,21.2,0.336),"Tax_Mils":(15,33,45.5,0.707),"New_Serial_No":(10,17,58.8,0.578),"Tax_LP":(0,9,0.0,1.0),"Volume_No":(0,2,0.0,1.0),"Serial_No_Vol":(0,2,0.0,1.0)},
-          "mismatches":[("Block_No","4132","4122"),("Area","34,925","24,925"),("Block_No","4133","4122"),("Parcel_No","32","22"),("Tax_LP","2","(empty)"),("Tax_Mils","876","287")]},
+          "per_col":{"Serial_No":(33,33,100.0,0.0),"Date":(33,33,100.0,0.0),"Property_recorded_under_Block_No":(9,33,27.3,0.205),"Property_recorded_under_Parcel_No":(17,23,73.9,0.152),"Parcel_Cat_No":(21,33,63.6,0.182),"Parcel_Area":(7,33,21.2,0.336),"Tax_Mils":(15,33,45.5,0.707),"New_Serial_No":(10,17,58.8,0.578),"Tax_LP":(0,9,0.0,1.0),"Reference_to_Register_of_Changes_Volume_No":(0,2,0.0,1.0),"Reference_to_Register_of_Changes_Serial_No":(0,2,0.0,1.0)},
+          "mismatches":[("Property_recorded_under_Block_No","4132","4122"),("Parcel_Area","34,925","24,925"),("Property_recorded_under_Block_No","4133","4122"),("Property_recorded_under_Parcel_No","32","22"),("Tax_LP","2","(empty)"),("Tax_Mils","876","287")]},
 }
 
 APPROACH_ORDER = sorted(GT.keys(), key=lambda a: -GT[a]["exact_pct"])
-ALL_COLS = ["Serial_No","Date","Block_No","Parcel_No","Cat_No","Area",
-            "Tax_Mils","New_Serial_No","Tax_LP","Volume_No","Serial_No_Vol"]
+ALL_COLS = ["Serial_No","Date",
+            "Property_recorded_under_Block_No","Property_recorded_under_Parcel_No",
+            "Parcel_Cat_No","Parcel_Area",
+            "Tax_Mils","New_Serial_No","Tax_LP",
+            "Reference_to_Register_of_Changes_Volume_No",
+            "Reference_to_Register_of_Changes_Serial_No"]
 
 COLORS = {"A":"#4c8cbf","C":"#5ba35b","E":"#c4853d","K":"#9b59b6",
           "M":"#e74c3c","N":"#3a6d99","O":"#e67e22","P":"#27ae60","Q":"#c0392b"}
@@ -124,7 +136,7 @@ parts.append("""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Haditax OCR Benchmarking Report</title>
+<title>Haditax OCR Benchmarking Report v2</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -160,14 +172,14 @@ code { font-family: monospace; font-size: .85em; background: #f0ede4;
 </style>
 </head>
 <body>
-<h1>Haditax OCR Benchmarking Report</h1>
+<h1>Haditax OCR Benchmarking Report <span style="font-size:.7em;color:#888">v2</span></h1>
 <p class="subtitle">British Mandate Palestine Property Tax Register &nbsp;&middot;&nbsp;
-Ground-truth evaluation on Page 3 (Folio 1, 35 rows) &nbsp;&middot;&nbsp; 2026-04-15</p>
+Ground-truth evaluation on Page 3 (Folio 1, 35 rows) &nbsp;&middot;&nbsp; 2026-04-21 &nbsp;&middot;&nbsp; updated column schema</p>
 <div class="caveat">
   <strong>Scope:</strong> Ground truth (manually verified) exists only for <strong>Page 3</strong>.
-  All 9 approaches that produced a Page 3 output were evaluated against it.
-  Pages 10 and 50 appear at the bottom with proxy metrics only (fill rate / confidence) &mdash;
-  those do <em>not</em> measure accuracy.
+  Approach M has been <strong>re-evaluated with the updated column schema</strong> (v2).
+  Other approaches show legacy scores (pre-schema-update) for reference.
+  Pages 10 and 50 appear at the bottom with proxy metrics only.
 </div>
 """)
 
@@ -366,6 +378,6 @@ proxyChart("cp50",50);
 """)
 parts.append("</script></body></html>")
 
-out = Path("ocr_benchmark_report.html")
+out = Path("ocr_benchmark_report_v2.html")
 out.write_text("".join(parts), encoding="utf-8")
 print("Written", out, out.stat().st_size // 1024, "KB")

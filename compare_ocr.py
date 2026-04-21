@@ -91,19 +91,21 @@ log = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────
 
 LEFT_COLS = [
-    "Serial_No", "Date", "Block_No", "Parcel_No", "Cat_No", "Area",
-    "Nature_of_Entry", "New_Serial_No", "Volume_No", "Serial_No_Vol",
+    "Serial_No", "Date",
+    "Property_recorded_under_Block_No", "Property_recorded_under_Parcel_No",
+    "Parcel_Cat_No", "Parcel_Area",
+    "Nature_of_Entry", "New_Serial_No",
+    "Reference_to_Register_of_Changes_Volume_No", "Reference_to_Register_of_Changes_Serial_No",
     "Tax_LP", "Tax_Mils", "Total_Tax_LP", "Total_Tax_Mils",
-    "Entry_No", "Remarks",
+    "Reference_to_Register_of_Exemptions_Entry_No",
+    "Reference_to_Register_of_Exemptions_Amount_LP",
+    "Reference_to_Register_of_Exemptions_Amount_Mils",
+    "Net_Assessment_LP", "Net_Assessment_Mils",
+    "Remarks",
 ]
-RIGHT_COLS = [
-    "Assessment_Year", "Amount_Assessed_LP", "Amount_Assessed_Mils",
-    "Date_of_Payment", "Receipt_No",
-    "Amount_Paid_LP", "Amount_Paid_Mils",
-    "Balance_LP", "Balance_Mils", "Right_Side_Notes",
-]
+RIGHT_COLS = []  # right page not captured
 META_COLS = ["Row_Confidence", "Red_Ink", "Disagreements"]
-ALL_DATA_COLS = LEFT_COLS + RIGHT_COLS + META_COLS
+ALL_DATA_COLS = LEFT_COLS + META_COLS
 
 
 # ──────────────────────────────────────────────────────────
@@ -123,23 +125,24 @@ The page header contains:
   - "Folio No." followed by a number
 
 The LEFT side of the page is a table with these columns (right-to-left reading order):
-  Serial_No | Date | Block_No | Parcel_No | Cat_No | Area | Nature_of_Entry |
-  New_Serial_No | Volume_No | Serial_No_Vol |
-  Tax_LP | Tax_Mils | Total_Tax_LP | Total_Tax_Mils | Entry_No | Remarks
+  Serial_No | Date |
+  Property_recorded_under_Block_No | Property_recorded_under_Parcel_No |
+  Parcel_Cat_No | Parcel_Area | Nature_of_Entry | New_Serial_No |
+  Reference_to_Register_of_Changes_Volume_No | Reference_to_Register_of_Changes_Serial_No |
+  Tax_LP | Tax_Mils | Total_Tax_LP | Total_Tax_Mils |
+  Reference_to_Register_of_Exemptions_Entry_No |
+  Reference_to_Register_of_Exemptions_Amount_LP |
+  Reference_to_Register_of_Exemptions_Amount_Mils |
+  Net_Assessment_LP | Net_Assessment_Mils | Remarks
 
 IMPORTANT column order note: The SECOND column (immediately after Serial_No) is "Date".
 It contains a year-like number (e.g., 938) that is typically the same for every row on the page
-and repeats with ditto marks. Do NOT assign this value to "Block_No". The "Block_No" column
-comes THIRD (after Date). Count columns carefully from the right edge of the left table.
+and repeats with ditto marks. Do NOT assign this value to "Property_recorded_under_Block_No".
+The "Property_recorded_under_Block_No" column comes THIRD (after Date).
+Count columns carefully from the right edge of the left table.
 
 Date values in this register typically fall between 938 and 949 (representing 1938–1949).
-Block_No values in this register typically fall between 4132 and 4152.
-
-The RIGHT side is labelled "Assessment to Account" with columns:
-  Assessment_Year | Amount_Assessed_LP | Amount_Assessed_Mils |
-  Date_of_Payment | Receipt_No |
-  Amount_Paid_LP | Amount_Paid_Mils |
-  Balance_LP | Balance_Mils | Right_Side_Notes
+Property_recorded_under_Block_No values in this register typically fall between 4132 and 4152.
 
 Rules:
 - Preserve Arabic script and Eastern Arabic numerals exactly as written (٠١٢٣٤٥٦٧٨٩).
@@ -150,6 +153,9 @@ Rules:
   * ٦ (6) = small circle or dot
   * ٠ (0) = a dot, often smaller than ٦
 - Use "" (empty string) for blank cells.
+- Nature_of_Entry is often empty or a ditto mark. When it contains text, common values include:
+  تسلل (infiltration), من تسلل (by infiltration), شراء or شرائي (purchase), ضريبة حرب (war tax).
+  These are examples only — other values may appear; transcribe whatever is written.
 - DITTO MARKS: A cell containing a short double-tick mark (״), a single quotation-like stroke,
   or the symbol (,,) means "same value as the row above". Output the literal character '"' for these.
   Do NOT confuse ditto marks with actual numerals or letters.
@@ -175,11 +181,11 @@ Rules:
 - NIL / DASH: A horizontal dash or line meaning nil / zero → output -
 - ENGLISH TEXT: Preserve English abbreviations and text verbatim (e.g., T.D.L, T.P.L, D.L).
 - If a row is entirely empty, omit it.
-- MULTI-CATEGORY PARCELS: A single parcel may have more than one cultivation category (Cat_No),
-  recorded as multiple consecutive rows. In such rows, cells for fields like Serial_No, Block_No,
-  Parcel_No, Date, Nature_of_Entry, or New_Serial_No may be genuinely blank in the image — not
-  ditto marks, just empty. Output "" for those cells. Do NOT invent values or insert ditto marks
-  for cells that are visually blank.
+- MULTI-CATEGORY PARCELS: A single parcel may have more than one cultivation category (Parcel_Cat_No),
+  recorded as multiple consecutive rows. In such rows, cells for fields like Serial_No,
+  Property_recorded_under_Block_No, Property_recorded_under_Parcel_No, Date, Nature_of_Entry,
+  or New_Serial_No may be genuinely blank in the image — not ditto marks, just empty.
+  Output "" for those cells. Do NOT invent values or insert ditto marks for cells that are visually blank.
 
 Return ONLY valid JSON in this exact structure (no markdown fences, no extra text):
 {
@@ -193,15 +199,17 @@ Return ONLY valid JSON in this exact structure (no markdown fences, no extra tex
   },
   "rows": [
     {
-      "Serial_No": "...", "Date": "...", "Block_No": "...", "Parcel_No": "...", "Cat_No": "...",
-      "Area": "...", "Nature_of_Entry": "...", "New_Serial_No": "...",
-      "Volume_No": "...", "Serial_No_Vol": "...",
+      "Serial_No": "...", "Date": "...",
+      "Property_recorded_under_Block_No": "...", "Property_recorded_under_Parcel_No": "...",
+      "Parcel_Cat_No": "...", "Parcel_Area": "...",
+      "Nature_of_Entry": "...", "New_Serial_No": "...",
+      "Reference_to_Register_of_Changes_Volume_No": "...", "Reference_to_Register_of_Changes_Serial_No": "...",
       "Tax_LP": "...", "Tax_Mils": "...", "Total_Tax_LP": "...", "Total_Tax_Mils": "...",
-      "Entry_No": "...", "Remarks": "...",
-      "Assessment_Year": "...", "Amount_Assessed_LP": "...", "Amount_Assessed_Mils": "...",
-      "Date_of_Payment": "...", "Receipt_No": "...",
-      "Amount_Paid_LP": "...", "Amount_Paid_Mils": "...",
-      "Balance_LP": "...", "Balance_Mils": "...", "Right_Side_Notes": "...",
+      "Reference_to_Register_of_Exemptions_Entry_No": "...",
+      "Reference_to_Register_of_Exemptions_Amount_LP": "...",
+      "Reference_to_Register_of_Exemptions_Amount_Mils": "...",
+      "Net_Assessment_LP": "...", "Net_Assessment_Mils": "...",
+      "Remarks": "...",
       "Row_Confidence": "high|medium|low",
       "Red_Ink": "FALSE"
     }
@@ -213,14 +221,21 @@ OCR_PROMPT_LEFT_BAND = """
 You are an expert palaeographer reading a British Mandate Palestine Tax Register (Form TR/39).
 This image is a CROPPED BAND from the LEFT side of one page.
 It shows a subset of rows from the left table. Columns (right-to-left reading order):
-  Serial_No | Date | Block_No | Parcel_No | Cat_No | Area | Nature_of_Entry |
-  New_Serial_No | Volume_No | Serial_No_Vol |
-  Tax_LP | Tax_Mils | Total_Tax_LP | Total_Tax_Mils | Entry_No | Remarks
+  Serial_No | Date |
+  Property_recorded_under_Block_No | Property_recorded_under_Parcel_No |
+  Parcel_Cat_No | Parcel_Area | Nature_of_Entry | New_Serial_No |
+  Reference_to_Register_of_Changes_Volume_No | Reference_to_Register_of_Changes_Serial_No |
+  Tax_LP | Tax_Mils | Total_Tax_LP | Total_Tax_Mils |
+  Reference_to_Register_of_Exemptions_Entry_No |
+  Reference_to_Register_of_Exemptions_Amount_LP |
+  Reference_to_Register_of_Exemptions_Amount_Mils |
+  Net_Assessment_LP | Net_Assessment_Mils | Remarks
 
 IMPORTANT column order note: The SECOND column (immediately after Serial_No) is "Date".
 It contains a year-like number (e.g., 938) that is typically the same for every row on the page
-and repeats with ditto marks. Do NOT assign this value to "Block_No". The "Block_No" column
-comes THIRD (after Date). Count columns carefully from the right edge of the left table.
+and repeats with ditto marks. Do NOT assign this value to "Property_recorded_under_Block_No".
+The "Property_recorded_under_Block_No" column comes THIRD (after Date).
+Count columns carefully from the right edge of the left table.
 
 Rules:
 - Preserve Arabic script and Eastern Arabic numerals exactly (٠١٢٣٤٥٦٧٨٩).
@@ -228,6 +243,9 @@ Rules:
   * ٢ (2) = one small angular hook/curve, compact
   * ٣ (3) = two scallops/bumps, wider (like sideways "3")
 - Empty cells → "".
+- Nature_of_Entry is often empty or a ditto mark. When it contains text, common values include:
+  تسلل (infiltration), من تسلل (by infiltration), شراء or شرائي (purchase), ضريبة حرب (war tax).
+  These are examples only — other values may appear; transcribe whatever is written.
 - DITTO MARKS: A short double-tick (״), quotation-like stroke, or (,,) means "same as row above" → output '"'.
   The Cat_No column typically contains a single Eastern Arabic digit (e.g., ١) — a single vertical
   stroke there is ١, not a ditto mark. Never output ditto for the first visible row in any crop.
@@ -245,9 +263,17 @@ Rules:
 Return ONLY valid JSON (no markdown, no extra text):
 {
   "rows": [
-    {"Serial_No":"...","Date":"...","Block_No":"...","Parcel_No":"...","Cat_No":"...","Area":"...",
-     "Nature_of_Entry":"...","New_Serial_No":"...","Volume_No":"...","Serial_No_Vol":"...",
-     "Tax_LP":"...","Tax_Mils":"...","Total_Tax_LP":"...","Total_Tax_Mils":"...","Entry_No":"...","Remarks":"...",
+    {"Serial_No":"...","Date":"...",
+     "Property_recorded_under_Block_No":"...","Property_recorded_under_Parcel_No":"...",
+     "Parcel_Cat_No":"...","Parcel_Area":"...",
+     "Nature_of_Entry":"...","New_Serial_No":"...",
+     "Reference_to_Register_of_Changes_Volume_No":"...","Reference_to_Register_of_Changes_Serial_No":"...",
+     "Tax_LP":"...","Tax_Mils":"...","Total_Tax_LP":"...","Total_Tax_Mils":"...",
+     "Reference_to_Register_of_Exemptions_Entry_No":"...",
+     "Reference_to_Register_of_Exemptions_Amount_LP":"...",
+     "Reference_to_Register_of_Exemptions_Amount_Mils":"...",
+     "Net_Assessment_LP":"...","Net_Assessment_Mils":"...",
+     "Remarks":"...",
      "Row_Confidence":"high|medium|low","Red_Ink":"FALSE"}
   ]
 }
@@ -292,23 +318,23 @@ Return ONLY valid JSON (no markdown, no extra text):
 
 # ── FEW-SHOT EXAMPLES (from ground truth) ──────────────────
 # Representative rows showing correct transcription for tricky cases:
-#   Cat_No = ١٠ (two digits, not just ١), Block_No 4-digit, large Area, Tax fields
+#   Parcel_Cat_No = ١٠ (two digits, not just ١), Property_recorded_under_Block_No 4-digit, large Parcel_Area
 FEW_SHOT_EXAMPLES = """
 
 IMPORTANT — Below are correctly transcribed example rows from a similar page in this
 register. Study them carefully to understand the expected output format, especially for:
-  • Cat_No is typically a TWO-digit Eastern Arabic number (e.g., ١٠ not ١)
-  • Block_No is always a 4-digit Eastern Arabic number (e.g., ٤١٣٢)
-  • Area is an Eastern Arabic number often with a comma as thousands separator (e.g., ٣٤,٩٢٥)
+  • Parcel_Cat_No is typically a TWO-digit Eastern Arabic number (e.g., ١٠ not ١)
+  • Property_recorded_under_Block_No is always a 4-digit Eastern Arabic number (e.g., ٤١٣٢)
+  • Parcel_Area is an Eastern Arabic number often with a comma as thousands separator (e.g., ٣٤,٩٢٥)
   • Tax_Mils is present for most rows — do not leave blank
 
 Example rows (JSON):
 [
-  {"Serial_No":"١","Date":"٩٣٨","Block_No":"٤١٣٢","Parcel_No":"٤","Cat_No":"١٠","Area":"٣٤,٩٢٥","Nature_of_Entry":"","New_Serial_No":"","Volume_No":"","Serial_No_Vol":"","Tax_LP":"","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Entry_No":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢","Date":"\\"","Block_No":"٤١٣٣","Parcel_No":"١","Cat_No":"١٠","Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Volume_No":"","Serial_No_Vol":"","Tax_LP":"","Tax_Mils":"٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Entry_No":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣","Date":"\\"","Block_No":"\\"","Parcel_No":"٣٢","Cat_No":"١٠","Area":"١٥٩,٧٧٨","Nature_of_Entry":"\\"","New_Serial_No":"٩٢","Volume_No":"","Serial_No_Vol":"","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Entry_No":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٤","Date":"\\"","Block_No":"٤١٣٤","Parcel_No":"٢","Cat_No":"١٠","Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Volume_No":"","Serial_No_Vol":"","Tax_LP":"","Tax_Mils":"٢١٤","Total_Tax_LP":"","Total_Tax_Mils":"","Entry_No":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٥","Date":"\\"","Block_No":"\\"","Parcel_No":"١٤","Cat_No":"١٠","Area":"٩,٧٤١","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Volume_No":"T.D.L","Serial_No_Vol":"1940","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Entry_No":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"\\"","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٤","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٢١٤","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٥","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"1940","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]
 """
 
@@ -321,58 +347,58 @@ OCR_PROMPT_FULL_FEWSHOT = (OCR_PROMPT_FULL + "\n\n" + FEW_SHOT_EXAMPLES).strip()
 _FS_PREAMBLE = """
 IMPORTANT — Below are correctly transcribed example rows from a similar page in this
 register. Study them carefully to understand the expected output format, especially for:
-  • Cat_No is typically a TWO-digit Eastern Arabic number (e.g., ١٠ not ١)
-  • Block_No is always a 4-digit Eastern Arabic number (e.g., ٤١٣٢)
-  • Area is an Eastern Arabic number often with a comma as thousands separator (e.g., ٣٤,٩٢٥)
+  • Parcel_Cat_No is typically a TWO-digit Eastern Arabic number (e.g., ١٠ not ١)
+  • Property_recorded_under_Block_No is always a 4-digit Eastern Arabic number (e.g., ٤١٣٢)
+  • Parcel_Area is an Eastern Arabic number often with a comma as thousands separator (e.g., ٣٤,٩٢٥)
   • Tax_Mils is present for most rows — do not leave blank
   • A horizontal dash means nil/zero — output -
 
 Example rows (JSON):
 """
 
-# Variant 1 (= original M): rows 1-5 (Cat_No=10, Block 4132-4134, large Area)
+# Variant 1 (= original M): rows 1-5 (Parcel_Cat_No=10, Block 4132-4134, large Parcel_Area)
 _FS_ROWS_V1 = """[
-  {"Serial_No":"١","Date":"٩٣٨","Block_No":"٤١٣٢","Parcel_No":"٤","Cat_No":"١٠","Area":"٣٤,٩٢٥","Nature_of_Entry":"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٦٢٩","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢","Date":"\\"","Block_No":"٤١٣٣","Parcel_No":"١","Cat_No":"١٠","Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Tax_LP":"","Tax_Mils":"٨٥","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣","Date":"\\"","Block_No":"\\"","Parcel_No":"٣٢","Cat_No":"١٠","Area":"١٥٩,٧٧٨","Nature_of_Entry":"\\"","New_Serial_No":"٩٢","Tax_LP":"٢","Tax_Mils":"٨٧٦","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٤","Date":"\\"","Block_No":"٤١٣٤","Parcel_No":"٢","Cat_No":"١٠","Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Tax_LP":"","Tax_Mils":"٢١٤","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٥","Date":"\\"","Block_No":"\\"","Parcel_No":"١٤","Cat_No":"١٠","Area":"٩,٧٤١","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Tax_LP":"","Tax_Mils":"١٧٥","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٦٢٩","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Tax_LP":"","Tax_Mils":"٨٥","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"\\"","New_Serial_No":"٩٢","Tax_LP":"٢","Tax_Mils":"٨٧٦","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٤","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Tax_LP":"","Tax_Mils":"٢١٤","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٥","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Tax_LP":"","Tax_Mils":"١٧٥","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]"""
 
-# Variant 2: rows 7-11 (Cat_No=10, Block 4134-4137, medium Areas)
+# Variant 2: rows 7-11 (Parcel_Cat_No=10, Block 4134-4137, medium Parcel_Areas)
 _FS_ROWS_V2 = """[
-  {"Serial_No":"٧","Date":"\\"","Block_No":"٤١٣٤","Parcel_No":"٣٤","Cat_No":"١٠","Area":"٨,٥٤٦","Nature_of_Entry":"\\"","New_Serial_No":"١٠١","Tax_LP":"","Tax_Mils":"١٥٤","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٨","Date":"\\"","Block_No":"\\"","Parcel_No":"٤٦","Cat_No":"١٠","Area":"٢,٩٣٥","Nature_of_Entry":"\\"","New_Serial_No":"٩٤","Tax_LP":"","Tax_Mils":"٥٣","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٩","Date":"\\"","Block_No":"\\"","Parcel_No":"٤٧","Cat_No":"١٠","Area":"٢,٤١٤","Nature_of_Entry":"\\"","New_Serial_No":"٩٥","Tax_LP":"","Tax_Mils":"٤٣","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٠","Date":"\\"","Block_No":"\\"","Parcel_No":"٥١","Cat_No":"١٠","Area":"٩,٦٤٣","Nature_of_Entry":"\\"","New_Serial_No":"٩٦","Tax_LP":"","Tax_Mils":"١٧٤","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١١","Date":"\\"","Block_No":"٤١٣٧","Parcel_No":"٤٢","Cat_No":"١٠","Area":"٨,٥٨٧","Nature_of_Entry":"\\"","New_Serial_No":"١٠٩","Tax_LP":"","Tax_Mils":"١٥٥","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"٧","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٣٤","Parcel_Cat_No":"١٠","Parcel_Area":"٨,٥٤٦","Nature_of_Entry":"\\"","New_Serial_No":"١٠١","Tax_LP":"","Tax_Mils":"١٥٤","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٨","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٤٦","Parcel_Cat_No":"١٠","Parcel_Area":"٢,٩٣٥","Nature_of_Entry":"\\"","New_Serial_No":"٩٤","Tax_LP":"","Tax_Mils":"٥٣","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٩","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٤٧","Parcel_Cat_No":"١٠","Parcel_Area":"٢,٤١٤","Nature_of_Entry":"\\"","New_Serial_No":"٩٥","Tax_LP":"","Tax_Mils":"٤٣","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٠","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٥١","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٦٤٣","Nature_of_Entry":"\\"","New_Serial_No":"٩٦","Tax_LP":"","Tax_Mils":"١٧٤","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١١","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٧","Property_recorded_under_Parcel_No":"٤٢","Parcel_Cat_No":"١٠","Parcel_Area":"٨,٥٨٧","Nature_of_Entry":"\\"","New_Serial_No":"١٠٩","Tax_LP":"","Tax_Mils":"١٥٥","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]"""
 
-# Variant 3: rows 12,15,17,19,25 (Cat_No=14,13, Block 4138-4140, dash Tax, small Areas)
+# Variant 3: rows 12,15,17,19,25 (Parcel_Cat_No=14,13, Block 4138-4140, dash Tax, small Areas)
 _FS_ROWS_V3 = """[
-  {"Serial_No":"١٢","Date":"\\"","Block_No":"٤١٣٨","Parcel_No":"١","Cat_No":"١٤","Area":"٧,٨٠٠","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Tax_LP":"","Tax_Mils":"-","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٥","Date":"\\"","Block_No":"٤١٣٩","Parcel_No":"٢٢","Cat_No":"١٣","Area":"٢,١٧٢","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١٧","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٧","Date":"\\"","Block_No":"\\"","Parcel_No":"٣٣","Cat_No":"١٣","Area":"١,١٩٦","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١٠","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٩","Date":"\\"","Block_No":"\\"","Parcel_No":"٣٨","Cat_No":"١٣","Area":"٢,٨٨٩","Nature_of_Entry":"\\"","New_Serial_No":"٩٧","Tax_LP":"","Tax_Mils":"٢٣","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢٥","Date":"\\"","Block_No":"٤١٤٠","Parcel_No":"١٨","Cat_No":"١٣","Area":"٣,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٣٠","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"١٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٨","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٤","Parcel_Area":"٧,٨٠٠","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Tax_LP":"","Tax_Mils":"-","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٥","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٩","Property_recorded_under_Parcel_No":"٢٢","Parcel_Cat_No":"١٣","Parcel_Area":"٢,١٧٢","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١٧","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٧","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٣","Parcel_Cat_No":"١٣","Parcel_Area":"١,١٩٦","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١٠","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٩","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٨","Parcel_Cat_No":"١٣","Parcel_Area":"٢,٨٨٩","Nature_of_Entry":"\\"","New_Serial_No":"٩٧","Tax_LP":"","Tax_Mils":"٢٣","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢٥","Date":"\\"","Property_recorded_under_Block_No":"٤١٤٠","Property_recorded_under_Parcel_No":"١٨","Parcel_Cat_No":"١٣","Parcel_Area":"٣,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٣٠","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]"""
 
-# Variant 4: rows 21,23,26,29,31 (Cat_No=13,10, Block 4139-4141, small Tax, varied Areas)
+# Variant 4: rows 21,23,26,29,31 (Parcel_Cat_No=13,10, Block 4139-4141, small Tax, varied Areas)
 _FS_ROWS_V4 = """[
-  {"Serial_No":"٢١","Date":"\\"","Block_No":"٤١٣٩","Parcel_No":"٤٥","Cat_No":"١٣","Area":"٩٦٩","Nature_of_Entry":"\\"","New_Serial_No":"١٥٤","Tax_LP":"","Tax_Mils":"٨","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢٣","Date":"\\"","Block_No":"\\"","Parcel_No":"٤٦","Cat_No":"١٣","Area":"١,٦٢٦","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١٣","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢٦","Date":"\\"","Block_No":"٤١٤٠","Parcel_No":"٥٠","Cat_No":"١٣","Area":"٦٤","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢٩","Date":"\\"","Block_No":"٤١٤١","Parcel_No":"٧","Cat_No":"١٣","Area":"٢٠,٠٠٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٣","Tax_LP":"","Tax_Mils":"١٦٠","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣١","Date":"\\"","Block_No":"\\"","Parcel_No":"","Cat_No":"١٠","Area":"١٢,٥٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١١٣","Tax_LP":"","Tax_Mils":"٢٢٦","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"٢١","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٩","Property_recorded_under_Parcel_No":"٤٥","Parcel_Cat_No":"١٣","Parcel_Area":"٩٦٩","Nature_of_Entry":"\\"","New_Serial_No":"١٥٤","Tax_LP":"","Tax_Mils":"٨","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٤٦","Parcel_Cat_No":"١٣","Parcel_Area":"١,٦٢٦","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١٣","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢٦","Date":"\\"","Property_recorded_under_Block_No":"٤١٤٠","Property_recorded_under_Parcel_No":"٥٠","Parcel_Cat_No":"١٣","Parcel_Area":"٦٤","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢٩","Date":"\\"","Property_recorded_under_Block_No":"٤١٤١","Property_recorded_under_Parcel_No":"٧","Parcel_Cat_No":"١٣","Parcel_Area":"٢٠,٠٠٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٣","Tax_LP":"","Tax_Mils":"١٦٠","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣١","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"","Parcel_Cat_No":"١٠","Parcel_Area":"١٢,٥٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١١٣","Tax_LP":"","Tax_Mils":"٢٢٦","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]"""
 
-# Variant 5: rows 6,13,16,27,32 (Cat_No=10,16,13, mixed Blocks, dash Tax_LP)
+# Variant 5: rows 6,13,16,27,32 (Parcel_Cat_No=10,16,13, mixed Blocks, dash Tax_LP)
 _FS_ROWS_V5 = """[
-  {"Serial_No":"٦","Date":"\\"","Block_No":"٤١٣٤","Parcel_No":"٣٠","Cat_No":"١٠","Area":"١٩,٢٨٦","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٣٤٧","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٣","Date":"\\"","Block_No":"\\"","Parcel_No":"","Cat_No":"١٦","Area":"١٧,٠٧٠","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Tax_LP":"","Tax_Mils":"-","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٦","Date":"\\"","Block_No":"\\"","Parcel_No":"","Cat_No":"١٦","Area":"٩٤٨","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"-","Tax_Mils":"-","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢٧","Date":"\\"","Block_No":"\\"","Parcel_No":"٦٥","Cat_No":"١٣","Area":"٢,٨٠١","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٢٢","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣٢","Date":"\\"","Block_No":"\\"","Parcel_No":"١٨","Cat_No":"١٣","Area":"٦,٥٦٨","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٥٣","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"٦","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٣٠","Parcel_Cat_No":"١٠","Parcel_Area":"١٩,٢٨٦","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٣٤٧","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"","Parcel_Cat_No":"١٦","Parcel_Area":"١٧,٠٧٠","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Tax_LP":"","Tax_Mils":"-","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٦","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"","Parcel_Cat_No":"١٦","Parcel_Area":"٩٤٨","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"-","Tax_Mils":"-","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢٧","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٦٥","Parcel_Cat_No":"١٣","Parcel_Area":"٢,٨٠١","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٢٢","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣٢","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٨","Parcel_Cat_No":"١٣","Parcel_Area":"٦,٥٦٨","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٥٣","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]"""
 
 FEW_SHOT_VARIANTS = [
@@ -723,8 +749,8 @@ def run_gemini25_full_fewshot(page_num: int) -> list[dict]:
 # ── Column-specific cell prompts for hard columns ──
 
 CELL_PROMPTS = {
-    "Cat_No": """You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
-This column is "Cat_No" (land category number).
+    "Parcel_Cat_No": """You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
+This column is "Parcel_Cat_No" (land category number).
 Each cell contains a 1-2 digit Eastern Arabic number. Common values: ١٠, ١٣, ١٤, ١٦.
 IMPORTANT: The digit ٠ (zero) looks like a small dot — do NOT miss it.
 A cell with ١ followed by a small dot is ١٠ (ten), not just ١ (one).
@@ -733,8 +759,8 @@ Ditto marks (a short double-tick ״ or ") mean "same as row above" — output '"
 Read each cell from top to bottom. Return ONLY a JSON array of string values, one per row.
 Example: ["١٠", "\\"", "\\"", "١٣", "\\""]""",
 
-    "Area": """You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
-This column is "Area" (land area in square meters or dunams).
+    "Parcel_Area": """You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
+This column is "Parcel_Area" (land area in square meters or dunams).
 Each cell contains an Eastern Arabic number, often with a comma as thousands separator.
 Values typically range from ١,٠٠٠ to ٢٠٠,٠٠٠. Some can be as small as ٥٠٠.
 IMPORTANT: Read ALL digits carefully, especially the leading (leftmost) digit.
@@ -766,7 +792,7 @@ Example: ["", "", "٢", ""]""",
 }
 
 # Columns to target with cell-level OCR (the ones M still gets wrong)
-CELL_TARGET_COLS = ["Cat_No", "Area", "Tax_Mils", "Tax_LP"]
+CELL_TARGET_COLS = ["Parcel_Cat_No", "Parcel_Area", "Tax_Mils", "Tax_LP"]
 
 
 def _preprocess_cell_image(cell_img: Image.Image, upscale: int = 3) -> Image.Image:
@@ -951,7 +977,7 @@ def run_fewshot_ensemble(page_num: int) -> list[dict]:
     variant_indices = [_index_by_sno(rows) for rows in all_variant_rows]
 
     # Use variant 1 (= M) as the base row structure
-    data_cols = LEFT_COLS + RIGHT_COLS
+    data_cols = LEFT_COLS
     merged = []
 
     for base_row in all_variant_rows[0]:
@@ -1028,7 +1054,7 @@ def run_majority_vote_ensemble(page_num: int) -> list[dict]:
     c_idx = _index_by_sno(rows_c)
     e_idx = _index_by_sno(rows_e)
 
-    data_cols = LEFT_COLS + RIGHT_COLS
+    data_cols = LEFT_COLS
     merged = []
     for row_m in rows_m:
         sno = _norm(row_m.get("Serial_No", ""))
@@ -1359,7 +1385,7 @@ def run_kraken_cells(approach: str, model_path: str, page_num: int) -> list[dict
                 if c_idx < len(cells_r[r_idx]) and cells_r[r_idx][c_idx] is not None:
                     row[col] = _kraken_recognize_cell(cells_r[r_idx][c_idx], model_path)
 
-        if any(row[c] for c in LEFT_COLS + RIGHT_COLS):
+        if any(row[c] for c in LEFT_COLS):
             rows.append(row)
 
     save_cache(approach, page_num, rows)
@@ -1414,7 +1440,7 @@ def run_kraken_columns(approach: str, model_path: str, page_num: int) -> list[di
             if c_idx < len(right_col_lines):
                 row[col] = _get_line_in_band(right_col_lines[c_idx], y_lo, y_hi)
 
-        if any(row[c] for c in LEFT_COLS + RIGHT_COLS):
+        if any(row[c] for c in LEFT_COLS):
             rows.append(row)
 
     save_cache(approach, page_num, rows)
@@ -1511,7 +1537,7 @@ def run_ensemble(primary: str, secondary: str, page_num: int,
         return []
 
     empty = {c: "" for c in ALL_DATA_COLS}
-    data_cols = LEFT_COLS + RIGHT_COLS  # only compare data columns, not meta
+    data_cols = LEFT_COLS  # only compare data columns, not meta
 
     merged = []
     for i in range(n):
@@ -1625,7 +1651,7 @@ def score_all(ground_truth_csv: Path):
                 gt  = gt_rows.get(key)
                 if not gt:
                     continue
-                for col in LEFT_COLS + RIGHT_COLS:
+                for col in LEFT_COLS:
                     pred = row.get(col, "").strip()
                     ref  = gt.get(col, "").strip()
                     if ref == "":

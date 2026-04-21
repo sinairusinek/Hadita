@@ -82,18 +82,20 @@ def cer(pred: str, ref: str) -> float:
 
 # ── Columns to compare (left + right data columns, skip meta) ──
 LEFT_COLS = [
-    "Serial_No", "Date", "Block_No", "Parcel_No", "Cat_No", "Area",
-    "Nature_of_Entry", "New_Serial_No", "Volume_No", "Serial_No_Vol",
+    "Serial_No", "Date",
+    "Property_recorded_under_Block_No", "Property_recorded_under_Parcel_No",
+    "Parcel_Cat_No", "Parcel_Area",
+    "Nature_of_Entry", "New_Serial_No",
+    "Reference_to_Register_of_Changes_Volume_No", "Reference_to_Register_of_Changes_Serial_No",
     "Tax_LP", "Tax_Mils", "Total_Tax_LP", "Total_Tax_Mils",
-    "Entry_No", "Remarks",
+    "Reference_to_Register_of_Exemptions_Entry_No",
+    "Reference_to_Register_of_Exemptions_Amount_LP",
+    "Reference_to_Register_of_Exemptions_Amount_Mils",
+    "Net_Assessment_LP", "Net_Assessment_Mils",
+    "Remarks",
 ]
-RIGHT_COLS = [
-    "Assessment_Year", "Amount_Assessed_LP", "Amount_Assessed_Mils",
-    "Date_of_Payment", "Receipt_No",
-    "Amount_Paid_LP", "Amount_Paid_Mils",
-    "Balance_LP", "Balance_Mils", "Right_Side_Notes",
-]
-DATA_COLS = LEFT_COLS + RIGHT_COLS
+RIGHT_COLS = []  # right page not captured
+DATA_COLS = LEFT_COLS
 
 # ── Load ground truth for page 3 ──
 gt_rows = []
