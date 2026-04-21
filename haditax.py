@@ -16,7 +16,6 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from PIL import Image
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 
 # ── Project paths ────────────────────────────────────────────
 PROJECT_DIR = Path(__file__).parent
