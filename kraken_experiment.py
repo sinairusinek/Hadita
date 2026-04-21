@@ -765,6 +765,8 @@ def main() -> None:
     parser.add_argument("--no-cache",  action="store_true", help="Ignore cached segmentation JSON")
     parser.add_argument("--save-csv",  metavar="FILE", default="kraken_experiment_page3.csv",
                         help="Save assembled rows to this CSV (default: kraken_experiment_page3.csv)")
+    parser.add_argument("--save-cache", action="store_true",
+                        help="Also write .ocr_cache/kraken_page3.json for use in haditax.py")
     args = parser.parse_args()
 
     if not PAGE3_IMAGE.exists():
@@ -838,6 +840,14 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
     print(f"\nSaved {len(rows)} rows → {out_path}")
+
+    # Optionally write haditax.py-compatible JSON cache
+    if args.save_cache:
+        import json as _json
+        cache_path = PROJECT_DIR / ".ocr_cache" / "kraken_page3.json"
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(_json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"App cache written → {cache_path}")
 
     # 7. Score against ground truth
     if GT_FILE.exists():
