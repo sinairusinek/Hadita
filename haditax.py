@@ -204,8 +204,11 @@ def deskew_page(page_num: int) -> np.ndarray:
     Falls back to the legacy .jpg cache if the PNG does not exist yet.
     Returns the deskewed image as a BGR numpy array.
     """
+    bundled   = PROJECT_DIR / "images" / f"deskewed_page{page_num}.jpg"
     cache_png = CACHE_DIR / f"deskewed_page{page_num}.png"
     cache_jpg = CACHE_DIR / f"deskewed_page{page_num}.jpg"
+    if bundled.exists():
+        return cv2.imread(str(bundled))
     if cache_png.exists():
         return cv2.imread(str(cache_png))
     if cache_jpg.exists():
