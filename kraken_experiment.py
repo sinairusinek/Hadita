@@ -516,10 +516,30 @@ def run_cell_ocr(table_bgr: np.ndarray,
 
 
 # ── Step 7: Map column positions to schema field names ────────────────────────
+_DITTO_MARKS = {'"', '״', '〃', "''", ',,', '“', '״', '"'}
+
+
+def resolve_dittos(rows: list[dict], cols: list[str]) -> list[dict]:
+    """Replace ditto marks with the value from the previous row."""
+    resolved = []
+    prev: dict[str, str] = {}
+    for row in rows:
+        new_row = dict(row)
+        for col in cols:
+            v = new_row.get(col, "").strip()
+            if v in _DITTO_MARKS:
+                new_row[col] = prev.get(col, v)
+            else:
+                prev[col] = v
+        resolved.append(new_row)
+    return resolved
+
+
 def assemble_rows(ocr_results: list[list[str]]) -> list[dict]:
     """
     Map cell[row][col_idx] → {field_name: text}.
     Columns are detected left→right; Serial_No is the leftmost column (col 0).
+    Ditto marks are resolved so downstream scoring and the app see real values.
     """
     n_cols_detected = len(ocr_results[0]) if ocr_results else 0
     col_names = list(LEFT_COLS)  # left→right matches detected order
@@ -539,6 +559,12 @@ def assemble_rows(ocr_results: list[list[str]]) -> list[dict]:
                 row[col_names[i]] = text
         rows.append(row)
 
+    rows = resolve_dittos(rows, col_names)
+    n_resolved = sum(
+        1 for row in rows for col in col_names
+        if row.get(col, "") not in _DITTO_MARKS
+    )
+    log.info("Ditto resolution complete (%d rows)", len(rows))
     return rows
 
 
@@ -553,10 +579,10 @@ def score(ocr_rows: list[dict]) -> None:
 
     print(f"\nGround truth: {len(gt_rows)} rows | OCR result: {len(ocr_rows)} rows")
 
-    # Index GT by Serial_No
-    gt_by_sno = {normalize(r["Serial_No"]): r for r in gt_rows}
-
+    # Resolve ditto marks in GT before scoring so both sides are comparable
     cols_to_score = [c for c in LEFT_COLS if c in (gt_rows[0] if gt_rows else {})]
+    gt_rows = resolve_dittos(gt_rows, cols_to_score)
+    gt_by_sno = {normalize(r["Serial_No"]): r for r in gt_rows}
 
     total_cells  = 0
     exact_hits   = 0
