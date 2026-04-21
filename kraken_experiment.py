@@ -459,7 +459,8 @@ _DEFAULT_LEFT_EXPAND = 5
 def run_cell_ocr(table_bgr: np.ndarray,
                  row_ranges: list[tuple[int, int]],
                  col_ranges: list[int],
-                 pad: int = 3) -> list[list[str]]:
+                 pad: int = 3,
+                 ocr_model: Path = OCR_MODEL) -> list[list[str]]:
     """
     Crop all cells, save to a temp directory, then run one Kraken batch call
     with -I glob so the model loads only once.
@@ -497,7 +498,7 @@ def run_cell_ocr(table_bgr: np.ndarray,
             KRAKEN_BIN,
             "-I", "c*.jpg",      # relative glob; cwd=tmp_path
             "-o", ".txt",
-            "ocr", "--no-segmentation", "--model", str(OCR_MODEL),
+            "ocr", "--no-segmentation", "--model", str(ocr_model),
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800, cwd=str(tmp_path))
         if result.returncode != 0:
@@ -767,6 +768,8 @@ def main() -> None:
                         help="Save assembled rows to this CSV (default: kraken_experiment_page3.csv)")
     parser.add_argument("--save-cache", action="store_true",
                         help="Also write .ocr_cache/kraken_page3.json for use in haditax.py")
+    parser.add_argument("--ocr-model", metavar="PATH", default=None,
+                        help="Override the OCR model path (default: gen2_sc_clean_best.mlmodel)")
     args = parser.parse_args()
 
     if not PAGE3_IMAGE.exists():
@@ -775,12 +778,21 @@ def main() -> None:
     if not SEG_MODEL.exists():
         log.error("Segmentation model not found: %s", SEG_MODEL)
         sys.exit(1)
-    if not OCR_MODEL.exists():
-        log.error("OCR model not found: %s", OCR_MODEL)
+    # Allow runtime override of OCR model; resolve to absolute so it works
+    # when Kraken batch OCR runs with cwd=tmp_path
+    if args.ocr_model:
+        ocr_model = Path(args.ocr_model)
+        if not ocr_model.is_absolute():
+            ocr_model = PROJECT_DIR / ocr_model
+    else:
+        ocr_model = OCR_MODEL
+    if not ocr_model.exists():
+        log.error("OCR model not found: %s", ocr_model)
         sys.exit(1)
 
     print("=" * 60)
     print("Kraken Two-Model Experiment — Page 3")
+    print(f"OCR model: {ocr_model.name}")
     print("=" * 60)
 
     # 1. Crop table area
@@ -827,7 +839,7 @@ def main() -> None:
         return
 
     # 4. Cell-level OCR
-    ocr_results = run_cell_ocr(table_bgr, row_ranges, col_ranges)
+    ocr_results = run_cell_ocr(table_bgr, row_ranges, col_ranges, ocr_model=ocr_model)
 
     # 5. Assemble into rows with field names
     rows = assemble_rows(ocr_results)
@@ -844,7 +856,8 @@ def main() -> None:
     # Optionally write haditax.py-compatible JSON cache
     if args.save_cache:
         import json as _json
-        cache_path = PROJECT_DIR / ".ocr_cache" / "kraken_page3.json"
+        model_tag = ocr_model.stem.replace(" ", "_")
+        cache_path = PROJECT_DIR / ".ocr_cache" / f"kraken_{model_tag}_page3.json"
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(_json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"App cache written → {cache_path}")
