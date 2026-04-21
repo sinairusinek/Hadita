@@ -981,21 +981,19 @@ if view_mode == "Correction View":
                 "Tax Payer ID (Romanized)", value=m.get("Tax_Payer_ID_Romanized", ""),
                 key=f"meta_tpir_{page_num}")
 
+    # Load image and compute display height before splitting columns
+    # so both panels can share the same height.
+    with st.spinner("Loading page image..."):
+        deskewed = deskew_page(page_num)
+    pil_img = Image.fromarray(cv2.cvtColor(deskewed, cv2.COLOR_BGR2RGB))
+    left_x = int(pil_img.width * (LEFT_TABLE_WIDTH_FRAC + 0.07))
+    pil_img = pil_img.crop((0, 0, left_x, pil_img.height))
+    DISPLAY_W = 700
+    display_h = int(pil_img.height * DISPLAY_W / pil_img.width)
+
     col_img, col_tbl = st.columns([1, 1])
 
-    PANEL_H = 800  # shared height for both panels in pixels
-
     with col_img:
-        with st.spinner("Loading page image..."):
-            deskewed = deskew_page(page_num)
-        pil_img = Image.fromarray(cv2.cvtColor(deskewed, cv2.COLOR_BGR2RGB))
-
-        # Crop to left table only (right page not captured)
-        left_x = int(pil_img.width * (LEFT_TABLE_WIDTH_FRAC + 0.07))
-        pil_img = pil_img.crop((0, 0, left_x, pil_img.height))
-
-        DISPLAY_W = 700
-        display_h = int(pil_img.height * DISPLAY_W / pil_img.width)
 
         # ── Pan/zoom session state ───────────────────────────────
         if "img_zoom" not in st.session_state:
@@ -1107,7 +1105,7 @@ if view_mode == "Correction View":
             column_config=col_config,
             use_container_width=True,
             num_rows="fixed",
-            height=PANEL_H,
+            height=display_h,
             key=f"cv_editor_{page_num}_{digit_mode}_{expand_ditto_view}",
             disabled=disabled_cols,
         )
