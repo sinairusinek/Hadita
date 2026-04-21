@@ -1,5 +1,6 @@
-# Images (large, not suitable for git)
+# Images (large, not suitable for git) — except bundled app images
 *.jpg
+!images/*.jpg
 
 # ML models
 *.mlmodel
