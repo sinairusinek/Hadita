@@ -839,6 +839,24 @@ def export_page_xml(page_num: int, img_cv: np.ndarray,
 # ── Streamlit App ────────────────────────────────────────────
 
 st.set_page_config(page_title="Haditax", layout="wide")
+
+# ── User registration gate ────────────────────────────────────
+_REVIEWERS = st.secrets.get("reviewers", ["Sinai"])
+
+if "reviewer" not in st.session_state:
+    st.title("Haditax · Who are you?")
+    choice = st.selectbox("Select your name to continue:", ["— pick one —"] + list(_REVIEWERS))
+    if st.button("Continue", type="primary", disabled=(choice == "— pick one —")):
+        st.session_state["reviewer"] = choice
+        st.rerun()
+    st.stop()
+
+with st.sidebar:
+    st.markdown(f"Logged in as **{st.session_state['reviewer']}**")
+    if st.button("Switch user"):
+        del st.session_state["reviewer"]
+        st.rerun()
+
 st.title("Haditax — Ground Truth Editor")
 
 st.warning(
@@ -1272,7 +1290,8 @@ if view_mode == "Correction View":
             pp_note = " (post-processing applied)" if expand_ditto_save else ""
             timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
             pages_str = ", ".join(f"page {p}" for p in sorted(cv_pages))
-            commit_msg = f"RA save: {pages_str} — {timestamp}{pp_note}"
+            reviewer = st.session_state.get("reviewer", "unknown")
+            commit_msg = f"RA save ({reviewer}): {pages_str} — {timestamp}{pp_note}"
 
             with st.spinner("Saving to GitHub…"):
                 gt_ok,   gt_err  = _github_put(_gt_tsv_string(all_gt),
