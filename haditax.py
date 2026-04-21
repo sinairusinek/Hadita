@@ -25,6 +25,10 @@ CACHE_DIR = PROJECT_DIR / ".ocr_cache"
 GROUND_TRUTH_FILE = PROJECT_DIR / "ground_truth.tsv"
 PAGE_METADATA_FILE = PROJECT_DIR / "page_metadata.tsv"
 
+GITHUB_REPO     = "sinairusinek/Hadita"
+GITHUB_GT_PATH  = "ground_truth.tsv"
+GITHUB_META_PATH = "page_metadata.tsv"
+
 META_FIELDS = [
     "Tax_Payer_Arabic", "Tax_Payer_Romanized",
     "Tax_Payer_ID_Arabic", "Tax_Payer_ID_Romanized",
@@ -552,6 +556,114 @@ def save_page_metadata(meta: dict[int, dict]):
             writer.writerow(row)
 
 
+# ── GitHub API save ──────────────────────────────────────────
+
+def _github_put(content_str: str, path: str, commit_message: str) -> tuple[bool, str]:
+    """PUT a file to GitHub via Contents API. Returns (ok, error_msg)."""
+    import base64
+    import json as _json
+    import urllib.request
+    import urllib.error
+
+    try:
+        token = st.secrets["GITHUB_TOKEN"]
+    except Exception:
+        return False, "GITHUB_TOKEN not found in Streamlit secrets."
+
+    api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+    }
+
+    # Fetch current SHA (required for updates; None for new files)
+    sha = None
+    req_get = urllib.request.Request(api_url, headers=headers)
+    try:
+        with urllib.request.urlopen(req_get) as resp:
+            sha = _json.loads(resp.read())["sha"]
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            return False, f"GitHub API error reading file: HTTP {e.code}"
+
+    payload: dict = {
+        "message": commit_message,
+        "content": base64.b64encode(content_str.encode("utf-8")).decode("ascii"),
+    }
+    if sha:
+        payload["sha"] = sha
+
+    req_put = urllib.request.Request(
+        api_url,
+        data=_json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="PUT",
+    )
+    try:
+        with urllib.request.urlopen(req_put):
+            return True, ""
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        return False, f"GitHub API error saving file: HTTP {e.code} — {body[:300]}"
+
+
+def _github_create_issue(title: str, body: str) -> tuple[bool, str]:
+    """Create a GitHub issue. Returns (ok, error_msg)."""
+    import json as _json
+    import urllib.request
+    import urllib.error
+
+    try:
+        token = st.secrets["GITHUB_TOKEN"]
+    except Exception:
+        return False, "GITHUB_TOKEN not found in Streamlit secrets."
+
+    api_url = f"https://api.github.com/repos/{GITHUB_REPO}/issues"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+    }
+    payload = {"title": title, "body": body, "labels": ["RA report"]}
+    req = urllib.request.Request(
+        api_url,
+        data=_json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req):
+            return True, ""
+    except urllib.error.HTTPError as e:
+        body_txt = e.read().decode("utf-8", errors="replace")
+        return False, f"GitHub API error creating issue: HTTP {e.code} — {body_txt[:300]}"
+
+
+def _gt_tsv_string(rows: list[dict]) -> str:
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=GT_COLS, delimiter="\t",
+                            extrasaction="ignore", lineterminator="\r\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return buf.getvalue()
+
+
+def _meta_tsv_string(meta: dict[int, dict]) -> str:
+    fieldnames = ["Page_Number", "Folio_Number"] + META_FIELDS
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames, delimiter="\t",
+                            extrasaction="ignore", lineterminator="\r\n")
+    writer.writeheader()
+    for p in sorted(meta):
+        row = {"Page_Number": str(p), "Folio_Number": PAGE_FOLIO.get(p, "")}
+        row.update(meta[p])
+        writer.writerow(row)
+    return buf.getvalue()
+
+
 # ── PAGE XML export ──────────────────────────────────────────
 
 def extract_header_metadata(page_num: int, force: bool = False) -> dict:
@@ -727,6 +839,13 @@ def export_page_xml(page_num: int, img_cv: np.ndarray,
 st.set_page_config(page_title="Haditax", layout="wide")
 st.title("Haditax — Ground Truth Editor")
 
+st.warning(
+    "**Important for RAs:** Every time you click Save, your corrections are committed "
+    "directly to GitHub. If the save button does not show a green ✅ success message — "
+    "for any reason — **stop working and contact Sinai before continuing**. "
+    "Corrections saved only on your computer will be permanently lost.",
+)
+
 # ── Shared page selector + view mode ─────────────────────────
 ALL_COLS = LEFT_COLS
 PAGES = list(PAGE_FOLIO.keys())  # [3, 10, 50]
@@ -769,6 +888,11 @@ if view_mode == "Correction View":
                 continue
             if p in PAGES and row.get("Serial_No", "").strip():
                 gt_by_page.setdefault(p, []).append(row)
+
+        # Only use GT for a page when it has a substantial number of verified rows;
+        # fewer rows means the data is stale/incomplete — fall back to Approach M OCR.
+        MIN_GT_ROWS = 5
+        gt_by_page = {p: rows for p, rows in gt_by_page.items() if len(rows) >= MIN_GT_ROWS}
 
         combined = []
         for p in PAGES:
@@ -845,6 +969,10 @@ if view_mode == "Correction View":
         with st.spinner("Loading page image..."):
             deskewed = deskew_page(page_num)
         pil_img = Image.fromarray(cv2.cvtColor(deskewed, cv2.COLOR_BGR2RGB))
+
+        # Crop to left table only (right page not captured)
+        left_x = int(pil_img.width * (LEFT_TABLE_WIDTH_FRAC + 0.07))
+        pil_img = pil_img.crop((0, 0, left_x, pil_img.height))
 
         DISPLAY_W = 700
         display_h = int(pil_img.height * DISPLAY_W / pil_img.width)
@@ -1098,8 +1226,10 @@ else:
             st.success(f"Saved {xml_path.name}")
             st.code(str(xml_path))
 
-# ── Correction View save button ───────────────────────────────
+# ── Correction View save + report buttons ────────────────────
 if view_mode == "Correction View":
+    from datetime import datetime, timezone
+
     st.markdown("---")
     save_btn_col, save_opt_col = st.columns([1, 2])
     with save_opt_col:
@@ -1109,7 +1239,7 @@ if view_mode == "Correction View":
             help='Expand ditto marks and fill Tax_Payer columns from page metadata before writing to ground_truth.tsv',
         )
     with save_btn_col:
-        if st.button("Save all corrections to ground_truth.tsv", type="primary", key="cv_save"):
+        if st.button("💾 Save all corrections to GitHub", type="primary", key="cv_save"):
             existing = load_existing_gt()
             save_rows = list(st.session_state.get("cv_all_rows", []))
             if expand_ditto_save:
@@ -1129,7 +1259,6 @@ if view_mode == "Correction View":
                     if col in gt_row:
                         gt_row[col] = row.get(col, "")
                 if expand_ditto_save:
-                    # Fill Tax_Payer fields from page metadata into every row
                     for mf in META_FIELDS:
                         gt_row[mf] = saved_meta.get(p, {}).get(mf, "")
                 gt_row["OCR_Method"] = "ground_truth"
@@ -1137,7 +1266,56 @@ if view_mode == "Correction View":
             all_gt = other_pages + new_gt_rows
             all_gt.sort(key=lambda r: (int(r.get("Page_Number", 0) or 0),
                                         int(r.get("Serial_No", 0) or 0)))
-            save_ground_truth(all_gt)
-            save_page_metadata(st.session_state.get("page_meta", {}))
+
             pp_note = " (post-processing applied)" if expand_ditto_save else ""
-            st.success(f"Saved {len(new_gt_rows)} rows across {len(cv_pages)} pages + page metadata{pp_note}.")
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            pages_str = ", ".join(f"page {p}" for p in sorted(cv_pages))
+            commit_msg = f"RA save: {pages_str} — {timestamp}{pp_note}"
+
+            with st.spinner("Saving to GitHub…"):
+                gt_ok,   gt_err  = _github_put(_gt_tsv_string(all_gt),
+                                               GITHUB_GT_PATH, commit_msg)
+                meta_ok, meta_err = _github_put(
+                    _meta_tsv_string(saved_meta),
+                    GITHUB_META_PATH,
+                    commit_msg,
+                )
+
+            if gt_ok and meta_ok:
+                # Mirror to local file so load_existing_gt() stays in sync this session
+                save_ground_truth(all_gt)
+                save_page_metadata(saved_meta)
+                st.success(
+                    f"✅ Saved {len(new_gt_rows)} rows across {len(cv_pages)} pages "
+                    f"+ page metadata to GitHub{pp_note}."
+                )
+            else:
+                errors = "\n".join(e for e in [gt_err, meta_err] if e)
+                st.error(
+                    f"❌ GitHub save failed — **do not continue working and contact Sinai**.\n\n"
+                    f"Error details: {errors}"
+                )
+
+    # ── Report a problem ────────────────────────────────────────
+    st.markdown("---")
+    with st.expander("⚠️ Report a problem to Sinai"):
+        report_desc = st.text_area(
+            "Describe the problem (include the page number and what you were doing):",
+            key="report_desc",
+        )
+        if st.button("Send report", key="report_send"):
+            if not report_desc.strip():
+                st.warning("Please describe the problem before sending.")
+            else:
+                timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+                issue_title = f"RA report — page {page_num} — {timestamp}"
+                issue_body = f"**Page:** {page_num} (Folio {PAGE_FOLIO.get(page_num, '?')})\n**Time:** {timestamp}\n\n{report_desc}"
+                with st.spinner("Sending report…"):
+                    ok, err = _github_create_issue(issue_title, issue_body)
+                if ok:
+                    st.success("✅ Report sent to Sinai.")
+                else:
+                    st.error(
+                        f"❌ Could not send report automatically. "
+                        f"Please email sinai.rusinek@gmail.com directly.\n\nError: {err}"
+                    )
