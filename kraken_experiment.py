@@ -662,49 +662,75 @@ def write_page_xml(col_ranges: list[int],
                    ocr_rows: list[dict] | None = None) -> None:
     """Write a PAGE XML file (2013-07-15 schema) with a TableRegion + TableCells.
 
+    Row 0 is a blank header row covering the printed column-label area (y=0 to
+    y_offset in page coordinates). Data rows start at row index 1 so that
+    Transkribus treats row 0 as the header and leaves it empty for human entry.
+    Each data cell gets a <Baseline> at 75 % of the cell height so Transkribus
+    can anchor transcriptions correctly.
     Cell coordinates are parallelograms that account for the column tilt.
     If ocr_rows is provided, recognised text is embedded in each TextLine.
-    The file can be loaded into Transkribus alongside the page image.
     """
     from datetime import datetime
     now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-    n_rows = len(row_ranges)
+    n_rows = len(row_ranges)   # row 0 = column-label header; rows 1…N = data
     n_cols = len(col_ranges) - 1
-    table_h = page_h - y_offset
+    table_h     = page_h - y_offset
 
     def _tilt_x(x: int, y_table: int) -> int:
         return x + round((table_h / 2 - y_table) * TILT_RATE)
 
-    def _cell_pts(cx0: int, cy0: int, cx1: int, cy1: int) -> str:
+    def _cell_pts(cx0: int, cy0_table: int, cx1: int, cy1_table: int) -> str:
+        """Return page-coordinate parallelogram corners (tilt-corrected)."""
         corners = [
-            (_tilt_x(cx0, cy0), cy0 + y_offset),
-            (_tilt_x(cx1, cy0), cy0 + y_offset),
-            (_tilt_x(cx1, cy1), cy1 + y_offset),
-            (_tilt_x(cx0, cy1), cy1 + y_offset),
+            (_tilt_x(cx0, cy0_table), cy0_table + y_offset),
+            (_tilt_x(cx1, cy0_table), cy0_table + y_offset),
+            (_tilt_x(cx1, cy1_table), cy1_table + y_offset),
+            (_tilt_x(cx0, cy1_table), cy1_table + y_offset),
         ]
         return " ".join(f"{x},{y}" for x, y in corners)
 
+    def _baseline_pts(cx0: int, cy0_table: int, cx1: int, cy1_table: int,
+                      frac: float = 0.75) -> str:
+        """Return two-point baseline at `frac` of the cell height (in page coords)."""
+        cy_bl = cy0_table + (cy1_table - cy0_table) * frac
+        y_bl  = round(cy_bl) + y_offset
+        x_left  = _tilt_x(cx0, round(cy_bl))
+        x_right = _tilt_x(cx1, round(cy_bl))
+        return f"{x_left},{y_bl} {x_right},{y_bl}"
+
+    # Table region covers detected rows only (starts at first detected row).
     tx0, ty0 = col_ranges[0], row_ranges[0][0] + y_offset
     tx1, ty1 = col_ranges[-1], row_ranges[-1][1] + y_offset
     table_pts = f"{tx0},{ty0} {tx1},{ty0} {tx1},{ty1} {tx0},{ty1}"
 
     cells_xml: list[str] = []
+
+    # Row 0 = row_ranges[0]: the printed column-label area — always empty.
+    # Rows 1…N = row_ranges[1…]: actual data rows, GT text from ocr_rows[r_idx-1].
     for r_idx, (y0, y1) in enumerate(row_ranges):
         for c_idx in range(n_cols):
-            cid = f"cell_r{r_idx}_c{c_idx}"
+            cid  = f"cell_r{r_idx}_c{c_idx}"
             cpts = _cell_pts(col_ranges[c_idx], y0, col_ranges[c_idx + 1], y1)
             text = ""
-            if ocr_rows and r_idx < len(ocr_rows):
+            if r_idx > 0 and ocr_rows and (r_idx - 1) < len(ocr_rows):
                 col_name = LEFT_COLS[c_idx] if c_idx < len(LEFT_COLS) else ""
-                text = ocr_rows[r_idx].get(col_name, "")
+                text = ocr_rows[r_idx - 1].get(col_name, "").strip()
+            if text:
+                bl = _baseline_pts(col_ranges[c_idx], y0, col_ranges[c_idx + 1], y1)
+                textline = (
+                    f'        <TextLine id="line_{cid}">\n'
+                    f'          <Coords points="{cpts}"/>\n'
+                    f'          <Baseline points="{bl}"/>\n'
+                    f'          <TextEquiv><Unicode>{text}</Unicode></TextEquiv>\n'
+                    f'        </TextLine>\n'
+                )
+            else:
+                textline = ""
             cells_xml.append(
                 f'      <TableCell id="{cid}" row="{r_idx}" col="{c_idx}" '
                 f'rowSpan="1" colSpan="1">\n'
                 f'        <Coords points="{cpts}"/>\n'
-                f'        <TextLine id="line_{cid}">\n'
-                f'          <Coords points="{cpts}"/>\n'
-                f'          <TextEquiv><Unicode>{text}</Unicode></TextEquiv>\n'
-                f'        </TextLine>\n'
+                + textline +
                 f'      </TableCell>'
             )
 
@@ -728,7 +754,7 @@ def write_page_xml(col_ranges: list[int],
         '</PcGts>\n'
     )
     out_path.write_text(xml, encoding="utf-8")
-    print(f"PAGE XML written → {out_path}  ({n_rows} rows × {n_cols} cols)")
+    print(f"PAGE XML written → {out_path}  ({n_rows} rows × {n_cols} cols, row 0 = column-label header)")
 
 
 def write_column_preview(table_bgr: np.ndarray, col_ranges: list[int],
@@ -860,8 +886,18 @@ def main() -> None:
     if args.page_xml:
         img_full = cv2.imread(str(PAGE3_IMAGE))
         ph, pw = img_full.shape[:2]
+        # Load GT rows sorted by Serial_No so they align positionally with row_ranges
+        gt_rows_xml: list[dict] | None = None
+        if GT_FILE.exists():
+            with open(GT_FILE, newline="", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f, delimiter="\t")
+                page3 = [r for r in reader if r.get("Page_Number") == "3" and r.get("Serial_No", "").strip()]
+            page3.sort(key=lambda r: int(normalize(r["Serial_No"]) or "0"))
+            gt_rows_xml = page3
+            log.info("Loaded %d GT rows for page 3", len(gt_rows_xml))
         write_page_xml(col_ranges, row_ranges, y_offset, pw, ph,
-                       out_path=PROJECT_DIR / "page3_segmentation.xml")
+                       out_path=PROJECT_DIR / "page3_segmentation.xml",
+                       ocr_rows=gt_rows_xml)
         return
 
     # 4. Cell-level OCR
