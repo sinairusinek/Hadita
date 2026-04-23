@@ -1278,9 +1278,9 @@ if view_mode == "Correction View":
     save_btn_col, save_opt_col = st.columns([1, 2])
     with save_opt_col:
         expand_ditto_save = st.checkbox(
-            'Post-processing (ditto marks and metadata) on save',
+            'Expand ditto marks on save',
             key="expand_ditto_save",
-            help='Expand ditto marks and fill Tax_Payer columns from page metadata before writing to ground_truth.tsv',
+            help='Resolves ״ to the repeated value before saving. Useful for data export but SHOULD NOT be used when saving GT for HTR training — the model must see the ditto mark, not the resolved value.',
         )
     with save_btn_col:
         if st.button("💾 Save all corrections to GitHub", type="primary", key="cv_save"):

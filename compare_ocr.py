@@ -340,6 +340,27 @@ Example rows (JSON):
 
 OCR_PROMPT_FULL_FEWSHOT = (OCR_PROMPT_FULL + "\n\n" + FEW_SHOT_EXAMPLES).strip()
 
+# Left-band few-shot examples — same examples as FEW_SHOT_EXAMPLES but scoped to
+# OCR_PROMPT_LEFT_BAND's JSON schema (no right-side columns).
+_FEW_SHOT_LEFT_BAND_EXAMPLES = """
+
+IMPORTANT — Below are correctly transcribed example rows from a similar page.
+Study them to understand the format, especially:
+  • Parcel_Cat_No is typically a TWO-digit Eastern Arabic number (e.g., ١٠ not ١)
+  • Property_recorded_under_Block_No is always 4 digits (e.g., ٤١٣٢)
+  • Parcel_Area often has a comma thousands separator (e.g., ٣٤,٩٢٥)
+  • Tax_Mils is present for most rows — do not leave blank
+
+Example rows (JSON):
+[
+  {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢","Date":"\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\"","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣","Date":"\"","Property_recorded_under_Block_No":"\"","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"\"","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
+]
+"""
+
+OCR_PROMPT_LEFT_BAND_FEWSHOT = (OCR_PROMPT_LEFT_BAND + "\n\n" + _FEW_SHOT_LEFT_BAND_EXAMPLES).strip()
+
 # ── Multiple few-shot variants for ensemble voting ──────────
 # Each variant uses a different subset of GT rows to create diverse "priors"
 # so that majority voting across variants can correct uncorrelated errors.
@@ -679,7 +700,9 @@ def _run_gemini_full(approach: str, model_id: str, page_num: int) -> list[dict]:
     return rows
 
 
-def _run_gemini_zoomed(approach: str, model_id: str, page_num: int) -> list[dict]:
+def _run_gemini_zoomed(approach: str, model_id: str, page_num: int,
+                       left_prompt: str = OCR_PROMPT_LEFT_BAND,
+                       right_prompt: str = OCR_PROMPT_RIGHT_BAND) -> list[dict]:
     cached = load_cache(approach, page_num)
     if cached is not None:
         return cached
@@ -692,13 +715,13 @@ def _run_gemini_zoomed(approach: str, model_id: str, page_num: int) -> list[dict
 
     left_rows: list[dict] = []
     for band in crops["left_bands"]:
-        raw = _gemini_ocr(client, model_id, OCR_PROMPT_LEFT_BAND, [band])
+        raw = _gemini_ocr(client, model_id, left_prompt, [band])
         left_rows.extend(parse_json(raw).get("rows", []))
         time.sleep(1)
 
     right_rows: list[dict] = []
     for band in crops["right_bands"]:
-        raw = _gemini_ocr(client, model_id, OCR_PROMPT_RIGHT_BAND, [band])
+        raw = _gemini_ocr(client, model_id, right_prompt, [band])
         right_rows.extend(parse_json(raw).get("rows", []))
         time.sleep(1)
 
@@ -744,6 +767,18 @@ def run_gemini25_full_fewshot(page_num: int) -> list[dict]:
         )
 
     return rows
+
+
+def run_gemini25_zoomed_fewshot(page_num: int) -> list[dict]:
+    """Approach R: Gemini 2.5 Pro, banded crops, with few-shot examples.
+
+    Combines the anti-hallucination benefit of banded processing (Approach D)
+    with the digit-accuracy benefit of few-shot examples (Approach M).
+    Use this instead of M for pages where M loses track and loops mid-page.
+    """
+    return _run_gemini_zoomed("R", GEMINI_25_PRO, page_num,
+                              left_prompt=OCR_PROMPT_LEFT_BAND_FEWSHOT,
+                              right_prompt=OCR_PROMPT_RIGHT_BAND)
 
 
 # ── Column-specific cell prompts for hard columns ──
@@ -1480,6 +1515,7 @@ def run_approach(approach: str, page_num: int) -> list[dict]:
         elif approach == "O": return run_gemini25_cell_hybrid(page_num)
         elif approach == "P": return run_majority_vote_ensemble(page_num)
         elif approach == "Q": return run_fewshot_ensemble(page_num)
+        elif approach == "R": return run_gemini25_zoomed_fewshot(page_num)
         else:
             log.error("Unknown approach: %s", approach)
             return []

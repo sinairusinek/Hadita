@@ -119,11 +119,17 @@ DETECT_COLS = EXPECTED_COLS + 1  # 20
 # Table reads left→right: Serial_No is the leftmost detected column.
 COL_ORDER_RTL = False
 
+# Number of horizontal bands for per-band column detection.
+# Each band runs column detection independently; results are interpolated
+# per row to capture page bow (non-linear curvature of printed column lines).
+N_BANDS = 8
+
 
 # ── Evaluation helpers (mirrored from evaluate_page3.py) ──────────────────────
 EASTERN = "٠١٢٣٤٥٦٧٨٩"
 WESTERN = "0123456789"
 E2W = str.maketrans(EASTERN, WESTERN)
+W2E = str.maketrans(WESTERN, EASTERN)
 DITTO_VARIANTS = {'״', '"', '〃', "''", ',,', '"', '״'}
 
 
@@ -278,6 +284,102 @@ def detect_columns(table_bgr: np.ndarray) -> list[int]:
 
     log.info("Column boundaries (%d cols): %s", n_cols, final)
     return final
+
+
+# ── Per-band column detection ─────────────────────────────────────────────────
+
+def detect_columns_banded(table_bgr: np.ndarray,
+                          col_ranges_global: list[int],
+                          n_bands: int = N_BANDS) -> list[dict]:
+    """Detect column x-positions within horizontal bands to capture page bow.
+
+    Divides the table into n_bands equal horizontal strips and runs the same
+    CLAHE + adaptive-threshold + morphological projection detection on each
+    strip independently. Returns a list of band dicts sorted by y_center:
+        {"y_center": int, "col_x": list[int]}
+    where col_x[i] is the x-position of the i-th column boundary in that band.
+
+    Undetected columns in a band are filled from col_ranges_global.
+    Bands with fewer than half the expected peaks are skipped (too sparse).
+    """
+    th, tw = table_bgr.shape[:2]
+    band_h = th // n_bands
+    n_boundaries = len(col_ranges_global)   # one more than number of columns
+
+    bands: list[dict] = []
+    for b in range(n_bands):
+        y0 = b * band_h
+        y1 = th if b == n_bands - 1 else (b + 1) * band_h
+        y_center = (y0 + y1) // 2
+        band = table_bgr[y0:y1, :]
+
+        gray = cv2.cvtColor(band, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        norm  = clahe.apply(gray)
+        binary = cv2.adaptiveThreshold(
+            norm, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 41, 5)
+        v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 15))
+        v_mask   = cv2.morphologyEx(binary, cv2.MORPH_OPEN, v_kernel, iterations=1)
+        v_mask   = cv2.dilate(v_mask, np.ones((1, 2), np.uint8), iterations=1)
+
+        proj_x = np.sum(v_mask, axis=0).astype(float)
+        peaks, _ = find_peaks(
+            proj_x,
+            height=proj_x.mean() + 0.3 * proj_x.std(),   # lower threshold per band
+            distance=max(20, tw // 40),
+        )
+
+        if len(peaks) < n_boundaries // 2:
+            log.debug("Band %d (y=%d–%d): only %d peaks — skipping", b, y0, y1, len(peaks))
+            continue
+
+        # Match each expected boundary to the nearest detected peak (within 60px).
+        col_x: list[int] = []
+        used: set[int] = set()
+        for expected_x in col_ranges_global:
+            candidates = [p for p in peaks if abs(p - expected_x) <= 60 and p not in used]
+            if candidates:
+                best = min(candidates, key=lambda p: abs(p - expected_x))
+                col_x.append(int(best))
+                used.add(best)
+            else:
+                col_x.append(expected_x)   # fall back to global
+
+        bands.append({"y_center": y_center, "col_x": col_x})
+        log.debug("Band %d (y=%d–%d): %d peaks matched", b, y0, y1, len(used))
+
+    if not bands:
+        log.warning("No usable bands detected — falling back to global col_ranges")
+        # Return a single synthetic band at mid-height so interp_col_x always works.
+        bands = [{"y_center": th // 2, "col_x": list(col_ranges_global)}]
+
+    log.info("Per-band column detection: %d/%d bands usable", len(bands), n_bands)
+    return sorted(bands, key=lambda b: b["y_center"])
+
+
+def interp_col_x(c_idx: int, y_table: int, bands: list[dict]) -> int:
+    """Return the x-position of column boundary c_idx at y_table (table coords).
+
+    Linearly interpolates between the two nearest band y-centers.
+    Clamps (flat extrapolation) beyond the outermost bands.
+    """
+    if len(bands) == 1:
+        return bands[0]["col_x"][c_idx]
+
+    ys  = [b["y_center"] for b in bands]
+    xs  = [b["col_x"][c_idx] for b in bands]
+
+    if y_table <= ys[0]:
+        return xs[0]
+    if y_table >= ys[-1]:
+        return xs[-1]
+
+    for i in range(len(ys) - 1):
+        if ys[i] <= y_table <= ys[i + 1]:
+            t = (y_table - ys[i]) / (ys[i + 1] - ys[i])
+            return round(xs[i] + t * (xs[i + 1] - xs[i]))
+
+    return xs[-1]   # unreachable
 
 
 # ── Step 3: Run Kraken segmentation to find text row baselines ────────────────
@@ -460,7 +562,8 @@ def run_cell_ocr(table_bgr: np.ndarray,
                  row_ranges: list[tuple[int, int]],
                  col_ranges: list[int],
                  pad: int = 3,
-                 ocr_model: Path = OCR_MODEL) -> list[list[str]]:
+                 ocr_model: Path = OCR_MODEL,
+                 bands: list[dict] | None = None) -> list[list[str]]:
     """
     Crop all cells, save to a temp directory, then run one Kraken batch call
     with -I glob so the model loads only once.
@@ -484,8 +587,12 @@ def run_cell_ocr(table_bgr: np.ndarray,
             for c_idx in range(n_cols):
                 idx = r_idx * n_cols + c_idx
                 left_exp = _COL_LEFT_EXPAND.get(c_idx, _DEFAULT_LEFT_EXPAND)
-                x0  = max(0, col_ranges[c_idx]     + dx - left_exp)
-                x1  = min(table_bgr.shape[1], col_ranges[c_idx + 1] + dx - pad)
+                if bands:
+                    x0 = max(0, interp_col_x(c_idx,     y_center, bands) - left_exp)
+                    x1 = min(table_bgr.shape[1], interp_col_x(c_idx + 1, y_center, bands) - pad)
+                else:
+                    x0 = max(0, col_ranges[c_idx]     + dx - left_exp)
+                    x1 = min(table_bgr.shape[1], col_ranges[c_idx + 1] + dx - pad)
                 y0c = max(0, y0 + pad)
                 y1c = min(table_bgr.shape[0], y1   - pad)
                 if x1 > x0 and y1c > y0c:
@@ -659,44 +766,46 @@ def write_page_xml(col_ranges: list[int],
                    y_offset: int,
                    page_w: int, page_h: int,
                    out_path: Path,
-                   ocr_rows: list[dict] | None = None) -> None:
+                   ocr_rows: list[dict] | None = None,
+                   bands: list[dict] | None = None,
+                   text_fn=None) -> None:
     """Write a PAGE XML file (2013-07-15 schema) with a TableRegion + TableCells.
 
-    Row 0 is a blank header row covering the printed column-label area (y=0 to
-    y_offset in page coordinates). Data rows start at row index 1 so that
-    Transkribus treats row 0 as the header and leaves it empty for human entry.
-    Each data cell gets a <Baseline> at 75 % of the cell height so Transkribus
-    can anchor transcriptions correctly.
-    Cell coordinates are parallelograms that account for the column tilt.
-    If ocr_rows is provided, recognised text is embedded in each TextLine.
+    Row 0 = printed column-label area (empty header).
+    Data rows start at row index 1; each cell gets a Baseline at 75% height.
+
+    If `bands` is provided (from detect_columns_banded), column x-positions are
+    interpolated per row to capture page bow. Otherwise falls back to the linear
+    TILT_RATE model.
+
+    `text_fn` is an optional callable applied to each cell's text before writing
+    (e.g. to transliterate digits). Default: identity (no transformation).
     """
     from datetime import datetime
     now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-    n_rows = len(row_ranges)   # row 0 = column-label header; rows 1…N = data
-    n_cols = len(col_ranges) - 1
-    table_h     = page_h - y_offset
+    n_rows  = len(row_ranges)
+    n_cols  = len(col_ranges) - 1
+    table_h = page_h - y_offset
 
-    def _tilt_x(x: int, y_table: int) -> int:
-        return x + round((table_h / 2 - y_table) * TILT_RATE)
+    def _col_x(c_idx: int, y_table: int) -> int:
+        if bands:
+            return interp_col_x(c_idx, y_table, bands)
+        return col_ranges[c_idx] + round((table_h / 2 - y_table) * TILT_RATE)
 
-    def _cell_pts(cx0: int, cy0_table: int, cx1: int, cy1_table: int) -> str:
-        """Return page-coordinate parallelogram corners (tilt-corrected)."""
+    def _cell_pts(c0: int, cy0_table: int, c1: int, cy1_table: int) -> str:
         corners = [
-            (_tilt_x(cx0, cy0_table), cy0_table + y_offset),
-            (_tilt_x(cx1, cy0_table), cy0_table + y_offset),
-            (_tilt_x(cx1, cy1_table), cy1_table + y_offset),
-            (_tilt_x(cx0, cy1_table), cy1_table + y_offset),
+            (_col_x(c0, cy0_table), cy0_table + y_offset),
+            (_col_x(c1, cy0_table), cy0_table + y_offset),
+            (_col_x(c1, cy1_table), cy1_table + y_offset),
+            (_col_x(c0, cy1_table), cy1_table + y_offset),
         ]
         return " ".join(f"{x},{y}" for x, y in corners)
 
-    def _baseline_pts(cx0: int, cy0_table: int, cx1: int, cy1_table: int,
+    def _baseline_pts(c0: int, cy0_table: int, c1: int, cy1_table: int,
                       frac: float = 0.75) -> str:
-        """Return two-point baseline at `frac` of the cell height (in page coords)."""
-        cy_bl = cy0_table + (cy1_table - cy0_table) * frac
-        y_bl  = round(cy_bl) + y_offset
-        x_left  = _tilt_x(cx0, round(cy_bl))
-        x_right = _tilt_x(cx1, round(cy_bl))
-        return f"{x_left},{y_bl} {x_right},{y_bl}"
+        cy_bl = round(cy0_table + (cy1_table - cy0_table) * frac)
+        y_bl  = cy_bl + y_offset
+        return f"{_col_x(c0, cy_bl)},{y_bl} {_col_x(c1, cy_bl)},{y_bl}"
 
     # Table region covers detected rows only (starts at first detected row).
     tx0, ty0 = col_ranges[0], row_ranges[0][0] + y_offset
@@ -710,13 +819,15 @@ def write_page_xml(col_ranges: list[int],
     for r_idx, (y0, y1) in enumerate(row_ranges):
         for c_idx in range(n_cols):
             cid  = f"cell_r{r_idx}_c{c_idx}"
-            cpts = _cell_pts(col_ranges[c_idx], y0, col_ranges[c_idx + 1], y1)
+            cpts = _cell_pts(c_idx, y0, c_idx + 1, y1)
             text = ""
             if r_idx > 0 and ocr_rows and (r_idx - 1) < len(ocr_rows):
                 col_name = LEFT_COLS[c_idx] if c_idx < len(LEFT_COLS) else ""
                 text = ocr_rows[r_idx - 1].get(col_name, "").strip()
+                if text and text_fn:
+                    text = text_fn(text)
             if text:
-                bl = _baseline_pts(col_ranges[c_idx], y0, col_ranges[c_idx + 1], y1)
+                bl = _baseline_pts(c_idx, y0, c_idx + 1, y1)
                 textline = (
                     f'        <TextLine id="line_{cid}">\n'
                     f'          <Coords points="{cpts}"/>\n'
@@ -759,7 +870,8 @@ def write_page_xml(col_ranges: list[int],
 
 def write_column_preview(table_bgr: np.ndarray, col_ranges: list[int],
                          row_ranges: list[tuple[int, int]],
-                         out_path: Path = Path("column_preview.html")) -> None:
+                         out_path: Path = Path("column_preview.html"),
+                         bands: list[dict] | None = None) -> None:
     """Write an HTML file showing column grid overlaid on the table header + first 3 data rows."""
     import base64, io
     from PIL import Image as PILImage
@@ -768,14 +880,20 @@ def write_column_preview(table_bgr: np.ndarray, col_ranges: list[int],
     preview_y1 = min(row_ranges[2][1] if len(row_ranges) >= 3 else th, th)
     strip = table_bgr[:preview_y1, :]
 
-    # Draw tilted column lines on the strip
-    # Each line runs from (x + tilt_offset(0, th), 0) to (x + tilt_offset(preview_y1, th), preview_y1)
     vis = strip.copy()
-    colors = [(0, 0, 220), (0, 180, 0)]  # alternating blue-red / green
-    for i, x in enumerate(col_ranges):
-        x_top = x + tilt_offset(0, th)
-        x_bot = x + tilt_offset(preview_y1, th)
-        cv2.line(vis, (x_top, 0), (x_bot, preview_y1 - 1), colors[i % 2], 2)
+    colors = [(0, 0, 220), (0, 180, 0)]
+    for i in range(len(col_ranges)):
+        if bands:
+            # Draw polyline through band sample points within the preview strip
+            pts = [(interp_col_x(i, y, bands), y)
+                   for y in range(0, preview_y1, max(1, preview_y1 // 20))]
+            pts.append((interp_col_x(i, preview_y1 - 1, bands), preview_y1 - 1))
+            for j in range(len(pts) - 1):
+                cv2.line(vis, pts[j], pts[j + 1], colors[i % 2], 2)
+        else:
+            x_top = col_ranges[i] + tilt_offset(0, th)
+            x_bot = col_ranges[i] + tilt_offset(preview_y1, th)
+            cv2.line(vis, (x_top, 0), (x_bot, preview_y1 - 1), colors[i % 2], 2)
 
     # Label columns
     for i in range(len(col_ranges) - 1):
@@ -853,7 +971,7 @@ def main() -> None:
     th, tw = table_bgr.shape[:2]
     log.info("Table crop: %d × %d px (y_offset=%d)", tw, th, y_offset)
 
-    # 2. Detect column dividers (OpenCV)
+    # 2. Detect column dividers (OpenCV) — global, then per-band
     col_ranges = detect_columns(table_bgr)
     n_cols = len(col_ranges) - 1
     print(f"\nOpenCV detected {n_cols} columns (expected {EXPECTED_COLS})")
@@ -861,6 +979,9 @@ def main() -> None:
         name = LEFT_COLS[i] if i < len(LEFT_COLS) else "?"
         print(f"  col {i+1:2d}: x={col_ranges[i]:4d}–{col_ranges[i+1]:4d}"
               f"  ({col_ranges[i+1]-col_ranges[i]:3d}px)  {name}")
+
+    bands = detect_columns_banded(table_bgr, col_ranges)
+    print(f"Per-band detection: {len(bands)}/{N_BANDS} bands usable")
 
     # 3. Run Kraken segmentation to find text rows
     raw_lines = run_segmentation(table_bgr, SEG_CACHE, use_cache=not args.no_cache)
@@ -880,7 +1001,8 @@ def main() -> None:
 
     if args.preview:
         write_column_preview(table_bgr, col_ranges, row_ranges,
-                             out_path=PROJECT_DIR / "column_preview.html")
+                             out_path=PROJECT_DIR / "column_preview.html",
+                             bands=bands)
         return
 
     if args.page_xml:
@@ -895,13 +1017,40 @@ def main() -> None:
             page3.sort(key=lambda r: int(normalize(r["Serial_No"]) or "0"))
             gt_rows_xml = page3
             log.info("Loaded %d GT rows for page 3", len(gt_rows_xml))
+
+        upload_dir  = PROJECT_DIR / "Transkribus upload"
+        image_stem  = PAGE3_IMAGE.stem   # "deskewed_page3" — override with Transkribus name
+        xml_name    = "Hadita_3.xml"     # matches Hadita_3.jpeg in Transkribus
+
+        # GT is stored with Western digits (0-9). Two output variants:
+        # - "original": digits converted back to Arabic-Indic (٠–٩), as in the manuscript
+        # - "western arabic transliteration": digits kept as Western (0-9)
+
+        def _to_eastern(text: str) -> str:
+            return text.translate(W2E)
+
+        # Version 1: original — Arabic-Indic digits, no other post-processing
+        out_original = PROJECT_DIR / "page3_segmentation.xml"
         write_page_xml(col_ranges, row_ranges, y_offset, pw, ph,
-                       out_path=PROJECT_DIR / "page3_segmentation.xml",
-                       ocr_rows=gt_rows_xml)
+                       out_path=out_original,
+                       ocr_rows=gt_rows_xml, bands=bands,
+                       text_fn=_to_eastern)
+        (upload_dir / "original" / xml_name).write_bytes(out_original.read_bytes())
+        print(f"Original → {upload_dir / 'original' / xml_name}")
+
+        # Version 2: western arabic transliteration — Western digits, no other post-processing
+        out_western = PROJECT_DIR / "page3_segmentation_western.xml"
+        write_page_xml(col_ranges, row_ranges, y_offset, pw, ph,
+                       out_path=out_western,
+                       ocr_rows=gt_rows_xml, bands=bands,
+                       text_fn=None)
+        (upload_dir / "western arabic transliteration" / xml_name).write_bytes(out_western.read_bytes())
+        print(f"Western  → {upload_dir / 'western arabic transliteration' / xml_name}")
         return
 
     # 4. Cell-level OCR
-    ocr_results = run_cell_ocr(table_bgr, row_ranges, col_ranges, ocr_model=ocr_model)
+    ocr_results = run_cell_ocr(table_bgr, row_ranges, col_ranges,
+                               ocr_model=ocr_model, bands=bands)
 
     # 5. Assemble into rows with field names
     rows = assemble_rows(ocr_results)
