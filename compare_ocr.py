@@ -153,17 +153,24 @@ Rules:
   * ٦ (6) = small circle or dot
   * ٠ (0) = a dot, often smaller than ٦
 - Use "" (empty string) for blank cells.
-- Nature_of_Entry is often empty or a ditto mark. When it contains text, common values include:
-  تسلل (infiltration), من تسلل (by infiltration), شراء or شرائي (purchase), ضريبة حرب (war tax).
-  These are examples only — other values may appear; transcribe whatever is written.
-- DITTO MARKS: A cell containing a short double-tick mark (״), a single quotation-like stroke,
-  or the symbol (,,) means "same value as the row above". Output the literal character '"' for these.
-  Do NOT confuse ditto marks with actual numerals or letters.
-  IMPORTANT: The Cat_No column typically contains a single Eastern Arabic digit (e.g., ١).
-  A single vertical stroke in Cat_No is the numeral ١, NOT a ditto mark. Ditto marks have
-  two strokes or a clearly curved quotation shape.
-  IMPORTANT: Never output ditto ('"') for the very first data row — the first row always has
-  a real value, not a ditto mark.
+- Nature_of_Entry is often empty, a ditto mark, or Arabic text (sometimes with a checkmark).
+  CRITICAL for Nature_of_Entry:
+  * If the cell is BLANK (visually empty), output "" (empty string).
+  * If the cell contains a DITTO MARK (״ or double-tick ״״ or ״״״), output exactly: ״
+  * If the cell contains Arabic text, transcribe it exactly (e.g., تح, شراء, بيع, ضريبة حرب, تسلل).
+  * If the cell contains Arabic text FOLLOWED BY a checkmark (✓), output both: e.g., "تح ✓"
+  * If the cell contains ONLY a checkmark (✓), output: ✓
+  * Common values: تسلل (infiltration), شراء or شرائي (purchase), بيع (sale),
+    ضريبة حرب (war tax), تح (abbreviation for تحديث/update).
+  * DITTO DETECTION: Ditto marks look like: ״ (double vertical ticks, like Hebrew quotation mark).
+    Do NOT confuse with: ✓ (checkmark, has a diagonal shape), ١ (Eastern Arabic 1, has a vertical line),
+    or a single apostrophe (').
+  * IMPORTANT: In the FIRST data row, you may see Arabic text or Arabic text + checkmark.
+    In SUBSEQUENT rows, cells often contain just a ditto mark (״) meaning "repeat the Nature_of_Entry
+    from the row above". Carefully distinguish these two symbols.
+  * If uncertain between checkmark and ditto, examine the shape:
+    - Ditto: Two short parallel vertical lines or strokes (״)
+    - Checkmark: A single angled/curved stroke (✓)
 - Tax_LP and Tax_Mils are present whenever a tax was assessed; do not leave them blank unless
   the cell is genuinely empty in the image.
 - STRIKETHROUGH: If text in a cell is crossed out / struck through, wrap it in ~~tildes~~.
@@ -243,12 +250,17 @@ Rules:
   * ٢ (2) = one small angular hook/curve, compact
   * ٣ (3) = two scallops/bumps, wider (like sideways "3")
 - Empty cells → "".
-- Nature_of_Entry is often empty or a ditto mark. When it contains text, common values include:
-  تسلل (infiltration), من تسلل (by infiltration), شراء or شرائي (purchase), ضريبة حرب (war tax).
-  These are examples only — other values may appear; transcribe whatever is written.
-- DITTO MARKS: A short double-tick (״), quotation-like stroke, or (,,) means "same as row above" → output '"'.
-  The Cat_No column typically contains a single Eastern Arabic digit (e.g., ١) — a single vertical
-  stroke there is ١, not a ditto mark. Never output ditto for the first visible row in any crop.
+- Nature_of_Entry is often empty, a ditto mark, or Arabic text (sometimes with a checkmark).
+  CRITICAL for Nature_of_Entry:
+  * If the cell is BLANK, output "" (empty string).
+  * If the cell contains a DITTO MARK (״), output exactly: ״
+  * If the cell contains Arabic text, transcribe it exactly (e.g., تح, شراء, بيع, ضريبة حرب).
+  * If the cell contains Arabic text FOLLOWED BY a checkmark (✓), output both: e.g., "تح ✓"
+  * If the cell contains ONLY a checkmark (✓), output: ✓
+  * DITTO DETECTION: Ditto marks look like ״ (double vertical ticks). Do NOT confuse with ✓ (checkmark).
+  * In the first visible row of a crop, you may see Arabic text or text + checkmark.
+    In subsequent rows, cells often contain ditto marks (״) meaning "repeat from row above".
+  * Common values: تسلل, شراء, بيع, ضريبة حرب, تح (abbreviations/codes).
 - STRIKETHROUGH: crossed-out text → ~~old~~. With correction → ~~old~~ new.
 - Red ink → append [RED]. Uncertain → append [?].
 - NUMERAL SYSTEMS: Western (0-9) and Eastern Arabic (٠-٩) both appear — output each as written.
@@ -330,11 +342,11 @@ register. Study them carefully to understand the expected output format, especia
 
 Example rows (JSON):
 [
-  {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"\\"","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٤","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٢١٤","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٥","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"1940","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"تح ✓","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢","Date":"״","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"״","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣","Date":"״","Property_recorded_under_Block_No":"״","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"״","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٤","Date":"״","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"״","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٢١٤","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٥","Date":"״","Property_recorded_under_Block_No":"״","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"״","New_Serial_No":"١٠٢","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"1940","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]
 """
 
@@ -950,6 +962,74 @@ def run_gemini25_cell_hybrid(page_num: int) -> list[dict]:
     return rows
 
 
+def run_gemini25_cell_hybrid_extended(page_num: int) -> list[dict]:
+    """Approach O2: Extend O with column-strip re-reading for hallucination-prone columns.
+
+    Approach O handles: Parcel_Cat_No, Parcel_Area, Tax_Mils, Tax_LP
+    Approach O2 adds: Date, Property_recorded_under_Block_No, Property_recorded_under_Parcel_No
+
+    These columns are prone to hallucination (repeated Block_No/Parcel_No from early rows).
+    """
+    cached = load_cache("O2", page_num)
+    if cached is not None:
+        return cached
+
+    # Start with Approach O results
+    base_rows = run_gemini25_cell_hybrid(page_num)
+    if not base_rows:
+        save_cache("O2", page_num, [])
+        return []
+
+    # Additional target columns beyond what O already covers
+    extended_cols = ["Date", "Property_recorded_under_Block_No", "Property_recorded_under_Parcel_No"]
+
+    # Detect grid for left table
+    img_path = page_image_path(page_num)
+    h_lines, v_lines, table_img, _ = detect_grid(img_path, "left")
+
+    # Map column indices — auto-detect left-side offset
+    col_widths = [v_lines[i+1] - v_lines[i] for i in range(len(v_lines)-1)]
+    median_w = sorted(col_widths)[len(col_widths)//2]
+    grid_offset = 1 if (v_lines[0] < 30 and col_widths[0] > median_w * 2) else 0
+    if grid_offset > 0:
+        log.info("  O2 grid offset: +%d", grid_offset)
+    col_indices = {col: i + grid_offset for i, col in enumerate(LEFT_COLS)}
+
+    client = _gemini_client()
+
+    # Extract and OCR extended columns
+    col_overrides: dict[str, list[str]] = {}
+    for col_name in extended_cols:
+        col_idx = col_indices.get(col_name)
+        if col_idx is None or col_idx >= len(v_lines) - 1:
+            log.warning("  O2: Column %s (idx %s) not in grid", col_name, col_idx)
+            continue
+
+        x0, x1 = v_lines[col_idx], v_lines[col_idx + 1]
+        strip_cv = table_img[:, x0:x1]
+        strip_pil = Image.fromarray(cv2.cvtColor(strip_cv, cv2.COLOR_BGR2RGB))
+        strip_enhanced = _preprocess_cell_image(strip_pil, upscale=2)
+
+        values = _gemini_ocr_column_strip(client, strip_enhanced, col_name)
+        if values:
+            col_overrides[col_name] = values
+            log.info("  O2 %s: got %d values", col_name, len(values))
+        else:
+            log.warning("  O2 %s: no values", col_name)
+
+        time.sleep(1)  # rate limiting
+
+    # Merge overrides into O results
+    rows = [dict(r) for r in base_rows]
+    for col_name, values in col_overrides.items():
+        for i, val in enumerate(values):
+            if i < len(rows):
+                rows[i][col_name] = val
+
+    save_cache("O2", page_num, rows)
+    return rows
+
+
 def run_fewshot_ensemble(page_num: int) -> list[dict]:
     """Approach Q: Run 5 few-shot variants of Gemini 2.5 and majority-vote per cell.
 
@@ -1513,6 +1593,7 @@ def run_approach(approach: str, page_num: int) -> list[dict]:
         elif approach == "M": return run_gemini25_full_fewshot(page_num)
         elif approach == "N": return run_claude_full_fewshot(page_num)
         elif approach == "O": return run_gemini25_cell_hybrid(page_num)
+        elif approach == "O2": return run_gemini25_cell_hybrid_extended(page_num)
         elif approach == "P": return run_majority_vote_ensemble(page_num)
         elif approach == "Q": return run_fewshot_ensemble(page_num)
         elif approach == "R": return run_gemini25_zoomed_fewshot(page_num)
@@ -1618,10 +1699,51 @@ def run_ensemble(primary: str, secondary: str, page_num: int,
 
 
 # ──────────────────────────────────────────────────────────
+# VALIDATION & HALLUCINATION DETECTION
+# ──────────────────────────────────────────────────────────
+
+def validate_ocr_rows(rows: list[dict]) -> dict:
+    """
+    Detect hallucinated repeated Block_No/Parcel_No values across rows.
+
+    Returns dict with keys:
+      'flagged': list of row indices where Block_No/Parcel_No pairs match earlier rows
+      'count': number of flagged rows
+      'pairs': list of repeated (Block_No, Parcel_No) pairs
+    """
+    seen_pairs: dict[tuple, int] = {}  # (Block_No, Parcel_No) → first row index
+    flagged_rows: list[int] = []
+    repeated_pairs: set[tuple] = set()
+
+    for idx, row in enumerate(rows):
+        block_no = row.get("Property_recorded_under_Block_No", "").strip()
+        parcel_no = row.get("Property_recorded_under_Parcel_No", "").strip()
+
+        # Skip if either is empty or ditto mark
+        if not block_no or not parcel_no or block_no.startswith("[") or parcel_no.startswith("["):
+            continue
+
+        pair = (block_no, parcel_no)
+        if pair in seen_pairs:
+            # This pair already appeared — likely hallucinated
+            flagged_rows.append(idx)
+            repeated_pairs.add(pair)
+            log.debug(f"  Row {idx}: hallucination detected — Block/Parcel pair matches row {seen_pairs[pair]}")
+        else:
+            seen_pairs[pair] = idx
+
+    return {
+        "flagged": flagged_rows,
+        "count": len(flagged_rows),
+        "pairs": sorted(list(repeated_pairs)),
+    }
+
+
+# ──────────────────────────────────────────────────────────
 # COMPARISON OUTPUT
 # ──────────────────────────────────────────────────────────
 
-ALL_APPROACHES = list("ABCDEFGHIJKLMNOPQ")
+ALL_APPROACHES = list("ABCDEFGHIJKLMNOPQR")
 
 
 def save_comparison(results: dict[str, list[dict]], page_num: int):
@@ -1658,18 +1780,37 @@ def _cer(pred: str, ref: str) -> float:
     return edits / len(ref)
 
 
+def _normalize_for_matching(val: str) -> str:
+    """Normalize value for matching: convert Eastern Arabic to Western digits for key matching.
+
+    Keeps T.D.L. entries in Western digits as-is (they are document-faithful).
+    """
+    eastern = "٠١٢٣٤٥٦٧٨٩"
+    western = "0123456789"
+    result = val
+    for e, w in zip(eastern, western):
+        result = result.replace(e, w)
+    return result
+
+
 def score_all(ground_truth_csv: Path):
-    """Score all cached approach results against ground truth CSV."""
+    """Score all cached approach results against ground truth TSV."""
     import csv as csv_mod
 
     # Load ground truth
     gt_rows: dict[tuple, dict] = {}
     with open(ground_truth_csv, newline="", encoding="utf-8-sig") as f:
-        for row in csv_mod.DictReader(f):
-            page = int(row["Page_Number"])
+        # Detect delimiter (TSV or CSV)
+        sample = f.readline()
+        f.seek(0)
+        delimiter = "\t" if "\t" in sample else ","
+        reader = csv_mod.DictReader(f, delimiter=delimiter)
+        for row in reader:
+            page = int(row.get("Page_Number", "0") or "0")
             sno  = row.get("Serial_No", "").strip()
-            if sno:
-                gt_rows[(page, sno)] = row
+            if sno and page > 0:
+                sno_normalized = _normalize_for_matching(sno)
+                gt_rows[(page, sno_normalized)] = row
 
     results = []
     for approach in ALL_APPROACHES:
@@ -1683,7 +1824,8 @@ def score_all(ground_truth_csv: Path):
             compared_cells = 0
             for row in rows:
                 sno = row.get("Serial_No", "").strip()
-                key = (page_num, sno)
+                sno_normalized = _normalize_for_matching(sno)
+                key = (page_num, sno_normalized)
                 gt  = gt_rows.get(key)
                 if not gt:
                     continue
@@ -1693,9 +1835,12 @@ def score_all(ground_truth_csv: Path):
                     if ref == "":
                         continue
                     compared_cells += 1
-                    cer = _cer(pred, ref)
+                    # Normalize both for comparison (digits + whitespace)
+                    pred_norm = _normalize_for_matching(pred).strip()
+                    ref_norm  = _normalize_for_matching(ref).strip()
+                    cer = _cer(pred_norm, ref_norm)
                     total_cer += cer
-                    if pred == ref:
+                    if pred_norm == ref_norm:
                         exact_matches += 1
 
             if compared_cells > 0:
@@ -1735,9 +1880,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--pages",     nargs="+", type=int, default=TEST_PAGES,
                         help="Page numbers to process (default: 3 10 50)")
+    valid_approaches = list(ALL_APPROACHES) + ["O2"]
     parser.add_argument("--approaches", nargs="+", default=ALL_APPROACHES,
-                        choices=ALL_APPROACHES, metavar="APPROACH",
-                        help="Approaches to run: A B C D E F G H I J")
+                        choices=valid_approaches, metavar="APPROACH",
+                        help="Approaches to run: A B C D E F G H I J K L M N O O2 P Q R")
     parser.add_argument("--score",     action="store_true",
                         help="Score cached results against ground_truth_template.csv")
     parser.add_argument("--no-cache",  action="store_true",
@@ -1750,7 +1896,7 @@ def main():
         CACHE_DIR.mkdir(exist_ok=True)
 
     if args.score:
-        gt_path = PROJECT_DIR / "ground_truth_template.csv"
+        gt_path = PROJECT_DIR / "ground_truth.tsv"
         if not gt_path.exists():
             log.error("Ground truth file not found: %s", gt_path)
             sys.exit(1)
