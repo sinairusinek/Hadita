@@ -18,6 +18,8 @@ Usage:
   python segment_unified.py --row-method morph    # force morphological row detection
 """
 
+from __future__ import annotations
+
 import argparse
 import csv
 import json
@@ -605,9 +607,13 @@ def process_page(page_num: int, args) -> None:
     print(f"Rows: {len(row_dicts)} detected ({synth} synthetic from gap interpolation)")
 
     # 4. Load text for cells
-    text_rows = load_text_rows(page_num, cfg)
-    print(f"Text rows loaded: {len(text_rows)} "
-          f"({'GT' if cfg['gt_page'] and text_rows else 'Approach M'})")
+    if args.no_text:
+        text_rows = None
+        print("Text rows: skipped (--no-text)")
+    else:
+        text_rows = load_text_rows(page_num, cfg)
+        print(f"Text rows loaded: {len(text_rows)} "
+              f"({'GT' if cfg['gt_page'] and text_rows else 'Approach M'})")
 
     # 5. Export PAGE XML — two variants (no header row; row 0 = serial no. 1)
     full_ranges = list(row_ranges)
@@ -653,6 +659,8 @@ def main() -> None:
                         help="Row detection method (default: kraken, fallback: morph)")
     parser.add_argument("--col-tags", action="store_true",
                         help="Embed column names as Transkribus structural tags in TableCell custom attribute")
+    parser.add_argument("--no-text", action="store_true",
+                        help="Produce PAGE XML without text content")
     args = parser.parse_args()
 
     pages = [args.page] if args.page else [3, 10, 50]
