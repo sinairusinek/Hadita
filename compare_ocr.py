@@ -144,6 +144,15 @@ Count columns carefully from the right edge of the left table.
 Date values in this register typically fall between 938 and 949 (representing 1938–1949).
 Property_recorded_under_Block_No values in this register typically fall between 4132 and 4152.
 
+SYMBOLS REFERENCE GUIDE (Review before transcribing):
+- ✓ (Checkmark, U+2713): Indicates "yes", "confirmed", or "present" in various columns
+- ״ (Ditto mark, U+05F4): Two short vertical ticks meaning "repeat value from row above"
+- - (Dash, U+002D): Means "nil", "exempted", "not applicable", or "zero"
+- ... (Three dots): Means "not applicable" or "no data" (used in Reference columns)
+- .. (Two dots): Means "not applicable" or "no data" (used in Reference columns)
+- T.D.L: English abbreviation for Transferred to Different Location (preserve verbatim)
+- "" (Empty string): Genuinely blank cell (not a ditto mark, just empty)
+
 Rules:
 - Preserve Arabic script and Eastern Arabic numerals exactly as written (٠١٢٣٤٥٦٧٨٩).
 - IMPORTANT: Carefully distinguish handwritten Eastern Arabic numerals that look similar:
@@ -171,8 +180,14 @@ Rules:
   * If uncertain between checkmark and ditto, examine the shape:
     - Ditto: Two short parallel vertical lines or strokes (״)
     - Checkmark: A single angled/curved stroke (✓)
-- Tax_LP and Tax_Mils are present whenever a tax was assessed; do not leave them blank unless
-  the cell is genuinely empty in the image.
+- Tax_LP (pounds) and Tax_Mils (mills) together express the tax amount.
+  IMPORTANT: Pounds are the larger unit; Mills are subdivisions.
+  Most taxes in this register are less than 1 pound, so:
+  * Tax_LP is often EMPTY (because tax < 1 pound)
+  * Tax_Mils contains the actual amount (e.g., ٦٢٩ mills = 0 pounds 629 mills)
+  * Occasionally Tax_LP has a value (e.g., "١" pound + "٦٢٩" mills = 1 pound 629 mills)
+  * When a row is exempted/no tax: both columns may show - (nil) or be empty
+  * Output "" (empty string) for Tax_LP cells that are genuinely blank — this is normal.
 - STRIKETHROUGH: If text in a cell is crossed out / struck through, wrap it in ~~tildes~~.
   If a correction is written above or beside the deletion, output: ~~old~~ new
   If no replacement is visible, output just: ~~old~~
@@ -244,6 +259,14 @@ and repeats with ditto marks. Do NOT assign this value to "Property_recorded_und
 The "Property_recorded_under_Block_No" column comes THIRD (after Date).
 Count columns carefully from the right edge of the left table.
 
+SYMBOLS REFERENCE GUIDE (Review before transcribing):
+- ✓ (Checkmark, U+2713): Indicates "yes", "confirmed", or "present"
+- ״ (Ditto mark, U+05F4): Two short vertical ticks meaning "repeat value from row above"
+- - (Dash, U+002D): Means "nil", "exempted", "not applicable", or "zero"
+- ... (Three dots): Means "not applicable" or "no data" (used in Reference columns)
+- .. (Two dots): Means "not applicable" or "no data" (used in Reference columns)
+- T.D.L: English abbreviation (preserve verbatim)
+
 Rules:
 - Preserve Arabic script and Eastern Arabic numerals exactly (٠١٢٣٤٥٦٧٨٩).
 - IMPORTANT: Carefully distinguish similar handwritten numerals:
@@ -268,8 +291,14 @@ Rules:
 - THOUSANDS SEPARATOR: Standardize to Western comma (,). E.g., ١٬٢٠٠ → ١,٢٠٠
 - NIL / DASH: A dash or line meaning nil/zero → output -
 - ENGLISH TEXT: Preserve English abbreviations verbatim (T.D.L, T.P.L, D.L).
-- Tax_LP and Tax_Mils are present whenever a tax was assessed; do not leave them blank unless
-  the cell is genuinely empty in the image.
+- Tax_LP (pounds) and Tax_Mils (mills) together express the tax amount.
+  IMPORTANT: Pounds are the larger unit; Mills are subdivisions.
+  Most taxes in this register are less than 1 pound, so:
+  * Tax_LP is often EMPTY (because tax < 1 pound)
+  * Tax_Mils contains the actual amount (e.g., ٦٢٩ mills = 0 pounds 629 mills)
+  * Occasionally Tax_LP has a value (e.g., "١" pound + "٦٢٩" mills = 1 pound 629 mills)
+  * When a row is exempted/no tax: both columns may show - (nil) or be empty
+  * Output "" (empty string) for Tax_LP cells that are genuinely blank — this is normal.
 - Omit entirely empty rows.
 
 Return ONLY valid JSON (no markdown, no extra text):
@@ -345,8 +374,9 @@ Example rows (JSON):
   {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"تح ✓","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
   {"Serial_No":"٢","Date":"״","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"״","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
   {"Serial_No":"٣","Date":"״","Property_recorded_under_Block_No":"״","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"״","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٤","Date":"״","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"״","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٢١٤","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٥","Date":"״","Property_recorded_under_Block_No":"״","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"״","New_Serial_No":"١٠٢","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"1940","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"٣","Date":"״","Property_recorded_under_Block_No":"״","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"״","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٢","Date":"״","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"״","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"..","Tax_LP":"-","Tax_Mils":"-","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٥","Date":"״","Property_recorded_under_Block_No":"״","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"״","New_Serial_No":"١٠٢","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"١٩٤٠","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]
 """
 
@@ -365,9 +395,10 @@ Study them to understand the format, especially:
 
 Example rows (JSON):
 [
-  {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢","Date":"\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\"","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣","Date":"\"","Property_recorded_under_Block_No":"\"","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"\"","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"تح ✓","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٦٣٠","Tax_LP":"✓","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢","Date":"״","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"״","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠٩٠","Tax_LP":"✓","Tax_Mils":"٠٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣","Date":"״","Property_recorded_under_Block_No":"״","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"״","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٢","Date":"״","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"״","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"..","Tax_LP":"-","Tax_Mils":"-","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]
 """
 
