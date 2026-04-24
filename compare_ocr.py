@@ -783,6 +783,28 @@ def run_gemini3f_zoomed(page_num: int)  -> list[dict]: return _run_gemini_zoomed
 
 # ── Few-shot approaches ──
 
+def _postprocess_nature_of_entry(rows: list[dict]) -> list[dict]:
+    """Fix Nature_of_Entry: convert bare checkmarks to ditto marks for non-first rows.
+
+    In tax registers, Nature_of_Entry typically shows:
+    - Row 1 (first section): Arabic text or Arabic + checkmark (e.g., "تح ✓")
+    - Rows 2+: Ditto marks (״) meaning "repeat from row above"
+
+    If OCR outputs a bare checkmark (✓) for rows 2+, convert it to ditto mark (״).
+    This accounts for visual similarity between ditto marks and checkmarks in handwritten documents.
+    """
+    for i, row in enumerate(rows):
+        if i == 0:  # First row: keep as-is
+            continue
+
+        nature = row.get("Nature_of_Entry", "").strip()
+        # If this row has ONLY a checkmark (no Arabic text), convert to ditto
+        if nature == "✓":
+            row["Nature_of_Entry"] = "״"
+
+    return rows
+
+
 def run_gemini25_full_fewshot(page_num: int) -> list[dict]:
     """Approach M: Gemini 2.5 Pro, full page, with few-shot examples."""
     cached = load_cache("M", page_num)
@@ -794,6 +816,7 @@ def run_gemini25_full_fewshot(page_num: int) -> list[dict]:
     raw = _gemini_ocr(client, GEMINI_25_PRO, OCR_PROMPT_FULL_FEWSHOT, [img])
     data = parse_json(raw)
     rows = [normalize_row(r, ALL_DATA_COLS) for r in data.get("rows", [])]
+    rows = _postprocess_nature_of_entry(rows)  # Fix checkmark→ditto confusion
     save_cache("M", page_num, rows)
 
     # Save page-level metadata for haditax (meta_page{N}.json)
@@ -1812,15 +1835,36 @@ def _cer(pred: str, ref: str) -> float:
 
 
 def _normalize_for_matching(val: str) -> str:
-    """Normalize value for matching: convert Eastern Arabic to Western digits for key matching.
+    """Normalize value for matching: convert Eastern Arabic to Western digits and ditto variants.
 
-    Keeps T.D.L. entries in Western digits as-is (they are document-faithful).
+    Normalizations:
+    - Eastern Arabic digits (٠-٩) → Western (0-9)
+    - All ditto mark variants → canonical ״ (U+05F4)
+      * ״ (U+05F4 Hebrew Gershayim) - canonical
+      * " (U+0022 regular quote)
+      * '' (two single quotes)
+      * , , (two commas)
+      All mean "repeat from above" and should match
     """
     eastern = "٠١٢٣٤٥٦٧٨٩"
     western = "0123456789"
     result = val
     for e, w in zip(eastern, western):
         result = result.replace(e, w)
+
+    # Normalize ditto mark variants to canonical form
+    ditto_variants = [
+        '"',      # U+0022 regular double quote
+        "'",      # U+0027 single quote (won't match alone, but catches '')
+        "''",     # Two single quotes
+        ",,",     # Two commas
+    ]
+    ditto_canonical = "״"  # U+05F4 Hebrew Gershayim
+
+    for variant in ditto_variants:
+        if variant in result:
+            result = result.replace(variant, ditto_canonical)
+
     return result
 
 
