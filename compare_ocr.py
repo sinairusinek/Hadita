@@ -146,7 +146,9 @@ Property_recorded_under_Block_No values in this register typically fall between 
 
 SYMBOLS REFERENCE GUIDE (Review before transcribing):
 - ✓ (Checkmark, U+2713): Indicates "yes", "confirmed", or "present" in various columns
-- ״ (Ditto mark, U+05F4): Two short vertical ticks meaning "repeat value from row above"
+- Ditto mark: looks like two short vertical ticks ״ (Hebrew Gershayim U+05F4), or a
+  double-tick, or two commas ,,. Means "repeat value from row above".
+  OUTPUT canonical form: " (ASCII double quote U+0022) — not ״.
 - - (Dash, U+002D): Means "nil", "exempted", "not applicable", or "zero"
 - ... (Three dots): Means "not applicable" or "no data" (used in Reference columns)
 - .. (Two dots): Means "not applicable" or "no data" (used in Reference columns)
@@ -165,7 +167,8 @@ Rules:
 - Nature_of_Entry is often empty, a ditto mark, or Arabic text (sometimes with a checkmark).
   CRITICAL for Nature_of_Entry:
   * If the cell is BLANK (visually empty), output "" (empty string).
-  * If the cell contains a DITTO MARK (״ or double-tick ״״ or ״״״), output exactly: ״
+  * If the cell contains a DITTO MARK (looks like ״ or double-tick ״״), output exactly: "
+    (ASCII double quote U+0022 — not the Hebrew Gershayim ״).
   * If the cell contains Arabic text, transcribe it exactly (e.g., تح, شراء, بيع, ضريبة حرب, تسلل).
   * If the cell contains Arabic text FOLLOWED BY a checkmark (✓), output both: e.g., "تح ✓"
   * If the cell contains ONLY a checkmark (✓), output: ✓
@@ -261,7 +264,8 @@ Count columns carefully from the right edge of the left table.
 
 SYMBOLS REFERENCE GUIDE (Review before transcribing):
 - ✓ (Checkmark, U+2713): Indicates "yes", "confirmed", or "present"
-- ״ (Ditto mark, U+05F4): Two short vertical ticks meaning "repeat value from row above"
+- Ditto mark: looks like two short vertical ticks ״ or a double-tick. Means
+  "repeat value from row above". OUTPUT canonical form: " (ASCII U+0022) — not ״.
 - - (Dash, U+002D): Means "nil", "exempted", "not applicable", or "zero"
 - ... (Three dots): Means "not applicable" or "no data" (used in Reference columns)
 - .. (Two dots): Means "not applicable" or "no data" (used in Reference columns)
@@ -276,7 +280,7 @@ Rules:
 - Nature_of_Entry is often empty, a ditto mark, or Arabic text (sometimes with a checkmark).
   CRITICAL for Nature_of_Entry:
   * If the cell is BLANK, output "" (empty string).
-  * If the cell contains a DITTO MARK (״), output exactly: ״
+  * If the cell contains a DITTO MARK (looks like ״), output exactly: " (ASCII U+0022).
   * If the cell contains Arabic text, transcribe it exactly (e.g., تح, شراء, بيع, ضريبة حرب).
   * If the cell contains Arabic text FOLLOWED BY a checkmark (✓), output both: e.g., "تح ✓"
   * If the cell contains ONLY a checkmark (✓), output: ✓
@@ -372,11 +376,10 @@ register. Study them carefully to understand the expected output format, especia
 Example rows (JSON):
 [
   {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"تح ✓","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢","Date":"״","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"״","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣","Date":"״","Property_recorded_under_Block_No":"״","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"״","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣","Date":"״","Property_recorded_under_Block_No":"״","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"״","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٢","Date":"״","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"״","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"..","Tax_LP":"-","Tax_Mils":"-","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٥","Date":"״","Property_recorded_under_Block_No":"״","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"״","New_Serial_No":"١٠٢","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"١٩٤٠","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"\\"","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"..","Tax_LP":"-","Tax_Mils":"-","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٥","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"١٩٤٠","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]
 """
 
@@ -396,9 +399,9 @@ Study them to understand the format, especially:
 Example rows (JSON):
 [
   {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"تح ✓","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٦٣٠","Tax_LP":"✓","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢","Date":"״","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"״","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠٩٠","Tax_LP":"✓","Tax_Mils":"٠٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣","Date":"״","Property_recorded_under_Block_No":"״","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"״","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٢","Date":"״","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"״","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"..","Tax_LP":"-","Tax_Mils":"-","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠٩٠","Tax_LP":"✓","Tax_Mils":"٠٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"\\"","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"..","Tax_LP":"-","Tax_Mils":"-","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]
 """
 
@@ -783,28 +786,6 @@ def run_gemini3f_zoomed(page_num: int)  -> list[dict]: return _run_gemini_zoomed
 
 # ── Few-shot approaches ──
 
-def _postprocess_nature_of_entry(rows: list[dict]) -> list[dict]:
-    """Fix Nature_of_Entry: convert bare checkmarks to ditto marks for non-first rows.
-
-    In tax registers, Nature_of_Entry typically shows:
-    - Row 1 (first section): Arabic text or Arabic + checkmark (e.g., "تح ✓")
-    - Rows 2+: Ditto marks (״) meaning "repeat from row above"
-
-    If OCR outputs a bare checkmark (✓) for rows 2+, convert it to ditto mark (״).
-    This accounts for visual similarity between ditto marks and checkmarks in handwritten documents.
-    """
-    for i, row in enumerate(rows):
-        if i == 0:  # First row: keep as-is
-            continue
-
-        nature = row.get("Nature_of_Entry", "").strip()
-        # If this row has ONLY a checkmark (no Arabic text), convert to ditto
-        if nature == "✓":
-            row["Nature_of_Entry"] = "״"
-
-    return rows
-
-
 def run_gemini25_full_fewshot(page_num: int) -> list[dict]:
     """Approach M: Gemini 2.5 Pro, full page, with few-shot examples."""
     cached = load_cache("M", page_num)
@@ -816,7 +797,6 @@ def run_gemini25_full_fewshot(page_num: int) -> list[dict]:
     raw = _gemini_ocr(client, GEMINI_25_PRO, OCR_PROMPT_FULL_FEWSHOT, [img])
     data = parse_json(raw)
     rows = [normalize_row(r, ALL_DATA_COLS) for r in data.get("rows", [])]
-    rows = _postprocess_nature_of_entry(rows)  # Fix checkmark→ditto confusion
     save_cache("M", page_num, rows)
 
     # Save page-level metadata for haditax (meta_page{N}.json)
@@ -1835,16 +1815,12 @@ def _cer(pred: str, ref: str) -> float:
 
 
 def _normalize_for_matching(val: str) -> str:
-    """Normalize value for matching: convert Eastern Arabic to Western digits and ditto variants.
+    """Normalize value for matching: Eastern→Western digits and ditto variants → ".
 
-    Normalizations:
-    - Eastern Arabic digits (٠-٩) → Western (0-9)
-    - All ditto mark variants → canonical ״ (U+05F4)
-      * ״ (U+05F4 Hebrew Gershayim) - canonical
-      * " (U+0022 regular quote)
-      * '' (two single quotes)
-      * , , (two commas)
-      All mean "repeat from above" and should match
+    Canonical ditto is ASCII double quote (U+0022). All other ditto-mark variants
+    (Hebrew Gershayim, curly quotes, two straight single quotes, two commas) are
+    folded to it. App-side postprocessing should produce " already; this is a
+    belt-and-braces pass so scoring still succeeds if an upstream layer missed one.
     """
     eastern = "٠١٢٣٤٥٦٧٨٩"
     western = "0123456789"
@@ -1852,18 +1828,16 @@ def _normalize_for_matching(val: str) -> str:
     for e, w in zip(eastern, western):
         result = result.replace(e, w)
 
-    # Normalize ditto mark variants to canonical form
+    ditto_canonical = '"'  # U+0022 ASCII double quote
     ditto_variants = [
-        '"',      # U+0022 regular double quote
-        "'",      # U+0027 single quote (won't match alone, but catches '')
-        "''",     # Two single quotes
-        ",,",     # Two commas
+        "״",       # Hebrew Gershayim (U+05F4)
+        "\u201C",  # Left double quotation mark
+        "\u201D",  # Right double quotation mark
+        "''",      # two straight single quotes
+        ",,",      # two commas
     ]
-    ditto_canonical = "״"  # U+05F4 Hebrew Gershayim
-
     for variant in ditto_variants:
-        if variant in result:
-            result = result.replace(variant, ditto_canonical)
+        result = result.replace(variant, ditto_canonical)
 
     return result
 
