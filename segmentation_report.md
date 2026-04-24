@@ -13,7 +13,29 @@ The goal of this pipeline is to produce a geometrically accurate PAGE XML segmen
 
 ---
 
-## 2. Image Preprocessing: Table Crop
+## 2. Image Deskewing
+
+**Pipeline:** `haditax.py`, function `deskew_page()` (lines 205–277)
+
+The raw scan contains the full two-page spread of the register plus binding, often skewed or rotated. Before any segmentation, the page must be deskewed to a rectangle. The pipeline:
+
+1. **Background separation**: Threshold the image to isolate the bright paper (~205) from the dark scan background (~40)
+2. **Page detection**: Find contours, select the largest area (the physical page)
+3. **Corner detection**: Approximate the page contour to 4 corners using `cv2.approxPolyDP` (tries epsilon multipliers from 0.02 to 0.05)
+4. **Fallback**: If 4-point approximation fails, use `cv2.minAreaRect` to find the best-fit rectangle
+5. **Destination frame**: Compute a rectangle from the max detected edge lengths
+6. **Perspective warp**: Apply `cv2.getPerspectiveTransform` + `cv2.warpPerspective` (INTER_LANCZOS4 interpolation) to map the detected quadrilateral to the destination rectangle
+7. **Caching**: Write the result as a lossless PNG to `.ocr_cache/deskewed_page{N}.png` for reproducibility
+
+**What it corrects:** Gross rotation and perspective distortion of the scan frame (page not square to the camera).
+
+**What it does NOT correct:** Page bow (non-linear curvature due to binding), column-line tilt. These are handled downstream (Section 4.2) by per-band column detection and coordinate interpolation, not by further image warping.
+
+**Output:** `images/deskewed_page{N}.jpg` — the flattened page image, input to all downstream processing.
+
+---
+
+## 3. Image Preprocessing: Table Crop
 
 The full page image contains two facing register pages plus a book binding strip. Only the left data table is processed.
 
@@ -28,7 +50,7 @@ The 316 px skip (`y_offset`) removes the printed taxpayer identification block a
 
 ---
 
-## 3. Row Detection
+## 4. Row Detection
 
 ### 3.1 Neural baseline segmentation (Kraken)
 
@@ -70,7 +92,7 @@ Row boundaries are placed at the midpoint between consecutive row centers, with 
 
 ---
 
-## 4. Column Detection
+## 5. Column Detection
 
 ### 4.1 Global detection (full-height projection)
 
@@ -131,7 +153,7 @@ For any given row y-position, the column x is obtained by linear interpolation b
 
 ---
 
-## 5. PAGE XML Generation
+## 6. PAGE XML Generation
 
 The segmentation is exported in PAGE XML format (schema: 2013-07-15), directly loadable in Transkribus alongside the image.
 
@@ -177,7 +199,7 @@ All coordinates in the XML are in **full-page pixels** (origin at top-left of th
 
 ---
 
-## 6. OCR Accuracy (Kraken two-model pipeline)
+## 7. OCR Accuracy (Kraken two-model pipeline)
 
 For completeness, the pipeline also supports running OCR on the segmented cells using the `gen2_sc_clean_best.mlmodel` (19 MB Ottoman Arabic recognition model). Results on page 3 with ditto-mark resolution applied to both sides:
 
@@ -196,7 +218,7 @@ The OCR results confirm that the segmentation geometry (row and column boundarie
 
 ---
 
-## 7. Design Decisions and Lessons Learned
+## 8. Design Decisions and Open Questions
 
 **Kraken for rows, OpenCV for columns.** Kraken's neural segmentation excels at finding text baselines even in faint or irregular handwriting, making it well-suited for row detection where the signal is the ink itself. Column detection, by contrast, is about finding printed ruling lines — a structural signal better handled by morphological methods tuned for straight high-contrast strokes.
 
@@ -208,9 +230,34 @@ The OCR results confirm that the segmentation geometry (row and column boundarie
 
 **Baseline at 75%.** Arabic text in this register sits near the bottom of each cell's ruled space. Placing the baseline at 75% of cell height provides a reasonable anchor for Transkribus's HTR without requiring per-cell calibration.
 
+### How much to preprocess the image? (Open question / future research)
+
+Two broad strategies exist and have not been definitively resolved:
+
+**Strategy A — Correct in the image (full preprocessing pipeline)**
+
+Each geometric issue (perspective, tilt, bow) is physically corrected in a warp pass before segmentation. Downstream code operates on a flat, normalised image with simple rectangular coordinates.
+
+- Pro: simpler coordinate logic; cell crops more rectangular; potentially better OCR/HTR on individual cells
+- Con: every interpolation pass degrades a degraded historical image; bow varies per page (no fixed parameters — would still need per-page measurement); modern HTR models are robust to moderate distortion
+
+**Strategy B — Correct in coordinates (current approach)**
+
+Minimal image transformation (one perspective deskew pass); remaining geometry (tilt, bow) is handled at the coordinate level via per-band interpolation. The image is touched as little as possible.
+
+- Pro: preserves original pixel values; simpler to reason about what the HTR model sees
+- Con: coordinate logic is more complex; cell crops remain slightly trapezoidal
+
+**Current state:** Strategy B, with one deskew pass (perspective only). Whether this is the right balance is an open question. In particular:
+
+- Does the current deskew pass help or hurt HTR accuracy? (Modern models tolerate moderate skew; resampling softens ink strokes.)
+- Would physically correcting the bow improve cell-level OCR/HTR quality enough to justify the extra warp pass?
+
+These questions should be tested empirically — comparing HTR results on raw, deskew-only, and fully-rectified images — before committing to a more aggressive preprocessing strategy.
+
 ---
 
-## 8. Files
+## 9. Files
 
 | File | Role |
 |------|------|
