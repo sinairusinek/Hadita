@@ -257,15 +257,35 @@ These questions should be tested empirically — comparing HTR results on raw, d
 
 ---
 
-## 9. Files
+## 9. Ground Truth (GT) Specification
+
+**File:** `ground_truth.tsv`
+
+**Current status (2026-04-24):** 65 rows across pages 3, 10, 50 (RA-verified). Maintained by the Research Assistant team via Streamlit/Haditax app with GitHub API save triggers.
+
+**Digit encoding:**
+- **Primary representation**: Eastern Arabic digits (٠-٩) for all numeric columns (Date, Block_No, Parcel_No, Parcel_Cat_No, New_Serial_No, Reference_to_Register_of_Changes_{Volume,Serial}_No, Tax_{LP,Mils}, Total_Tax_{LP,Mils}, Reference_to_Register_of_Exemptions_{Entry_No,Amount_{LP,Mils}}, Net_Assessment_{LP,Mils})
+- **Exception**: T.D.L. (Tax Daily List) reference numbers use Western digits (0-9) — `New_Serial_No: 102, 154` and `Reference_to_Register_of_Changes_Serial_No: 1940` in rows 5 and 21 of page 3 — because these values appear in Western digits in the original document
+- **Rationale**: Eastern Arabic is the primary script of the register; Western digits are reserved for non-Arabic entries and cross-references to external documents
+
+**Quality improvements (recent):**
+- 2026-04-24 08:35 UTC (Yoav): Corrected digit encoding and Nature_of_Entry clarifications
+- 2026-04-24 (standardization): All numeric columns converted to Eastern Arabic digits (٠-٩)
+- 2026-04-24 (refinement): T.D.L. numbers preserved in Western digits to match document
+
+---
+
+## 10. Files
 
 | File | Role |
 |------|------|
 | `kraken_experiment.py` | Full pipeline: crop → row detection → column detection → PAGE XML / OCR |
-| `images/deskewed_page3.jpg` | Input: pre-deskewed page scan |
-| `page3_segmentation.xml` | PAGE XML output (master copy) |
-| `Transkribus upload/Hadita_3.xml` | Copy for Transkribus upload (matches `Hadita_3.jpeg`) |
-| `.ocr_cache/kraken_seg_page3.json` | Cached Kraken segmentation (94 line regions) |
-| `.ocr_cache/kraken_page3.json` | Cached gen2 OCR results |
-| `column_preview.html` | Visual preview: detected column curves overlaid on table strip |
-| `ground_truth.tsv` | Verified GT (33 rows for page 3) — embedded in PAGE XML |
+| `images/deskewed_page{N}.jpg` | Input: pre-deskewed page scans (N=3,10,50) |
+| `page3_segmentation.xml` | PAGE XML output (master copy for page 3) |
+| `Transkribus upload/` | Subdirs: `original/` (Eastern Arabic), `western arabic transliteration/` (Western digits for all numeric columns) |
+| `.ocr_cache/` | Cached OCR results: Kraken segmentation, Approach M/O/O2 outputs, etc. |
+| `ground_truth.tsv` | Verified GT (65 rows, pages 3/10/50) — RA-maintained, primary source for score computation |
+| `compare_ocr.py` | OCR comparison framework: runs all approaches (A–R) and Approach O2 (new), scores against GT |
+| `segment_unified.py` | Unified segmentation for PAGE XML generation with configurable options |
+| `haditax.py` | Streamlit app: interactive grid detection, ditto resolution, GT correction interface, GitHub save |
+| `segmentation_report.md` | This document — pipeline methodology, design decisions, open research questions |
