@@ -96,8 +96,6 @@ def convert_digits(text: str, mode: str) -> str:
 
 def convert_df_digits(df: pd.DataFrame, mode: str, skip_cols: list[str] | None = None) -> pd.DataFrame:
     """Return a copy of df with digit conversion applied to all string columns."""
-    if mode == "arabic":
-        return df  # OCR data is already in Arabic digits
     df = df.copy()
     for col in df.columns:
         if skip_cols and col in skip_cols:

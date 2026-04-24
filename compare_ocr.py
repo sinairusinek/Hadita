@@ -109,22 +109,32 @@ ALL_DATA_COLS = LEFT_COLS + META_COLS
 
 
 # ──────────────────────────────────────────────────────────
-# OCR PROMPT
+# OCR PROMPTS
 # ──────────────────────────────────────────────────────────
 
-OCR_PROMPT_FULL = """
-You are an expert palaeographer specialising in British Mandate Palestine administrative documents.
-The image shows a page (or portion of a page) from a Tax Register, Form TR/39.
+# Per-register config for hints injected into the full-page prompt.
+# Future work: expand this config (village name, common Parcel_Cat_No values, etc.)
+# and consider how it interacts with GT storage and the wizard UI.
+REGISTER_HINTS = {
+    "hadita": {
+        "date_range": "938–949 (representing 1938–1949)",
+        "block_range": "4132–4152",
+        "village_arabic": "الحديثة",
+    }
+}
 
-The page header contains:
-  - "Tax-Payer" followed by an Arabic name and, immediately after the name, a handwritten
-    identifier/reference number (in Eastern Arabic or Western digits).
-    The name may have 3–4 components. Transcribe every component exactly as written — do not
-    skip or merge any part of the name.
-  - "Village" followed by an Arabic village name (always الحديثة for this register)
-  - "Folio No." followed by a number
+def _fmt_register_hints(register: str = "hadita") -> str:
+    h = REGISTER_HINTS[register]
+    return (
+        f"Date values in this register typically fall between {h['date_range']}.\n"
+        f"Property_recorded_under_Block_No values in this register typically fall between {h['block_range']}."
+    )
 
-The LEFT side of the page is a table with these columns (right-to-left reading order):
+
+# Shared rules block — used verbatim by both OCR_PROMPT_FULL and OCR_PROMPT_LEFT_BAND.
+# Edit here; both prompts pick up the change automatically.
+_SHARED_LEFT_RULES = """
+LEFT TABLE COLUMNS (right-to-left reading order):
   Serial_No | Date |
   Property_recorded_under_Block_No | Property_recorded_under_Parcel_No |
   Parcel_Cat_No | Parcel_Area | Nature_of_Entry | New_Serial_No |
@@ -135,91 +145,89 @@ The LEFT side of the page is a table with these columns (right-to-left reading o
   Reference_to_Register_of_Exemptions_Amount_Mils |
   Net_Assessment_LP | Net_Assessment_Mils | Remarks
 
-IMPORTANT column order note: The SECOND column (immediately after Serial_No) is "Date".
-It contains a year-like number (e.g., 938) that is typically the same for every row on the page
-and repeats with ditto marks. Do NOT assign this value to "Property_recorded_under_Block_No".
-The "Property_recorded_under_Block_No" column comes THIRD (after Date).
+IMPORTANT column order: The SECOND column (immediately after Serial_No) is "Date".
+It contains a year-like number (e.g., 938) repeated with ditto marks down the page.
+Do NOT assign this value to "Property_recorded_under_Block_No" — that column comes THIRD.
 Count columns carefully from the right edge of the left table.
 
-Date values in this register typically fall between 938 and 949 (representing 1938–1949).
-Property_recorded_under_Block_No values in this register typically fall between 4132 and 4152.
-
-SYMBOLS REFERENCE GUIDE (Review before transcribing):
-- ✓ (Checkmark, U+2713): Indicates "yes", "confirmed", or "present" in various columns
-- Ditto mark: looks like two short vertical ticks ״ (Hebrew Gershayim U+05F4), or a
-  double-tick, or two commas ,,. Means "repeat value from row above".
-  OUTPUT canonical form: " (ASCII double quote U+0022) — not ״.
-- - (Dash, U+002D): Means "nil", "exempted", "not applicable", or "zero"
-- ... (Three dots): Means "not applicable" or "no data" (used in Reference columns)
-- .. (Two dots): Means "not applicable" or "no data" (used in Reference columns)
-- T.D.L: English abbreviation for Transferred to Different Location (preserve verbatim)
-- "" (Empty string): Genuinely blank cell (not a ditto mark, just empty)
+SYMBOLS REFERENCE GUIDE (review before transcribing):
+- ✓  Checkmark (U+2713): "yes", "confirmed", or "present"
+- "  Ditto mark: two short parallel vertical ticks, a double-comma (,,), or similar variant.
+    Means "repeat value from row above". Always output as " (ASCII double quote U+0022).
+- -  Dash (U+002D): nil, exempted, not applicable, or zero
+- ... / ..  Three or two dots: not applicable / no data (used in Reference columns)
+- T.D.L  English abbreviation: Transferred to Different Location (preserve verbatim)
+- ""  Empty string: genuinely blank cell
 
 Rules:
 - Preserve Arabic script and Eastern Arabic numerals exactly as written (٠١٢٣٤٥٦٧٨٩).
-- IMPORTANT: Carefully distinguish handwritten Eastern Arabic numerals that look similar:
+- Carefully distinguish similar handwritten Eastern Arabic numerals:
   * ٢ (2) = one small angular hook/curve, compact and tight
   * ٣ (3) = two scallops/bumps, wider and more open (like a sideways "3")
   * ٤ (4) = open angle/hook facing right
   * ٦ (6) = small circle or dot
-  * ٠ (0) = a dot, often smaller than ٦
-- Use "" (empty string) for blank cells.
+  * ٠ (0) = a small dot, often smaller than ٦
+- Empty cells → "".
 - Nature_of_Entry is often empty, a ditto mark, or Arabic text (sometimes with a checkmark).
-  CRITICAL for Nature_of_Entry:
-  * If the cell is BLANK (visually empty), output "" (empty string).
-  * If the cell contains a DITTO MARK (looks like ״ or double-tick ״״), output exactly: "
-    (ASCII double quote U+0022 — not the Hebrew Gershayim ״).
-  * If the cell contains Arabic text, transcribe it exactly (e.g., تح, شراء, بيع, ضريبة حرب, تسلل).
-  * If the cell contains Arabic text FOLLOWED BY a checkmark (✓), output both: e.g., "تح ✓"
-  * If the cell contains ONLY a checkmark (✓), output: ✓
-  * Common values: تسلل (infiltration), شراء or شرائي (purchase), بيع (sale),
-    ضريبة حرب (war tax), تح (abbreviation for تحديث/update).
-  * DITTO DETECTION: Ditto marks look like: ״ (double vertical ticks, like Hebrew quotation mark).
-    Do NOT confuse with: ✓ (checkmark, has a diagonal shape), ١ (Eastern Arabic 1, has a vertical line),
-    or a single apostrophe (').
-  * IMPORTANT: In the FIRST data row, you may see Arabic text or Arabic text + checkmark.
-    In SUBSEQUENT rows, cells often contain just a ditto mark (״) meaning "repeat the Nature_of_Entry
-    from the row above". Carefully distinguish these two symbols.
-  * If uncertain between checkmark and ditto, examine the shape:
-    - Ditto: Two short parallel vertical lines or strokes (״)
-    - Checkmark: A single angled/curved stroke (✓)
-- Tax_LP (pounds) and Tax_Mils (mills) together express the tax amount.
-  IMPORTANT: Pounds are the larger unit; Mills are subdivisions.
-  Most taxes in this register are less than 1 pound, so:
-  * Tax_LP is often EMPTY (because tax < 1 pound)
-  * Tax_Mils contains the actual amount (e.g., ٦٢٩ mills = 0 pounds 629 mills)
-  * Occasionally Tax_LP has a value (e.g., "١" pound + "٦٢٩" mills = 1 pound 629 mills)
-  * When a row is exempted/no tax: both columns may show - (nil) or be empty
-  * Output "" (empty string) for Tax_LP cells that are genuinely blank — this is normal.
-- STRIKETHROUGH: If text in a cell is crossed out / struck through, wrap it in ~~tildes~~.
-  If a correction is written above or beside the deletion, output: ~~old~~ new
-  If no replacement is visible, output just: ~~old~~
-- Add the tag [RED] at the end of a cell value if it is written in red ink.
-- Add [?] at the end if the reading is uncertain.
-- NUMERAL SYSTEMS: Both Western Arabic (0-9) and Eastern Arabic (٠-٩) appear in the document.
-  Output each exactly as written — do NOT convert between them. Western numerals are typically
-  printed (e.g., page numbers, English annotations like "102 T.D.L 1940"); Eastern Arabic
-  numerals are the handwritten entries.
-- CHECKMARKS: Tick marks / checkmarks in cells → output ✓
-- THOUSANDS SEPARATOR: Standardize all thousands separators to Western comma (,).
-  E.g., ١٬٢٠٠ or ١,٢٠٠ → output ١,٢٠٠
-- NIL / DASH: A horizontal dash or line meaning nil / zero → output -
-- ENGLISH TEXT: Preserve English abbreviations and text verbatim (e.g., T.D.L, T.P.L, D.L).
-- If a row is entirely empty, omit it.
-- MULTI-CATEGORY PARCELS: A single parcel may have more than one cultivation category (Parcel_Cat_No),
-  recorded as multiple consecutive rows. In such rows, cells for fields like Serial_No,
-  Property_recorded_under_Block_No, Property_recorded_under_Parcel_No, Date, Nature_of_Entry,
-  or New_Serial_No may be genuinely blank in the image — not ditto marks, just empty.
-  Output "" for those cells. Do NOT invent values or insert ditto marks for cells that are visually blank.
+  * BLANK cell → ""
+  * DITTO MARK (two short parallel vertical ticks) → "
+    Shape guide: ditto = two vertical strokes; ✓ = single angled/curved stroke; ١ = single vertical line.
+  * Arabic text → transcribe exactly (e.g., تح, شراء, بيع, ضريبة حرب, تسلل)
+  * Arabic text + checkmark → output both, e.g., "تح ✓"
+  * Checkmark only → ✓
+  * Common values: تسلل (infiltration), شراء / شرائي (purchase), بيع (sale),
+    ضريبة حرب (war tax), تح (abbreviation for تحديث/update)
+- Tax_LP (Lira Palestina — pounds) and Tax_Mils (mils) form the tax amount (1 LP = 1000 mils).
+  Because most assessed taxes are less than 1 LP, Tax_LP is usually NOT a number.
+  Tax_LP values: "✓" (assessed), "-" (nil/exempted), Eastern Arabic digit(s) (rare, tax ≥ 1 LP), "" (blank).
+  Tax_Mils: always the numeric mils amount (1–3 Eastern Arabic digits, or "-" for nil).
+  Do NOT copy a Tax_Mils value into Tax_LP. Do NOT leave Tax_LP empty if ✓ or - is drawn in the cell.
+- STRIKETHROUGH: crossed-out text → ~~old~~; with visible correction → ~~old~~ new.
+- MARKERS: append [RED] if written in red ink; append [?] if the reading is uncertain.
+  Examples: "٦٢٩ [?]" (uncertain read), "~~٢١٤~~ ٢١٦" (correction), "٨٧٦ [RED]" (red ink).
+- NUMERAL SYSTEMS: Western (0-9) and Eastern Arabic (٠-٩) both appear — output each exactly as written.
+  Western numerals appear in printed labels, English annotations (e.g., "102 T.D.L 1940"), and some
+  handwritten reference numbers; Eastern Arabic numerals are the standard handwritten entries.
+- CHECKMARKS: tick marks / checkmarks → output ✓
+- THOUSANDS SEPARATOR: standardize to Western comma (,). E.g., ١٬٢٠٠ → ١,٢٠٠
+- NIL / DASH: a horizontal dash or line meaning nil/zero → output -
+- ENGLISH TEXT: preserve abbreviations verbatim (T.D.L = Transferred to Different Location,
+  T.P.L = Transferred to Previous Location, D.L = Different Location).
+- NEVER omit a row. If a row is entirely blank, output it with all fields empty
+  and Row_Confidence:"low". (Omitting rows breaks row-keyed evaluation.)
+- UNCERTAINTY: if you cannot confidently read a cell, output "" or append [?] to your best guess.
+  Never invent plausible-looking digits or Arabic text to fill a cell you cannot read.
+- MULTI-CATEGORY PARCELS: a single parcel may span multiple consecutive rows (one per cultivation
+  category). In those extra rows, Serial_No, Block_No, Parcel_No, Date, Nature_of_Entry, and
+  New_Serial_No are genuinely blank — not ditto marks. Output "" for those cells; do not fabricate.
+"""
 
+
+# ── Full-page prompt (Approaches A, C, E, K and their few-shot variants) ──
+
+_FULL_HEADER = f"""You are an expert palaeographer specialising in British Mandate Palestine administrative documents.
+The image shows a page (or portion of a page) from a Tax Register, Form TR/39.
+
+The page header contains:
+  - "Tax-Payer" followed by an Arabic name and, immediately after the name, a handwritten
+    identifier/reference number (in Eastern Arabic or Western digits).
+    The name may have 3–4 components. Transcribe every component exactly as written — do not
+    skip or merge any part of the name.
+  - "Village" followed by an Arabic village name
+  - "Folio No." followed by a number
+
+{_fmt_register_hints("hadita")}
+"""
+
+_FULL_SCHEMA = """
 Return ONLY valid JSON in this exact structure (no markdown fences, no extra text):
 {
   "page_meta": {
     "folio_number": "...",
     "tax_payer_arabic": "<name in Arabic script as written>",
     "tax_payer_romanized": "<name romanized to Latin>",
-    "tax_payer_id_arabic": "<identifier in Arabic-Indic/Eastern Arabic digits as written, or empty>",
-    "tax_payer_id_romanized": "<identifier in Latin/Western digits, or empty>",
+    "tax_payer_id_arabic": "<identifier in Eastern Arabic digits as written, or empty>",
+    "tax_payer_id_romanized": "<identifier in Western digits, or empty>",
     "village_arabic": "<village name in Arabic>"
   },
   "rows": [
@@ -240,71 +248,19 @@ Return ONLY valid JSON in this exact structure (no markdown fences, no extra tex
     }
   ]
 }
-""".strip()
+"""
 
-OCR_PROMPT_LEFT_BAND = """
-You are an expert palaeographer reading a British Mandate Palestine Tax Register (Form TR/39).
-This image is a CROPPED BAND from the LEFT side of one page.
-It shows a subset of rows from the left table. Columns (right-to-left reading order):
-  Serial_No | Date |
-  Property_recorded_under_Block_No | Property_recorded_under_Parcel_No |
-  Parcel_Cat_No | Parcel_Area | Nature_of_Entry | New_Serial_No |
-  Reference_to_Register_of_Changes_Volume_No | Reference_to_Register_of_Changes_Serial_No |
-  Tax_LP | Tax_Mils | Total_Tax_LP | Total_Tax_Mils |
-  Reference_to_Register_of_Exemptions_Entry_No |
-  Reference_to_Register_of_Exemptions_Amount_LP |
-  Reference_to_Register_of_Exemptions_Amount_Mils |
-  Net_Assessment_LP | Net_Assessment_Mils | Remarks
+OCR_PROMPT_FULL = (_FULL_HEADER + _SHARED_LEFT_RULES + _FULL_SCHEMA).strip()
 
-IMPORTANT column order note: The SECOND column (immediately after Serial_No) is "Date".
-It contains a year-like number (e.g., 938) that is typically the same for every row on the page
-and repeats with ditto marks. Do NOT assign this value to "Property_recorded_under_Block_No".
-The "Property_recorded_under_Block_No" column comes THIRD (after Date).
-Count columns carefully from the right edge of the left table.
 
-SYMBOLS REFERENCE GUIDE (Review before transcribing):
-- ✓ (Checkmark, U+2713): Indicates "yes", "confirmed", or "present"
-- Ditto mark: looks like two short vertical ticks ״ or a double-tick. Means
-  "repeat value from row above". OUTPUT canonical form: " (ASCII U+0022) — not ״.
-- - (Dash, U+002D): Means "nil", "exempted", "not applicable", or "zero"
-- ... (Three dots): Means "not applicable" or "no data" (used in Reference columns)
-- .. (Two dots): Means "not applicable" or "no data" (used in Reference columns)
-- T.D.L: English abbreviation (preserve verbatim)
+# ── Cropped-band prompt (Approaches B, D, F, L, R and their few-shot variants) ──
 
-Rules:
-- Preserve Arabic script and Eastern Arabic numerals exactly (٠١٢٣٤٥٦٧٨٩).
-- IMPORTANT: Carefully distinguish similar handwritten numerals:
-  * ٢ (2) = one small angular hook/curve, compact
-  * ٣ (3) = two scallops/bumps, wider (like sideways "3")
-- Empty cells → "".
-- Nature_of_Entry is often empty, a ditto mark, or Arabic text (sometimes with a checkmark).
-  CRITICAL for Nature_of_Entry:
-  * If the cell is BLANK, output "" (empty string).
-  * If the cell contains a DITTO MARK (looks like ״), output exactly: " (ASCII U+0022).
-  * If the cell contains Arabic text, transcribe it exactly (e.g., تح, شراء, بيع, ضريبة حرب).
-  * If the cell contains Arabic text FOLLOWED BY a checkmark (✓), output both: e.g., "تح ✓"
-  * If the cell contains ONLY a checkmark (✓), output: ✓
-  * DITTO DETECTION: Ditto marks look like ״ (double vertical ticks). Do NOT confuse with ✓ (checkmark).
-  * In the first visible row of a crop, you may see Arabic text or text + checkmark.
-    In subsequent rows, cells often contain ditto marks (״) meaning "repeat from row above".
-  * Common values: تسلل, شراء, بيع, ضريبة حرب, تح (abbreviations/codes).
-- STRIKETHROUGH: crossed-out text → ~~old~~. With correction → ~~old~~ new.
-- Red ink → append [RED]. Uncertain → append [?].
-- NUMERAL SYSTEMS: Western (0-9) and Eastern Arabic (٠-٩) both appear — output each as written.
-- CHECKMARKS: Tick marks / checkmarks → output ✓
-- THOUSANDS SEPARATOR: Standardize to Western comma (,). E.g., ١٬٢٠٠ → ١,٢٠٠
-- NIL / DASH: A dash or line meaning nil/zero → output -
-- ENGLISH TEXT: Preserve English abbreviations verbatim (T.D.L, T.P.L, D.L).
-- Tax_LP (pounds) and Tax_Mils (mills) together express the tax amount.
-  IMPORTANT: Pounds are the larger unit; Mills are subdivisions.
-  Most taxes in this register are less than 1 pound, so:
-  * Tax_LP is often EMPTY (because tax < 1 pound)
-  * Tax_Mils contains the actual amount (e.g., ٦٢٩ mills = 0 pounds 629 mills)
-  * Occasionally Tax_LP has a value (e.g., "١" pound + "٦٢٩" mills = 1 pound 629 mills)
-  * When a row is exempted/no tax: both columns may show - (nil) or be empty
-  * Output "" (empty string) for Tax_LP cells that are genuinely blank — this is normal.
-- Omit entirely empty rows.
+_BAND_HEADER = """You are an expert palaeographer reading a British Mandate Palestine Tax Register (Form TR/39).
+This image is a CROPPED BAND from the LEFT side of one page — a horizontal strip showing a
+subset of rows. The crop may start at any row; do not assume the first visible row is row 1.
+"""
 
+_BAND_SCHEMA = """
 Return ONLY valid JSON (no markdown, no extra text):
 {
   "rows": [
@@ -322,48 +278,17 @@ Return ONLY valid JSON (no markdown, no extra text):
      "Row_Confidence":"high|medium|low","Red_Ink":"FALSE"}
   ]
 }
-""".strip()
+"""
 
-OCR_PROMPT_RIGHT_BAND = """
-You are an expert palaeographer reading a British Mandate Palestine Tax Register (Form TR/39).
-This image is a CROPPED BAND from the RIGHT side ("Assessment to Account") of one page.
-It shows a subset of rows. Columns:
-  Assessment_Year | Amount_Assessed_LP | Amount_Assessed_Mils |
-  Date_of_Payment | Receipt_No |
-  Amount_Paid_LP | Amount_Paid_Mils |
-  Balance_LP | Balance_Mils | Right_Side_Notes
+OCR_PROMPT_LEFT_BAND = (_BAND_HEADER + _SHARED_LEFT_RULES + _BAND_SCHEMA).strip()
 
-Rules:
-- Preserve Arabic script and Eastern Arabic numerals exactly (٠١٢٣٤٥٦٧٨٩).
-- IMPORTANT: Carefully distinguish similar handwritten numerals:
-  * ٢ (2) = one small angular hook/curve, compact
-  * ٣ (3) = two scallops/bumps, wider (like sideways "3")
-- Empty cells → "".
-- DITTO MARKS: A short double-tick (״), quotation-like stroke, or (,,) means "same as row above" → output '"'.
-- STRIKETHROUGH: crossed-out text → ~~old~~. With correction → ~~old~~ new.
-- Red ink → append [RED]. Uncertain → append [?].
-- NUMERAL SYSTEMS: Western (0-9) and Eastern Arabic (٠-٩) both appear — output each as written.
-- CHECKMARKS: Tick marks / checkmarks → output ✓
-- THOUSANDS SEPARATOR: Standardize to Western comma (,). E.g., ١٬٢٠٠ → ١,٢٠٠
-- NIL / DASH: A dash or line meaning nil/zero → output -
-- ENGLISH TEXT: Preserve English abbreviations verbatim (T.D.L, T.P.L, D.L).
-- Omit entirely empty rows.
+# OCR_PROMPT_RIGHT_BAND removed — right side of the page is not currently transcribed.
+# Before re-introducing: see FUTURE item in the per-register config plan (decide schema,
+# GT storage, and whether the right table shares columns across registers).
 
-Return ONLY valid JSON (no markdown, no extra text):
-{
-  "rows": [
-    {"Assessment_Year":"...","Amount_Assessed_LP":"...","Amount_Assessed_Mils":"...",
-     "Date_of_Payment":"...","Receipt_No":"...",
-     "Amount_Paid_LP":"...","Amount_Paid_Mils":"...",
-     "Balance_LP":"...","Balance_Mils":"...","Right_Side_Notes":"...",
-     "Row_Confidence":"high|medium|low","Red_Ink":"FALSE"}
-  ]
-}
-""".strip()
-
-# ── FEW-SHOT EXAMPLES (from ground truth) ──────────────────
-# Representative rows showing correct transcription for tricky cases:
-#   Parcel_Cat_No = ١٠ (two digits, not just ١), Property_recorded_under_Block_No 4-digit, large Parcel_Area
+# ── FEW-SHOT EXAMPLES (from ground truth, page 3 rows 1-5) ──
+# Regenerated directly from ground_truth.tsv. Serial_No and Parcel_Area in Eastern digits.
+# Tax_LP and Ref_Changes columns now correctly populated from GT.
 FEW_SHOT_EXAMPLES = """
 
 IMPORTANT — Below are correctly transcribed example rows from a similar page in this
@@ -371,22 +296,22 @@ register. Study them carefully to understand the expected output format, especia
   • Parcel_Cat_No is typically a TWO-digit Eastern Arabic number (e.g., ١٠ not ١)
   • Property_recorded_under_Block_No is always a 4-digit Eastern Arabic number (e.g., ٤١٣٢)
   • Parcel_Area is an Eastern Arabic number often with a comma as thousands separator (e.g., ٣٤,٩٢٥)
-  • Tax_Mils is present for most rows — do not leave blank
+  • Tax_LP often contains ✓ (assessed) or - (nil); Tax_Mils holds the numeric amount
+  • A horizontal dash means nil/zero — output -
 
 Example rows (JSON):
 [
-  {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"تح ✓","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"","Tax_LP":"","Tax_Mils":"٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"تح ✓","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٦٣٠","Tax_LP":"✓","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠٩٠","Tax_LP":"✓","Tax_Mils":"٠٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
   {"Serial_No":"٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"\\"","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"..","Tax_LP":"-","Tax_Mils":"-","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٥","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"١٩٤٠","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"٤","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٢١٦","Tax_LP":"✓","Tax_Mils":"٢١٤","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٥","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"\\"","New_Serial_No":"102","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"1940","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]
 """
 
 OCR_PROMPT_FULL_FEWSHOT = (OCR_PROMPT_FULL + "\n\n" + FEW_SHOT_EXAMPLES).strip()
 
-# Left-band few-shot examples — same examples as FEW_SHOT_EXAMPLES but scoped to
-# OCR_PROMPT_LEFT_BAND's JSON schema (no right-side columns).
+# Left-band few-shot examples — identical GT rows as FEW_SHOT_EXAMPLES (unified source of truth).
 _FEW_SHOT_LEFT_BAND_EXAMPLES = """
 
 IMPORTANT — Below are correctly transcribed example rows from a similar page.
@@ -394,14 +319,16 @@ Study them to understand the format, especially:
   • Parcel_Cat_No is typically a TWO-digit Eastern Arabic number (e.g., ١٠ not ١)
   • Property_recorded_under_Block_No is always 4 digits (e.g., ٤١٣٢)
   • Parcel_Area often has a comma thousands separator (e.g., ٣٤,٩٢٥)
-  • Tax_Mils is present for most rows — do not leave blank
+  • Tax_LP often contains ✓ (assessed) or - (nil); Tax_Mils holds the numeric amount
+  • A horizontal dash means nil/zero — output -
 
 Example rows (JSON):
 [
   {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"تح ✓","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٦٣٠","Tax_LP":"✓","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
   {"Serial_No":"٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠٩٠","Tax_LP":"✓","Tax_Mils":"٠٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
   {"Serial_No":"٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"\\"","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"..","Tax_LP":"-","Tax_Mils":"-","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"٤","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٢١٦","Tax_LP":"✓","Tax_Mils":"٢١٤","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٥","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"\\"","New_Serial_No":"102","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"1940","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]
 """
 
@@ -417,55 +344,55 @@ register. Study them carefully to understand the expected output format, especia
   • Parcel_Cat_No is typically a TWO-digit Eastern Arabic number (e.g., ١٠ not ١)
   • Property_recorded_under_Block_No is always a 4-digit Eastern Arabic number (e.g., ٤١٣٢)
   • Parcel_Area is an Eastern Arabic number often with a comma as thousands separator (e.g., ٣٤,٩٢٥)
-  • Tax_Mils is present for most rows — do not leave blank
+  • Tax_LP often contains ✓ (assessed) or - (nil); Tax_Mils holds the numeric amount
   • A horizontal dash means nil/zero — output -
 
 Example rows (JSON):
 """
 
-# Variant 1 (= original M): rows 1-5 (Parcel_Cat_No=10, Block 4132-4134, large Parcel_Area)
+# Variant 1: rows 1-5 — first page rows; shows Nature_of_Entry text+✓, ditto cascades, T.D.L reference
 _FS_ROWS_V1 = """[
-  {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٦٢٩","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Tax_LP":"","Tax_Mils":"٨٥","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"\\"","New_Serial_No":"٩٢","Tax_LP":"٢","Tax_Mils":"٨٧٦","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٤","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Tax_LP":"","Tax_Mils":"٢١٤","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٥","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Tax_LP":"","Tax_Mils":"١٧٥","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"١","Date":"٩٣٨","Property_recorded_under_Block_No":"٤١٣٢","Property_recorded_under_Parcel_No":"٤","Parcel_Cat_No":"١٠","Parcel_Area":"٣٤,٩٢٥","Nature_of_Entry":"تح ✓","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٦٣٠","Tax_LP":"✓","Tax_Mils":"٦٢٩","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٣","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٠","Parcel_Area":"٤,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٧","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠٩٠","Tax_LP":"✓","Tax_Mils":"٠٨٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٢","Parcel_Cat_No":"١٠","Parcel_Area":"١٥٩,٧٧٨","Nature_of_Entry":"\\"","New_Serial_No":"٩٢","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"٢","Tax_Mils":"٨٧٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٤","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٢","Parcel_Cat_No":"١٠","Parcel_Area":"١١,٨٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١٠٠","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٢١٦","Tax_LP":"✓","Tax_Mils":"٢١٤","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٥","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٤","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٧٤١","Nature_of_Entry":"\\"","New_Serial_No":"102","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"1940","Tax_LP":"","Tax_Mils":"١٧٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]"""
 
-# Variant 2: rows 7-11 (Parcel_Cat_No=10, Block 4134-4137, medium Parcel_Areas)
+# Variant 2: rows 7-11 — medium areas, Tax_LP empty on rows without ✓ (Ref_Vol also empty rows 8-10)
 _FS_ROWS_V2 = """[
-  {"Serial_No":"٧","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٣٤","Parcel_Cat_No":"١٠","Parcel_Area":"٨,٥٤٦","Nature_of_Entry":"\\"","New_Serial_No":"١٠١","Tax_LP":"","Tax_Mils":"١٥٤","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٨","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٤٦","Parcel_Cat_No":"١٠","Parcel_Area":"٢,٩٣٥","Nature_of_Entry":"\\"","New_Serial_No":"٩٤","Tax_LP":"","Tax_Mils":"٥٣","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٩","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٤٧","Parcel_Cat_No":"١٠","Parcel_Area":"٢,٤١٤","Nature_of_Entry":"\\"","New_Serial_No":"٩٥","Tax_LP":"","Tax_Mils":"٤٣","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٠","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٥١","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٦٤٣","Nature_of_Entry":"\\"","New_Serial_No":"٩٦","Tax_LP":"","Tax_Mils":"١٧٤","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١١","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٧","Property_recorded_under_Parcel_No":"٤٢","Parcel_Cat_No":"١٠","Parcel_Area":"٨,٥٨٧","Nature_of_Entry":"\\"","New_Serial_No":"١٠٩","Tax_LP":"","Tax_Mils":"١٥٥","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"٧","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٤","Parcel_Cat_No":"١٠","Parcel_Area":"٨,٥٤٦","Nature_of_Entry":"\\"","New_Serial_No":"١٠١","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"١٦٢","Tax_LP":"✓","Tax_Mils":"١٥٤","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٨","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٤٦","Parcel_Cat_No":"١٠","Parcel_Area":"٢,٩٣٥","Nature_of_Entry":"\\"","New_Serial_No":"٩٤","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"","Tax_Mils":"٠٥٣","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٩","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٤٧","Parcel_Cat_No":"١٠","Parcel_Area":"٢,٤١٤","Nature_of_Entry":"\\"","New_Serial_No":"٩٥","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"","Tax_Mils":"٠٤٣","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٠","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٥١","Parcel_Cat_No":"١٠","Parcel_Area":"٩,٦٤٣","Nature_of_Entry":"\\"","New_Serial_No":"٩٦","Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"","Tax_Mils":"١٧٤","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١١","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٧","Property_recorded_under_Parcel_No":"٤٢","Parcel_Cat_No":"١٠","Parcel_Area":"٨,٥٨٧","Nature_of_Entry":"\\"","New_Serial_No":"١٠٩","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"١٦٢","Tax_LP":"✓","Tax_Mils":"١٥٥","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]"""
 
-# Variant 3: rows 12,15,17,19,25 (Parcel_Cat_No=14,13, Block 4138-4140, dash Tax, small Areas)
+# Variant 3: rows 12,15,17,19,25 — Cat_No 14/13, Tax_LP - (nil) on row 12, Arabic text in New_Serial_No (row 19)
 _FS_ROWS_V3 = """[
-  {"Serial_No":"١٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٨","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٤","Parcel_Area":"٧,٨٠٠","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Tax_LP":"","Tax_Mils":"-","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٥","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٩","Property_recorded_under_Parcel_No":"٢٢","Parcel_Cat_No":"١٣","Parcel_Area":"٢,١٧٢","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١٧","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٧","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٣","Parcel_Cat_No":"١٣","Parcel_Area":"١,١٩٦","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١٠","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٩","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٨","Parcel_Cat_No":"١٣","Parcel_Area":"٢,٨٨٩","Nature_of_Entry":"\\"","New_Serial_No":"٩٧","Tax_LP":"","Tax_Mils":"٢٣","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢٥","Date":"\\"","Property_recorded_under_Block_No":"٤١٤٠","Property_recorded_under_Parcel_No":"١٨","Parcel_Cat_No":"١٣","Parcel_Area":"٣,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٣٠","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"١٢","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٨","Property_recorded_under_Parcel_No":"١","Parcel_Cat_No":"١٤","Parcel_Area":"٧,٨٠٠","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"-","Tax_Mils":"-","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٥","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٩","Property_recorded_under_Parcel_No":"٢٢","Parcel_Cat_No":"١٣","Parcel_Area":"٢,١٧٢","Nature_of_Entry":"\\"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠٢٤","Tax_LP":"✓","Tax_Mils":"٠١٧","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٧","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٣","Parcel_Cat_No":"١٣","Parcel_Area":"١,١٩٦","Nature_of_Entry":"\\"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠١٦","Tax_LP":"✓","Tax_Mils":"٠١٠","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٩","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٨","Parcel_Cat_No":"١٣","Parcel_Area":"٢,٨٨٩","Nature_of_Entry":"\\"","New_Serial_No":"انظر ٩٧","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠٢٤","Tax_LP":"✓","Tax_Mils":"٠٢٣","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢٥","Date":"\\"","Property_recorded_under_Block_No":"٤١٤٠","Property_recorded_under_Parcel_No":"١٨","Parcel_Cat_No":"١٣","Parcel_Area":"٣,٧٢٩","Nature_of_Entry":"\\"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٣٢","Tax_LP":"✓","Tax_Mils":"٠٣٠","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]"""
 
-# Variant 4: rows 21,23,26,29,31 (Parcel_Cat_No=13,10, Block 4139-4141, small Tax, varied Areas)
+# Variant 4: rows 21,23,26,29,31 — T.D.L reference (row 21), very small Parcel_Area (row 26: ٦٤)
 _FS_ROWS_V4 = """[
-  {"Serial_No":"٢١","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٩","Property_recorded_under_Parcel_No":"٤٥","Parcel_Cat_No":"١٣","Parcel_Area":"٩٦٩","Nature_of_Entry":"\\"","New_Serial_No":"١٥٤","Tax_LP":"","Tax_Mils":"٨","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٤٦","Parcel_Cat_No":"١٣","Parcel_Area":"١,٦٢٦","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١٣","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢٦","Date":"\\"","Property_recorded_under_Block_No":"٤١٤٠","Property_recorded_under_Parcel_No":"٥٠","Parcel_Cat_No":"١٣","Parcel_Area":"٦٤","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"١","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢٩","Date":"\\"","Property_recorded_under_Block_No":"٤١٤١","Property_recorded_under_Parcel_No":"٧","Parcel_Cat_No":"١٣","Parcel_Area":"٢٠,٠٠٩","Nature_of_Entry":"\\"","New_Serial_No":"١١٣","Tax_LP":"","Tax_Mils":"١٦٠","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣١","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"","Parcel_Cat_No":"١٠","Parcel_Area":"١٢,٥٦٨","Nature_of_Entry":"\\"","New_Serial_No":"١١٣","Tax_LP":"","Tax_Mils":"٢٢٦","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"٢١","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٤٥","Parcel_Cat_No":"١٣","Parcel_Area":"٩٦٩","Nature_of_Entry":"\\"","New_Serial_No":"154","Reference_to_Register_of_Changes_Volume_No":"T.D.L","Reference_to_Register_of_Changes_Serial_No":"1940","Tax_LP":"","Tax_Mils":"٠٠٨","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٤٦","Parcel_Cat_No":"١٣","Parcel_Area":"١,٦٢٦","Nature_of_Entry":"\\"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠١٦","Tax_LP":"✓","Tax_Mils":"٠١٣","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢٦","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٥٠","Parcel_Cat_No":"١٣","Parcel_Area":"٦٤","Nature_of_Entry":"\\"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠٠٨","Tax_LP":"✓","Tax_Mils":"٠٠١","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢٩","Date":"\\"","Property_recorded_under_Block_No":"٤١٤١","Property_recorded_under_Parcel_No":"٧","Parcel_Cat_No":"١٣","Parcel_Area":"٢٠,٠٠٩","Nature_of_Entry":"\\"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"١٦٨","Tax_LP":"✓","Tax_Mils":"١٦٠","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣١","Date":"\\"","Property_recorded_under_Block_No":"","Property_recorded_under_Parcel_No":"","Parcel_Cat_No":"١٠","Parcel_Area":"١٢,٥٦٨","Nature_of_Entry":"\\"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٢٣٤","Tax_LP":"✓","Tax_Mils":"٢٢٦","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]"""
 
-# Variant 5: rows 6,13,16,27,32 (Parcel_Cat_No=10,16,13, mixed Blocks, dash Tax_LP)
+# Variant 5: rows 6,13,16,27,32 — Cat_No 16 (rows 13/16), Tax_LP - (nil), Parcel_No blank rows
 _FS_ROWS_V5 = """[
-  {"Serial_No":"٦","Date":"\\"","Property_recorded_under_Block_No":"٤١٣٤","Property_recorded_under_Parcel_No":"٣٠","Parcel_Cat_No":"١٠","Parcel_Area":"١٩,٢٨٦","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٣٤٧","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٣","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"","Parcel_Cat_No":"١٦","Parcel_Area":"١٧,٠٧٠","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Tax_LP":"","Tax_Mils":"-","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"١٦","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"","Parcel_Cat_No":"١٦","Parcel_Area":"٩٤٨","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"-","Tax_Mils":"-","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٢٧","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٦٥","Parcel_Cat_No":"١٣","Parcel_Area":"٢,٨٠١","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٢٢","Row_Confidence":"high","Red_Ink":"FALSE"},
-  {"Serial_No":"٣٢","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٨","Parcel_Cat_No":"١٣","Parcel_Area":"٦,٥٦٨","Nature_of_Entry":"\\"","New_Serial_No":"","Tax_LP":"","Tax_Mils":"٥٣","Row_Confidence":"high","Red_Ink":"FALSE"}
+  {"Serial_No":"٦","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٣٠","Parcel_Cat_No":"١٠","Parcel_Area":"١٩,٢٨٦","Nature_of_Entry":"\\"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٣٦٠","Tax_LP":"✓","Tax_Mils":"٣٤٧","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٣","Date":"\\"","Property_recorded_under_Block_No":"","Property_recorded_under_Parcel_No":"","Parcel_Cat_No":"١٦","Parcel_Area":"١٧,٠٧٠","Nature_of_Entry":"\\"","New_Serial_No":"١٠٢","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"-","Tax_Mils":"-","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"١٦","Date":"\\"","Property_recorded_under_Block_No":"","Property_recorded_under_Parcel_No":"","Parcel_Cat_No":"١٦","Parcel_Area":"٩٤٨","Nature_of_Entry":"\\"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"...","Tax_LP":"-","Tax_Mils":"-","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٢٧","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"٦٥","Parcel_Cat_No":"١٣","Parcel_Area":"٢,٨٠١","Nature_of_Entry":"\\"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠٢٤","Tax_LP":"✓","Tax_Mils":"٠٢٢","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"},
+  {"Serial_No":"٣٢","Date":"\\"","Property_recorded_under_Block_No":"\\"","Property_recorded_under_Parcel_No":"١٨","Parcel_Cat_No":"١٣","Parcel_Area":"٦,٥٦٨","Nature_of_Entry":"\\"","New_Serial_No":"","Reference_to_Register_of_Changes_Volume_No":"✓","Reference_to_Register_of_Changes_Serial_No":"٠٥٦","Tax_LP":"✓","Tax_Mils":"٠٥٣","Total_Tax_LP":"","Total_Tax_Mils":"","Reference_to_Register_of_Exemptions_Entry_No":"","Reference_to_Register_of_Exemptions_Amount_LP":"","Reference_to_Register_of_Exemptions_Amount_Mils":"","Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"","Row_Confidence":"high","Red_Ink":"FALSE"}
 ]"""
 
 FEW_SHOT_VARIANTS = [
@@ -748,7 +675,7 @@ def _run_gemini_full(approach: str, model_id: str, page_num: int) -> list[dict]:
 
 def _run_gemini_zoomed(approach: str, model_id: str, page_num: int,
                        left_prompt: str = OCR_PROMPT_LEFT_BAND,
-                       right_prompt: str = OCR_PROMPT_RIGHT_BAND) -> list[dict]:
+                       right_prompt: str = "") -> list[dict]:
     cached = load_cache(approach, page_num)
     if cached is not None:
         return cached
@@ -829,47 +756,62 @@ def run_gemini25_zoomed_fewshot(page_num: int) -> list[dict]:
 
 # ── Column-specific cell prompts for hard columns ──
 
+_CELL_PREAMBLE = """\
+MARKERS (apply to any cell):
+  • If a cell is struck through with a correction written above/below, output: ~~old~~ new
+  • If a cell is written in red ink, append [RED]: e.g. "٦٢٩ [RED]"
+  • If you cannot confidently read a cell, append [?]: e.g. "٦٢٩ [?]"
+  • Ditto marks (any form: double vertical ticks, double comma, ") mean "same as row above" — output exactly: "
+  • Never invent a value; prefer "" or [?] over a guess.
+
+"""
+
 CELL_PROMPTS = {
-    "Parcel_Cat_No": """You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
+    "Parcel_Cat_No": _CELL_PREAMBLE + """\
+You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
 This column is "Parcel_Cat_No" (land category number).
 Each cell contains a 1-2 digit Eastern Arabic number. Common values: ١٠, ١٣, ١٤, ١٦.
 IMPORTANT: The digit ٠ (zero) looks like a small dot — do NOT miss it.
 A cell with ١ followed by a small dot is ١٠ (ten), not just ١ (one).
-Ditto marks (a short double-tick ״ or ") mean "same as row above" — output '"'.
 
 Read each cell from top to bottom. Return ONLY a JSON array of string values, one per row.
 Example: ["١٠", "\\"", "\\"", "١٣", "\\""]""",
 
-    "Parcel_Area": """You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
+    "Parcel_Area": _CELL_PREAMBLE + """\
+You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
 This column is "Parcel_Area" (land area in square meters or dunams).
 Each cell contains an Eastern Arabic number, often with a comma as thousands separator.
 Values typically range from ١,٠٠٠ to ٢٠٠,٠٠٠. Some can be as small as ٥٠٠.
 IMPORTANT: Read ALL digits carefully, especially the leading (leftmost) digit.
 Common confusion: ٢ (angular hook) vs ٣ (two scallops). Count the bumps.
-Ditto marks (a short double-tick ״ or ") mean "same as row above" — output '"'.
 
 Read each cell from top to bottom. Return ONLY a JSON array of string values, one per row.
 Example: ["٣٤,٩٢٥", "٤,٧٢٩", "١٥٩,٧٧٨"]""",
 
-    "Tax_Mils": """You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
-This column is "Tax_Mils" (tax amount in mils, part of LP currency).
+    "Tax_Mils": _CELL_PREAMBLE + """\
+You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
+This column is "Tax_Mils" (tax amount in mils; 1 LP = 1000 mils).
 Each cell contains an Eastern Arabic number, typically 1-3 digits. Values range from ١ to ٩٩٩.
 A horizontal dash or line means nil/zero — output "-".
 Do NOT leave cells blank unless genuinely empty.
 Do NOT add leading zeros (output ٨٥ not ٠٨٥).
-Ditto marks (a short double-tick ״ or ") mean "same as row above" — output '"'.
 
 Read each cell from top to bottom. Return ONLY a JSON array of string values, one per row.
 Example: ["٦٢٩", "٨٥", "٨٧٦", "٢١٤"]""",
 
-    "Tax_LP": """You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
-This column is "Tax_LP" (tax amount in Palestinian Pounds).
-Each cell contains an Eastern Arabic number, typically 1-2 digits, or is empty.
-Most cells may be empty (tax is often less than 1 LP). Do not leave blank if a value is present.
-A horizontal dash or line means nil/zero — output "-".
+    "Tax_LP": _CELL_PREAMBLE + """\
+You are reading a SINGLE COLUMN from a British Mandate Palestine tax register.
+This column is "Tax_LP" (Lira Palestina — pounds portion of the tax).
+Because most assessed taxes in this register are less than 1 LP, this column is usually NOT numeric.
+Expected cell values:
+  • "✓"  — checkmark: tax was assessed (most common non-empty value)
+  • "-"  — dash: nil / exempted
+  • ""   — genuinely blank (also very common)
+  • An Eastern Arabic number (e.g. "٢") — rare case of tax ≥ 1 LP
+Do NOT output a number from the adjacent Tax_Mils column; these cells are independent.
 
 Read each cell from top to bottom. Return ONLY a JSON array of string values, one per row.
-Example: ["", "", "٢", ""]""",
+Example: ["✓", "✓", "٢", "", "✓", "-"]""",
 }
 
 # Columns to target with cell-level OCR (the ones M still gets wrong)
