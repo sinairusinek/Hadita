@@ -722,10 +722,11 @@ def _run_gemini_zoomed(approach: str, model_id: str, page_num: int,
         time.sleep(1)
 
     right_rows: list[dict] = []
-    for band in crops["right_bands"]:
-        raw = _gemini_ocr(client, model_id, right_prompt, [band])
-        right_rows.extend(parse_json(raw).get("rows", []))
-        time.sleep(1)
+    if right_prompt:
+        for band in crops["right_bands"]:
+            raw = _gemini_ocr(client, model_id, right_prompt, [band])
+            right_rows.extend(parse_json(raw).get("rows", []))
+            time.sleep(1)
 
     rows = merge_left_right(left_rows, right_rows)
     save_cache(approach, page_num, rows)
@@ -779,8 +780,7 @@ def run_gemini25_zoomed_fewshot(page_num: int) -> list[dict]:
     Use this instead of M for pages where M loses track and loops mid-page.
     """
     return _run_gemini_zoomed("R", GEMINI_25_PRO, page_num,
-                              left_prompt=OCR_PROMPT_LEFT_BAND_FEWSHOT,
-                              right_prompt=OCR_PROMPT_RIGHT_BAND)
+                              left_prompt=OCR_PROMPT_LEFT_BAND_FEWSHOT)
 
 
 # ── Column-specific cell prompts for hard columns ──
