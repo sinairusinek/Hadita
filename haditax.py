@@ -1003,89 +1003,55 @@ def render_preprocess_view(page_num: int) -> None:
     # ── Stage A — Table-area confirmation ────────────────────────
     if stage == "A_table":
         st.subheader("Stage A — Table boundary")
-        st.caption(
-            "Confirm or adjust the four corners of the data table. "
-            "Select an active corner, then click the image to reposition it, "
-            "or edit x/y directly in the numeric fields."
-        )
+        st.caption("Drag the sliders to position each corner of the data table.")
 
         page_key = str(page_num)
         saved = nb_cfg.get("table_corners", {}).get(page_key)
-        corners_ss_key = f"prep_corners_{page_num}"
-        last_click_key  = f"prep_last_click_{page_num}"
 
-        if corners_ss_key not in st.session_state:
-            st.session_state[corners_ss_key] = (
-                [list(c) for c in saved] if saved
-                else auto_table_corners(deskewed, HEADER_HEIGHT_FRAC, LEFT_TABLE_WIDTH_FRAC)
-            )
-        corners: list[list[int]] = st.session_state[corners_ss_key]
-
-        # Active corner selector (above image so user picks before clicking)
-        corner_names = ["TL", "TR", "BR", "BL"]
-        active_corner = st.radio(
-            "Active corner (click image to move it):",
-            corner_names, horizontal=True,
-            key=f"prep_active_corner_{page_num}",
+        # Seed slider keys on first render (slider keys are the source of truth)
+        _init = (
+            [list(c) for c in saved] if saved
+            else auto_table_corners(deskewed, HEADER_HEIGHT_FRAC, LEFT_TABLE_WIDTH_FRAC)
         )
-        active_idx = corner_names.index(active_corner)
+        corner_labels = ["TL — Top Left", "TR — Top Right", "BR — Bottom Right", "BL — Bottom Left"]
+        for i in range(4):
+            xk, yk = f"prep_cx_{page_num}_{i}", f"prep_cy_{page_num}_{i}"
+            if xk not in st.session_state:
+                st.session_state[xk] = int(_init[i][0])
+            if yk not in st.session_state:
+                st.session_state[yk] = int(_init[i][1])
 
-        # Draw overlay and show
-        overlay = corners_to_overlay(deskewed, corners)
-        pil_overlay = _bgr_to_pil(overlay)
-        pil_small, data_uri = _pil_to_b64_jpeg(pil_overlay, DISPLAY_W)
-        _display_image_uri(data_uri, f"Page {page_num} — red quad = table boundary")
+        def _slider_corners() -> list[list[int]]:
+            return [
+                [st.session_state[f"prep_cx_{page_num}_{i}"],
+                 st.session_state[f"prep_cy_{page_num}_{i}"]]
+                for i in range(4)
+            ]
 
-        # Click-to-pin: only act on genuinely new clicks (compare against last processed)
-        try:
-            from streamlit_image_coordinates import streamlit_image_coordinates
-            clicked = streamlit_image_coordinates(pil_small, key=f"prep_click_{page_num}")
-            if clicked and clicked.get("x") is not None:
-                click_id = (clicked["x"], clicked["y"], active_idx)
-                if st.session_state.get(last_click_key) != click_id:
-                    st.session_state[last_click_key] = click_id
-                    new_corners = [list(c) for c in corners]
-                    new_corners[active_idx] = [
-                        int(clicked["x"] / scale),
-                        int(clicked["y"] / scale),
-                    ]
-                    st.session_state[corners_ss_key] = new_corners
-                    st.rerun()
-        except ImportError:
-            st.info("Install `streamlit-image-coordinates` for click-to-set. Use numeric fields below instead.")
+        # Image preview (always reflects current slider state)
+        overlay = corners_to_overlay(deskewed, _slider_corners())
+        _, data_uri = _pil_to_b64_jpeg(_bgr_to_pil(overlay), DISPLAY_W)
+        _display_image_uri(data_uri, f"Page {page_num} — blue quad = table boundary")
 
-        # Numeric inputs — on_change writes directly to session state (no compare+rerun loop)
-        def _make_corner_cb(idx, axis, key):
-            def _cb():
-                c = [list(x) for x in st.session_state[corners_ss_key]]
-                c[idx][axis] = int(st.session_state[key])
-                st.session_state[corners_ss_key] = c
-            return _cb
-
-        with st.expander("Edit corners manually (x, y in image pixels)", expanded=False):
-            label_short = ["TL", "TR", "BR", "BL"]
-            row1, row2 = st.columns(2), st.columns(2)
-            for i in range(4):
-                col = (row1 if i < 2 else row2)[i % 2]
-                xk = f"prep_cx_{page_num}_{i}"
-                yk = f"prep_cy_{page_num}_{i}"
-                with col:
-                    st.number_input(f"{label_short[i]} x", value=corners[i][0],
-                                    step=1, key=xk, on_change=_make_corner_cb(i, 0, xk))
-                    st.number_input(f"{label_short[i]} y", value=corners[i][1],
-                                    step=1, key=yk, on_change=_make_corner_cb(i, 1, yk))
+        # Four-column slider grid — one column per corner
+        cols = st.columns(4)
+        for i, (label, col) in enumerate(zip(corner_labels, cols)):
+            with col:
+                st.markdown(f"**{label}**")
+                st.slider("X (px)", 0, orig_w, key=f"prep_cx_{page_num}_{i}", step=5)
+                st.slider("Y (px)", 0, orig_h, key=f"prep_cy_{page_num}_{i}", step=5)
 
         btn_col1, btn_col2, _ = st.columns([1, 1, 3])
         with btn_col1:
             if st.button("Reset to auto", key=f"prep_reset_{page_num}"):
-                st.session_state[corners_ss_key] = auto_table_corners(
-                    deskewed, HEADER_HEIGHT_FRAC, LEFT_TABLE_WIDTH_FRAC
-                )
-                st.session_state.pop(last_click_key, None)
+                fresh = auto_table_corners(deskewed, HEADER_HEIGHT_FRAC, LEFT_TABLE_WIDTH_FRAC)
+                for i in range(4):
+                    st.session_state[f"prep_cx_{page_num}_{i}"] = int(fresh[i][0])
+                    st.session_state[f"prep_cy_{page_num}_{i}"] = int(fresh[i][1])
                 st.rerun()
         with btn_col2:
             if st.button("Save & Continue →", type="primary", key=f"prep_save_a_{page_num}"):
-                nb_cfg.setdefault("table_corners", {})[page_key] = corners
+                nb_cfg.setdefault("table_corners", {})[page_key] = _slider_corners()
                 save_notebook_config(NOTEBOOK_CONFIG_FILE, nb_cfg)
                 st.session_state[stage_key] = "B_header"
                 st.rerun()
