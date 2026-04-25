@@ -58,15 +58,34 @@ def corners_to_overlay(
 
 # ── Header-strip crop ───────────────────────────────────────────────────────
 
+def crop_above_table(
+    deskewed: np.ndarray,
+    table_corners: list[list[int]],
+) -> np.ndarray:
+    """Crop the page-metadata band sitting *above* the data table.
+
+    This is the area from y=0 (top of the deskewed page) down to the top
+    edge of the table quadrilateral. It typically contains the printed
+    form title, tax-payer name, registration number, etc.
+    Returns the cropped region as a BGR array.
+    """
+    top_y  = min(table_corners[0][1], table_corners[1][1])  # TL, TR y
+    left_x = min(table_corners[0][0], table_corners[3][0])
+    right_x = max(table_corners[1][0], table_corners[2][0])
+
+    H, W = deskewed.shape[:2]
+    return deskewed[0 : max(1, min(top_y, H)), max(0, left_x) : min(right_x, W)]
+
+
 def crop_header_strip(
     deskewed: np.ndarray,
     table_corners: list[list[int]],
 ) -> np.ndarray:
-    """Crop the printed column-header band from a deskewed page.
+    """Crop the printed column-header band from the *top of the data table*.
 
-    The column headers are the first printed rows *inside* the table area,
-    not the metadata strip above it. We take the top `header_frac` of the
-    table height starting from the table's top edge.
+    The column headers are the first printed rows inside the table area
+    (not the metadata strip above it). We take the top 15% of the table
+    height starting from the table's top edge.
     Returns the cropped region as a BGR array.
     """
     top_y = min(table_corners[0][1], table_corners[1][1])  # TL, TR
@@ -80,12 +99,7 @@ def crop_header_strip(
     right_x = max(table_corners[1][0], table_corners[2][0])
 
     H, W = deskewed.shape[:2]
-    strip_y0 = max(0, strip_y0)
-    strip_y1 = min(H, strip_y1)
-    left_x   = max(0, left_x)
-    right_x  = min(W, right_x)
-
-    return deskewed[strip_y0:strip_y1, left_x:right_x]
+    return deskewed[max(0, strip_y0) : min(H, strip_y1), max(0, left_x) : min(W, right_x)]
 
 
 # ── Gemini header recognition ────────────────────────────────────────────────
@@ -147,6 +161,71 @@ def gemini_flatten_headers(
     # Find the start of the JSON array/object and parse only that portion.
     # raw_decode stops at the end of the first valid JSON value, so trailing
     # explanatory text from Gemini doesn't cause a parse failure.
+    start = next((i for i, c in enumerate(raw) if c in "[{"), None)
+    if start is None:
+        raise RuntimeError(f"Gemini returned no JSON: {raw[:300]}")
+    try:
+        result, _ = json.JSONDecoder().raw_decode(raw, start)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Gemini returned unparseable output: {raw[:300]}") from exc
+
+    if not isinstance(result, list):
+        raise RuntimeError(f"Expected JSON array, got: {type(result)}")
+    return [str(s) for s in result]
+
+
+_METADATA_PROMPT = """\
+This is the top portion of a British Mandate Palestine property tax register page \
+(Form TR/39), above the main data table. It contains printed field labels filled in \
+by hand for this specific page — things like taxpayer name, registration number, \
+village/district, date, etc.
+
+Output ONLY a JSON array of strings — the printed field label names you can read, \
+in top-to-bottom, left-to-right order. Use underscores instead of spaces and keep \
+the label concise, e.g. "Tax_Payer", "Tax_Payer_ID", "Village", "Year".
+Do NOT include field values — only the label names.
+Do NOT include any explanation, markdown, or extra keys. Output only the raw JSON array.\
+"""
+
+
+def gemini_extract_metadata_fields(
+    above_crop: np.ndarray,
+    api_key: Optional[str] = None,
+    model: str = "gemini-2.5-flash",
+) -> list[str]:
+    """Send the above-table metadata band to Gemini and return field label names.
+
+    Returns a list of strings like ["Tax_Payer", "Tax_Payer_ID", ...].
+    """
+    key = api_key or os.environ.get("GOOGLE_API_KEY", "")
+    if not key:
+        raise RuntimeError("GOOGLE_API_KEY not set")
+
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=key)
+
+    pil_img = Image.fromarray(cv2.cvtColor(above_crop, cv2.COLOR_BGR2RGB))
+    buf = _io.BytesIO()
+    pil_img.save(buf, format="JPEG", quality=92)
+
+    parts = [
+        types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg"),
+        types.Part.from_text(text=_METADATA_PROMPT),
+    ]
+    resp = client.models.generate_content(
+        model=model,
+        contents=parts,
+        config=types.GenerateContentConfig(max_output_tokens=1024),
+    )
+    raw = (resp.text or "").strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
     start = next((i for i, c in enumerate(raw) if c in "[{"), None)
     if start is None:
         raise RuntimeError(f"Gemini returned no JSON: {raw[:300]}")

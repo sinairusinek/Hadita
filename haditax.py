@@ -20,7 +20,9 @@ from PIL import Image
 from image_preprocess import (
     auto_table_corners,
     corners_to_overlay,
+    crop_above_table,
     crop_header_strip,
+    gemini_extract_metadata_fields,
     gemini_flatten_headers,
     load_notebook_config,
     save_notebook_config,
@@ -1084,10 +1086,11 @@ def render_preprocess_view(page_num: int) -> None:
 
     # ── Stage B — Header recognition ─────────────────────────────
     elif stage == "B_header":
-        st.subheader("Stage B — Header recognition")
+        st.subheader("Stage B — Fields & column names")
         st.caption(
-            "The header strip is sent to Gemini, which returns a flat ordered list of column names. "
-            "Edit the names below, then Save."
+            "Two separate areas are sent to Gemini: the metadata band above the table "
+            "(page-level fields like taxpayer, ID, etc.) and the table's own column-header rows. "
+            "Edit both lists before saving."
         )
 
         if st.button("← Back to Stage A", key=f"prep_back_{page_num}"):
@@ -1099,23 +1102,67 @@ def render_preprocess_view(page_num: int) -> None:
             deskewed, HEADER_HEIGHT_FRAC, LEFT_TABLE_WIDTH_FRAC
         )
 
+        above_crop  = crop_above_table(deskewed, corners)
         header_crop = crop_header_strip(deskewed, corners)
-        pil_header = _bgr_to_pil(header_crop)
-        _, header_uri = _pil_to_b64_jpeg(pil_header, DISPLAY_W)
 
-        col_img_h, col_ed_h = st.columns([1, 1])
-        with col_img_h:
-            _display_image_uri(header_uri, "Header strip sent to Gemini")
-
+        meta_key     = f"prep_meta_fields_{page_num}"
         col_names_key = f"prep_col_names_{page_num}"
+        if meta_key not in st.session_state:
+            st.session_state[meta_key] = list(nb_cfg.get("metadata_fields", []))
         if col_names_key not in st.session_state:
-            # Pre-populate from notebook_config if already saved, otherwise blank
-            saved_names = nb_cfg.get("column_names", [])
-            st.session_state[col_names_key] = list(saved_names) if saved_names else []
+            st.session_state[col_names_key] = list(nb_cfg.get("column_names", []))
 
-        with col_ed_h:
-            if st.button("Ask Gemini to read header", key=f"prep_gemini_{page_num}", type="primary"):
-                with st.spinner("Sending header to Gemini 2.5 Flash…"):
+        # ── Section 1: page metadata fields ──────────────────────
+        st.markdown("#### Page metadata fields (band above the table)")
+        mc_img, mc_ed = st.columns([1, 1])
+        with mc_img:
+            _, above_uri = _pil_to_b64_jpeg(_bgr_to_pil(above_crop), DISPLAY_W)
+            _display_image_uri(above_uri, "Metadata band above the table")
+        with mc_ed:
+            if st.button("Ask Gemini for metadata fields", key=f"prep_gemini_meta_{page_num}"):
+                with st.spinner("Reading metadata fields…"):
+                    try:
+                        fields = gemini_extract_metadata_fields(above_crop)
+                        st.session_state[meta_key] = fields
+                        st.rerun()
+                    except Exception as exc:
+                        st.error(f"Gemini call failed: {exc}")
+
+        meta_fields: list[str] = st.session_state[meta_key]
+        if meta_fields:
+            st.markdown(f"**{len(meta_fields)} metadata fields** — edit as needed:")
+            updated_meta = []
+            for i, name in enumerate(meta_fields):
+                updated_meta.append(
+                    st.text_input(f"M{i+1}.", value=name, key=f"prep_mf_{page_num}_{i}")
+                )
+            ma_add, ma_del, _ = st.columns([1, 1, 4])
+            with ma_add:
+                if st.button("+ Add field", key=f"prep_madd_{page_num}"):
+                    st.session_state[meta_key] = updated_meta + [""]
+                    st.rerun()
+            with ma_del:
+                if st.button("− Remove last", key=f"prep_mdel_{page_num}", disabled=not updated_meta):
+                    st.session_state[meta_key] = updated_meta[:-1]
+                    st.rerun()
+            meta_fields = updated_meta
+        else:
+            st.info("Click **Ask Gemini for metadata fields** or add manually.")
+            if st.button("+ Add field manually", key=f"prep_madd_manual_{page_num}"):
+                st.session_state[meta_key] = [""]
+                st.rerun()
+
+        st.divider()
+
+        # ── Section 2: column names ───────────────────────────────
+        st.markdown("#### Table column names (header rows inside the table)")
+        cc_img, cc_ed = st.columns([1, 1])
+        with cc_img:
+            _, header_uri = _pil_to_b64_jpeg(_bgr_to_pil(header_crop), DISPLAY_W)
+            _display_image_uri(header_uri, "Column header strip (top of the table)")
+        with cc_ed:
+            if st.button("Ask Gemini for column names", key=f"prep_gemini_cols_{page_num}", type="primary"):
+                with st.spinner("Reading column names…"):
                     try:
                         names = gemini_flatten_headers(header_crop)
                         st.session_state[col_names_key] = names
@@ -1124,37 +1171,40 @@ def render_preprocess_view(page_num: int) -> None:
                         st.error(f"Gemini call failed: {exc}")
 
         col_names: list[str] = st.session_state[col_names_key]
-
         if col_names:
-            st.markdown(f"**{len(col_names)} columns detected** — edit names as needed:")
-            updated = []
+            st.markdown(f"**{len(col_names)} columns detected** — edit as needed:")
+            updated_cols = []
             for i, name in enumerate(col_names):
-                updated.append(
+                updated_cols.append(
                     st.text_input(f"{i+1}.", value=name, key=f"prep_cn_{page_num}_{i}")
                 )
-            c_add, c_del, _ = st.columns([1, 1, 4])
-            with c_add:
+            ca_add, ca_del, _ = st.columns([1, 1, 4])
+            with ca_add:
                 if st.button("+ Add column", key=f"prep_add_{page_num}"):
-                    st.session_state[col_names_key] = updated + [""]
+                    st.session_state[col_names_key] = updated_cols + [""]
                     st.rerun()
-            with c_del:
-                if st.button("− Remove last", key=f"prep_del_{page_num}", disabled=len(updated) == 0):
-                    st.session_state[col_names_key] = updated[:-1]
+            with ca_del:
+                if st.button("− Remove last", key=f"prep_del_{page_num}", disabled=not updated_cols):
+                    st.session_state[col_names_key] = updated_cols[:-1]
                     st.rerun()
-            col_names = updated
+            col_names = updated_cols
         else:
-            st.info("Click **Ask Gemini to read header** to auto-detect columns, or add them manually.")
+            st.info("Click **Ask Gemini for column names** or add manually.")
             if st.button("+ Add column manually", key=f"prep_add_manual_{page_num}"):
                 st.session_state[col_names_key] = [""]
                 st.rerun()
 
+        st.divider()
+
         if col_names:
             if st.button("Save & Confirm ✓", type="primary", key=f"prep_save_b_{page_num}"):
-                nb_cfg["column_names"] = col_names
+                nb_cfg["metadata_fields"] = meta_fields
+                nb_cfg["column_names"]    = col_names
                 nb_cfg["expected_n_cols"] = len(col_names)
                 save_notebook_config(NOTEBOOK_CONFIG_FILE, nb_cfg)
+                st.session_state[meta_key]      = meta_fields
                 st.session_state[col_names_key] = col_names
-                st.session_state[stage_key] = "done"
+                st.session_state[stage_key]     = "done"
                 st.rerun()
 
     # ── Done ──────────────────────────────────────────────────────
