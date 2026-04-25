@@ -17,12 +17,22 @@ import pandas as pd
 import streamlit as st
 from PIL import Image
 
+from image_preprocess import (
+    auto_table_corners,
+    corners_to_overlay,
+    crop_header_strip,
+    gemini_flatten_headers,
+    load_notebook_config,
+    save_notebook_config,
+)
+
 # ── Project paths ────────────────────────────────────────────
 PROJECT_DIR = Path(__file__).parent
 IMAGE_PATTERN = "000nvrj-432316TAX 1-85_page-{:04d}.jpg"
 CACHE_DIR = PROJECT_DIR / ".ocr_cache"
 GROUND_TRUTH_FILE = PROJECT_DIR / "ground_truth.tsv"
 PAGE_METADATA_FILE = PROJECT_DIR / "page_metadata.tsv"
+NOTEBOOK_CONFIG_FILE = PROJECT_DIR / "notebook_config.json"
 
 GITHUB_REPO     = "sinairusinek/Hadita"
 GITHUB_GT_PATH  = "ground_truth.tsv"
@@ -921,12 +931,248 @@ def _render_table_editor(page_num: int, digit_mode: str,
                 all_rows[orig_idx][col] = convert_digits(edited_val, "arabic")
 
 
+# ═══════════════════════════════════════════════════════════════
+# IMAGE PREPROCESSING WIZARD
+# ═══════════════════════════════════════════════════════════════
+
+def _bgr_to_pil(bgr: np.ndarray) -> Image.Image:
+    return Image.fromarray(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
+
+
+def _pil_to_b64_jpeg(pil_img: Image.Image, max_w: int = 700) -> tuple[Image.Image, str]:
+    """Resize to max_w, return (resized_pil, data-URI string)."""
+    import base64
+    w, h = pil_img.size
+    if w > max_w:
+        pil_img = pil_img.resize((max_w, int(h * max_w / w)), Image.LANCZOS)
+    buf = io.BytesIO()
+    pil_img.save(buf, format="JPEG", quality=88)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    return pil_img, f"data:image/jpeg;base64,{b64}"
+
+
+def _display_image_uri(data_uri: str, caption: str = "") -> None:
+    st.markdown(
+        f'<img src="{data_uri}" style="width:100%;border:1px solid #ccc;border-radius:4px">',
+        unsafe_allow_html=True,
+    )
+    if caption:
+        st.caption(caption)
+
+
+def _stepper(current: str) -> None:
+    stages = [("A_table", "Stage A — Table boundary"), ("B_header", "Header recognition"), ("done", "Done")]
+    parts = []
+    for key, label in stages:
+        if key == current:
+            parts.append(f"**→ {label}**")
+        elif stages.index((key, label)) < [s[0] for s in stages].index(current):
+            parts.append(f"~~{label}~~")
+        else:
+            parts.append(label)
+    st.markdown("  |  ".join(parts))
+
+
+def render_preprocess_view(page_num: int) -> None:
+    """Image Preprocessing wizard — Stage A (table corners) + Stage B (header columns)."""
+    DISPLAY_W = 700
+
+    nb_cfg = load_notebook_config(NOTEBOOK_CONFIG_FILE)
+
+    stage_key = f"prep_stage_{page_num}"
+    if stage_key not in st.session_state:
+        st.session_state[stage_key] = "A_table"
+    stage = st.session_state[stage_key]
+
+    _stepper(stage)
+    st.divider()
+
+    with st.spinner("Loading deskewed page…"):
+        deskewed = deskew_page(page_num)
+    orig_h, orig_w = deskewed.shape[:2]
+    scale = DISPLAY_W / orig_w  # display px → image px: divide by scale
+
+    # ── Stage A — Table-area confirmation ────────────────────────
+    if stage == "A_table":
+        st.subheader("Stage A — Table boundary")
+        st.caption(
+            "Confirm or adjust the four corners of the data table. "
+            "Click **Set corner** to pick a corner with a click on the image, "
+            "or edit x/y directly in the numeric fields."
+        )
+
+        page_key = str(page_num)
+        saved = nb_cfg.get("table_corners", {}).get(page_key)
+        corners_ss_key = f"prep_corners_{page_num}"
+        if corners_ss_key not in st.session_state:
+            if saved:
+                st.session_state[corners_ss_key] = [list(c) for c in saved]
+            else:
+                st.session_state[corners_ss_key] = auto_table_corners(
+                    deskewed, HEADER_HEIGHT_FRAC, LEFT_TABLE_WIDTH_FRAC
+                )
+        corners: list[list[int]] = st.session_state[corners_ss_key]
+
+        # Draw overlay and show
+        overlay = corners_to_overlay(deskewed, corners)
+        pil_overlay = _bgr_to_pil(overlay)
+        pil_small, data_uri = _pil_to_b64_jpeg(pil_overlay, DISPLAY_W)
+        _display_image_uri(data_uri, f"Page {page_num} (deskewed) — red quad = detected table boundary")
+
+        # Active corner selector + click interaction
+        corner_names = ["TL (top-left)", "TR (top-right)", "BR (bottom-right)", "BL (bottom-left)"]
+        active_corner = st.radio("Active corner (click image to set):", corner_names, horizontal=True,
+                                 key=f"prep_active_corner_{page_num}")
+        active_idx = corner_names.index(active_corner)
+
+        # streamlit-image-coordinates widget
+        try:
+            from streamlit_image_coordinates import streamlit_image_coordinates
+            clicked = streamlit_image_coordinates(pil_small, key=f"prep_click_{page_num}")
+            if clicked and clicked.get("x") is not None:
+                ix = int(clicked["x"] / scale)
+                iy = int(clicked["y"] / scale)
+                new_corners = [list(c) for c in corners]
+                new_corners[active_idx] = [ix, iy]
+                st.session_state[corners_ss_key] = new_corners
+                st.rerun()
+        except ImportError:
+            st.info("Install `streamlit-image-coordinates` for click-to-set. Use numeric fields below instead.")
+
+        # Numeric inputs (always shown as fallback / fine-tuning)
+        with st.expander("Edit corners manually (x, y in image pixels)", expanded=False):
+            label_short = ["TL", "TR", "BR", "BL"]
+            new_corners = [list(c) for c in corners]
+            cols_a, cols_b = st.columns(2), st.columns(2)
+            for i in range(4):
+                col = (cols_a if i < 2 else cols_b)[i % 2]
+                with col:
+                    nx = st.number_input(f"{label_short[i]} x", value=corners[i][0],
+                                         step=1, key=f"prep_cx_{page_num}_{i}")
+                    ny = st.number_input(f"{label_short[i]} y", value=corners[i][1],
+                                         step=1, key=f"prep_cy_{page_num}_{i}")
+                    new_corners[i] = [int(nx), int(ny)]
+            if new_corners != corners:
+                st.session_state[corners_ss_key] = new_corners
+                st.rerun()
+
+        btn_col1, btn_col2, _ = st.columns([1, 1, 3])
+        with btn_col1:
+            if st.button("Reset to auto", key=f"prep_reset_{page_num}"):
+                st.session_state[corners_ss_key] = auto_table_corners(
+                    deskewed, HEADER_HEIGHT_FRAC, LEFT_TABLE_WIDTH_FRAC
+                )
+                st.rerun()
+        with btn_col2:
+            if st.button("Save & Continue →", type="primary", key=f"prep_save_a_{page_num}"):
+                nb_cfg.setdefault("table_corners", {})[page_key] = corners
+                save_notebook_config(NOTEBOOK_CONFIG_FILE, nb_cfg)
+                st.session_state[stage_key] = "B_header"
+                st.rerun()
+
+    # ── Stage B — Header recognition ─────────────────────────────
+    elif stage == "B_header":
+        st.subheader("Stage B — Header recognition")
+        st.caption(
+            "The header strip is sent to Gemini, which returns a flat ordered list of column names. "
+            "Edit the names below, then Save."
+        )
+
+        if st.button("← Back to Stage A", key=f"prep_back_{page_num}"):
+            st.session_state[stage_key] = "A_table"
+            st.rerun()
+
+        page_key = str(page_num)
+        corners = nb_cfg.get("table_corners", {}).get(page_key) or auto_table_corners(
+            deskewed, HEADER_HEIGHT_FRAC, LEFT_TABLE_WIDTH_FRAC
+        )
+
+        header_crop = crop_header_strip(deskewed, corners)
+        pil_header = _bgr_to_pil(header_crop)
+        _, header_uri = _pil_to_b64_jpeg(pil_header, DISPLAY_W)
+
+        col_img_h, col_ed_h = st.columns([1, 1])
+        with col_img_h:
+            _display_image_uri(header_uri, "Header strip sent to Gemini")
+
+        col_names_key = f"prep_col_names_{page_num}"
+        if col_names_key not in st.session_state:
+            # Pre-populate from notebook_config if already saved, otherwise blank
+            saved_names = nb_cfg.get("column_names", [])
+            st.session_state[col_names_key] = list(saved_names) if saved_names else []
+
+        with col_ed_h:
+            if st.button("Ask Gemini to read header", key=f"prep_gemini_{page_num}", type="primary"):
+                with st.spinner("Sending header to Gemini 2.5 Flash…"):
+                    try:
+                        names = gemini_flatten_headers(header_crop)
+                        st.session_state[col_names_key] = names
+                        st.rerun()
+                    except Exception as exc:
+                        st.error(f"Gemini call failed: {exc}")
+
+        col_names: list[str] = st.session_state[col_names_key]
+
+        if col_names:
+            st.markdown(f"**{len(col_names)} columns detected** — edit names as needed:")
+            updated = []
+            for i, name in enumerate(col_names):
+                updated.append(
+                    st.text_input(f"{i+1}.", value=name, key=f"prep_cn_{page_num}_{i}")
+                )
+            c_add, c_del, _ = st.columns([1, 1, 4])
+            with c_add:
+                if st.button("+ Add column", key=f"prep_add_{page_num}"):
+                    st.session_state[col_names_key] = updated + [""]
+                    st.rerun()
+            with c_del:
+                if st.button("− Remove last", key=f"prep_del_{page_num}", disabled=len(updated) == 0):
+                    st.session_state[col_names_key] = updated[:-1]
+                    st.rerun()
+            col_names = updated
+        else:
+            st.info("Click **Ask Gemini to read header** to auto-detect columns, or add them manually.")
+            if st.button("+ Add column manually", key=f"prep_add_manual_{page_num}"):
+                st.session_state[col_names_key] = [""]
+                st.rerun()
+
+        if col_names:
+            if st.button("Save & Confirm ✓", type="primary", key=f"prep_save_b_{page_num}"):
+                nb_cfg["column_names"] = col_names
+                nb_cfg["expected_n_cols"] = len(col_names)
+                save_notebook_config(NOTEBOOK_CONFIG_FILE, nb_cfg)
+                st.session_state[col_names_key] = col_names
+                st.session_state[stage_key] = "done"
+                st.rerun()
+
+    # ── Done ──────────────────────────────────────────────────────
+    elif stage == "done":
+        nb_cfg = load_notebook_config(NOTEBOOK_CONFIG_FILE)
+        n_cols = len(nb_cfg.get("column_names", []))
+        st.success(
+            f"Notebook config saved — {n_cols} columns confirmed for page {page_num}. "
+            "Corners and column names are stored in `notebook_config.json`."
+        )
+        st.json({
+            "column_names": nb_cfg.get("column_names", []),
+            "table_corners_page": nb_cfg.get("table_corners", {}).get(str(page_num), []),
+        })
+        c1, c2 = st.columns([1, 3])
+        with c1:
+            if st.button("Edit again (Stage A)", key=f"prep_restart_{page_num}"):
+                st.session_state[stage_key] = "A_table"
+                st.rerun()
+
+
 # ── Streamlit App ────────────────────────────────────────────
 
 st.set_page_config(page_title="Haditax", layout="wide")
 
 # ── User registration gate ────────────────────────────────────
-_REVIEWERS = st.secrets.get("reviewers", ["Sinai"])
+try:
+    _REVIEWERS = st.secrets.get("reviewers", ["Sinai"])
+except Exception:
+    _REVIEWERS = ["Sinai"]
 
 if "reviewer" not in st.session_state:
     st.title("Haditax · Who are you?")
@@ -941,6 +1187,12 @@ with st.sidebar:
     if st.button("Switch user"):
         del st.session_state["reviewer"]
         st.rerun()
+    st.divider()
+    view_mode = st.radio(
+        "View",
+        ["Correction View", "Image Preprocessing"],
+        key="view_mode",
+    )
     st.divider()
     ocr_source = st.selectbox(
         "OCR starting point",
@@ -983,8 +1235,6 @@ with ctrl_col3:
         'Post-processing (ditto marks and metadata) in view',
         key="expand_ditto_view",
     )
-view_mode = "Correction View"
-
 # ═══════════════════════════════════════════════════════════════
 # CORRECTION VIEW — all pages in one table, image synced to page
 # ═══════════════════════════════════════════════════════════════
@@ -1161,9 +1411,9 @@ if view_mode == "Correction View":
         _render_table_editor(page_num, digit_mode, expand_ditto_view, display_h)
 
 # ═══════════════════════════════════════════════════════════════
-# GRID VIEW — uses shared page_num from top selector
+# GRID VIEW — uses shared page_num from top selector (disabled)
 # ═══════════════════════════════════════════════════════════════
-else:
+elif view_mode == "Grid View":
     rows = _load_ocr(page_num)
     if not rows:
         st.error(
@@ -1375,3 +1625,6 @@ if view_mode == "Correction View":
                         f"❌ Could not send report automatically. "
                         f"Please email sinai.rusinek@gmail.com directly.\n\nError: {err}"
                     )
+
+elif view_mode == "Image Preprocessing":
+    render_preprocess_view(page_num)

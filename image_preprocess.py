@@ -1,0 +1,178 @@
+"""
+image_preprocess.py — Pure image-processing helpers for the Haditax wizard view.
+
+Functions here have no Streamlit dependency and can be imported by both
+haditax.py (wizard UI) and segment_unified.py (batch pipeline).
+"""
+
+from __future__ import annotations
+
+import io as _io
+import json
+import os
+from pathlib import Path
+from typing import Optional
+
+import cv2
+import numpy as np
+from PIL import Image
+
+
+# ── Table-corner detection ──────────────────────────────────────────────────
+
+def auto_table_corners(
+    deskewed: np.ndarray,
+    header_frac: float = 0.08,
+    table_width_frac: float = 0.455,
+) -> list[list[int]]:
+    """Return four [[x,y], ...] corners (TL, TR, BR, BL) for the data table area.
+
+    Uses the same simple fractions that crop_table() in segment_unified.py uses.
+    The deskewed image is assumed to be perspective-corrected already.
+    """
+    H, W = deskewed.shape[:2]
+    y0 = int(H * header_frac)
+    x1 = int(W * table_width_frac)
+    y1 = H
+    x0 = 0
+    return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]  # TL, TR, BR, BL
+
+
+def corners_to_overlay(
+    image: np.ndarray,
+    corners: list[list[int]],
+    color: tuple[int, int, int] = (0, 0, 220),
+    dot_radius: int = 10,
+    line_thickness: int = 2,
+) -> np.ndarray:
+    """Draw the quadrilateral + corner dots onto a copy of *image*. Returns copy."""
+    out = image.copy()
+    pts = np.array(corners, dtype=np.int32)
+    n = len(pts)
+    for i in range(n):
+        cv2.line(out, tuple(pts[i]), tuple(pts[(i + 1) % n]), color, line_thickness)
+    for pt in pts:
+        cv2.circle(out, tuple(pt), dot_radius, color, -1)
+    return out
+
+
+# ── Header-strip crop ───────────────────────────────────────────────────────
+
+def crop_header_strip(
+    deskewed: np.ndarray,
+    table_corners: list[list[int]],
+) -> np.ndarray:
+    """Crop the printed column-header band from a deskewed page.
+
+    The header sits between y=0 and the top edge of the user-confirmed table
+    quadrilateral (the min y of the two top corners).  If that strip is less
+    than 40px tall we fall back to 10% of the table height below the top edge.
+    Returns the cropped region as a BGR array.
+    """
+    top_y = min(table_corners[0][1], table_corners[1][1])  # TL, TR
+    bot_y = max(table_corners[3][1], table_corners[2][1])  # BL, BR
+    table_h = bot_y - top_y
+
+    if top_y < 40:
+        # Very small gap above the table — take a strip *inside* the table
+        strip_y0 = top_y
+        strip_y1 = top_y + max(40, int(table_h * 0.10))
+    else:
+        strip_y0 = 0
+        strip_y1 = top_y
+
+    left_x = min(table_corners[0][0], table_corners[3][0])
+    right_x = max(table_corners[1][0], table_corners[2][0])
+
+    H, W = deskewed.shape[:2]
+    strip_y0 = max(0, strip_y0)
+    strip_y1 = min(H, strip_y1)
+    left_x   = max(0, left_x)
+    right_x  = min(W, right_x)
+
+    return deskewed[strip_y0:strip_y1, left_x:right_x]
+
+
+# ── Gemini header recognition ────────────────────────────────────────────────
+
+_HEADER_PROMPT = """\
+This is a printed multi-tier table header from a British Mandate Palestine \
+property tax register (Form TR/39). The header may span 1, 2, or 3 printed rows \
+with merged cells grouping related leaf columns.
+
+Output ONLY a JSON array of strings — the leaf column names in left-to-right order.
+Each string must concatenate its ancestor tier labels with "_", for example:
+  "Reference_to_Register_of_Exemptions_Amount_Mils"
+  "Serial_No"
+Do NOT include any explanation, markdown, or extra keys. Output only the raw JSON array.\
+"""
+
+
+def gemini_flatten_headers(
+    header_crop: np.ndarray,
+    api_key: Optional[str] = None,
+    model: str = "gemini-2.5-flash",
+) -> list[str]:
+    """Send *header_crop* (BGR ndarray) to Gemini and return a flat ordered list of column names.
+
+    Raises RuntimeError if the API key is missing or the response cannot be parsed.
+    Uses gemini-2.5-flash by default (printed text; Flash is fast and cheap here).
+    """
+    key = api_key or os.environ.get("GOOGLE_API_KEY", "")
+    if not key:
+        raise RuntimeError("GOOGLE_API_KEY not set")
+
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=key)
+
+    pil_img = Image.fromarray(cv2.cvtColor(header_crop, cv2.COLOR_BGR2RGB))
+    buf = _io.BytesIO()
+    pil_img.save(buf, format="JPEG", quality=92)
+
+    parts = [
+        types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg"),
+        types.Part.from_text(text=_HEADER_PROMPT),
+    ]
+    resp = client.models.generate_content(
+        model=model,
+        contents=parts,
+        config=types.GenerateContentConfig(max_output_tokens=2048),
+    )
+    raw = (resp.text or "").strip()
+
+    # Strip markdown fences if present
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        # Try to extract just the array portion
+        import re
+        m = re.search(r'\[.*\]', raw, re.DOTALL)
+        if m:
+            result = json.loads(m.group())
+        else:
+            raise RuntimeError(f"Gemini returned unparseable output: {raw[:300]}") from exc
+
+    if not isinstance(result, list):
+        raise RuntimeError(f"Expected JSON array, got: {type(result)}")
+    return [str(s) for s in result]
+
+
+# ── notebook_config.json helpers ─────────────────────────────────────────────
+
+def load_notebook_config(path: Path) -> dict:
+    """Load notebook_config.json. Returns empty-ish dict if file absent."""
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {"notebook_id": "Hadita", "column_names": [], "table_corners": {}}
+
+
+def save_notebook_config(path: Path, cfg: dict) -> None:
+    path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
