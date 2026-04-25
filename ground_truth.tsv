@@ -32,3 +32,40 @@ Page_Number	Folio_Number	Tax_Payer_Arabic	Tax_Payer_Romanized	Tax_Payer_ID_Arabi
 3	1					٣١	""""			١٠	١٢,٥٦٨	״		✓	٢٣٤	✓	٢٢٦												ground_truth
 3	1					٣٢	""""	""""	١٨	١٣	٦,٥٦٨	״		✓	٠٥٦	✓	٠٥٣												ground_truth
 3	1					٣٣	""""			١٦	٦,٥٦٨	״		✓	...	-	-												ground_truth
+10	9						٩٢٩									-	٠٢٢	٠	٢٢					-	٠٢٢		high	FALSE	ground_truth
+10	9						٩٤٠									-	٠٢٢	٠	٢٢					-	٠٢٢		high	FALSE	ground_truth
+10	9						٩٤١									-	٠٢٢	٠	٢٢					-	٠٢٢		high	FALSE	ground_truth
+10	9						٩٤٢									-	٠٢٢	٠	٢٢					-	٠٢٢		high	FALSE	ground_truth
+10	9						٩٤٣/٩٤٤									-	٠٢٢	٠	٢٢					-	٠٢٢		high	FALSE	ground_truth
+10	9					١	٩٣٨	٤١٢٩	٥١	١٢	٢٬٧٧٩	تح		✓	٠٢٤	-	٠١٩							٠	٠٢٢		high	FALSE	ground_truth
+10	9					٢	""""			١٦	٢٬٥٦٩	✓		✓		-											high	FALSE	ground_truth
+10	9					٣	""""	٤١٤٦	١٩	١٢	١٤٢	""""		✓	٠٠٨	-	٠٠٧							٠	٠٤٤		high	FALSE	ground_truth
+10	9					٤	""""	""""	٩٢	١٢	١٢١	""""		✓	٠٠٨	-	٠٠٣							٠	٠٩٤		high	FALSE	ground_truth
+10	9					٥	""""	""""	٩٣	١٢	٢٥١	""""		✓	٠٠٨	-	٠٠٢							٠	٠٢٢		high	FALSE	ground_truth
+10	9					٦	""""	""""	٩٤	١٢	١٢١	""""	٩٢٩	✓	٠٠٨	-	٠٠١	٠	٢٢					٠	٢٢		high	FALSE	ground_truth
+10	9					٧	٩٤٤	٤١٤٦	١٩	١٢	١٤٢	ضريبة حرب				-	٠٤٨										medium	FALSE	ground_truth
+10	9					٨	""""	""""	٩٢	١٢	١٢١	ضريبة حرب				-	٠٣٦	٠	١١٢								medium	FALSE	ground_truth
+10	9					٩	""""	""""	٩٣	١٢	٢٥١	ضريبة حرب				-	٠٢٦										medium	FALSE	ground_truth
+10	9					١٠	""""	""""	٩٤	١٢	١٢١	ضريبة حرب				-	٠٣٦	٠	١٩٢								medium	FALSE	ground_truth
+10	9					١١	٩٤٨	٤١٤٦	١٩	١٢	١٤٢	بيع		٤٢١	٤٥/٢٠١٥	-	٠٤٨							-	٠٤٨		medium	FALSE	ground_truth
+50	49																		~~٢٦٧~~ [RED] ٢٤٥					-	٢٤٥	Total due: ٢٤٥; Collection: receipt ١١٥٩٧, date ٤٣/١٠/٢٠, amount ٢٦٥; Arrears carried forward: -.	high	TRUE	ground_truth
+50	49											ضريبة حرب							٧٥٤						٧٥٤	Total due: ١.٥٤٥; Collection: receipt ٤٤٩٢٠١٢, date ٤٦/٨/٢٢, amount ١.٥٤٥; Arrears carried forward: -.	high	FALSE	ground_truth
+50	49						٩٤٣																		٧٥٤	Total due: ٧٥٤; Collection: receipt ٨٥٥٨٦١, date ٤٧/٣/٢, amount ٧٥٤; Arrears carried forward: -.	high	FALSE	ground_truth
+50	49						٩٤٤																		٧٥٤	Total due: ٧٥٤; Collection: receipt ٤٤٥٨٩٢, date ٤٧/٥/١٢, amount ٧٥٤; Arrears carried forward: -.	high	FALSE	ground_truth
+50	49					١	٩٣٨	٤١٢٢	٢	١٠	١,١٩٥	تح	١٧	✓	٠٢٦	✓	٠٢٤										high	FALSE	ground_truth
+50	49					٢	""""	""""	١٠	١٠	٤,٤٢٩	""""	١٦	✓	٠٩٠	✓	٠٠٨										high	FALSE	ground_truth
+50	49					٣	""""	""""	١٦	١٠	٤,٦٧٥	""""		✓	٠٥٣	✓	٠٤٨										high	FALSE	ground_truth
+50	49					٤	""""	٤١٢٨	١٣	١٤	٢,٤٣٦	""""	١٨	✓	-	-	-										high	FALSE	ground_truth
+50	49					٥	""""	""""		١٦	٣,٤٩٠	""""		✓	-	-	-										high	FALSE	ground_truth
+50	49					٦	""""	٤١٤٨	٢	١٢	١,٦٩٣	تح	١٩	✓	٠١٦	✓	٠٩٤										high	FALSE	ground_truth
+50	49					٧	""""			٣	٢,٠٥٢			✓	٠١٥	✓	٠٨٨										high	FALSE	ground_truth
+50	49					٨	""""	٤١٥٠	٤٤	١٢	٨٧٠	""""		✓		-	-										high	FALSE	ground_truth
+50	49					٩	""""	٤١٥١	٤٤	١٢	٨٧٠			✓		✓	٠١٤										high	FALSE	ground_truth
+50	49					١٠	""""			١٦	٢,٤٠٠	""""		✓	٠١٦	-	-										high	FALSE	ground_truth
+50	49					١١	""""		""""	١٠	٤٠٠			✓	٠١٥	✓	٠٠٥										high	FALSE	ground_truth
+50	49					١٢	٩٣٩																		٢٤٥	Total due: ٢٤٥; Arrears carried forward: ٦٩٠.	high	FALSE	ground_truth
+50	49					١٣	٩٤٠																		٢٢١	زيادة تحصيل ٦٩٢; Arrears brought forward: ٦٩٠; Total due: ٩١١; Collections: receipt ٢٧٠, date ٤٤/٥/٣, amount ٢٦٥; receipt ٨٧٥٠, date ٤٥/٣/١٨, amount ٣٩٢; Total Collections: ٦٥٧; Arrears carried forward: ١٠.	high	FALSE	ground_truth
+50	49					١٤	٩٤١	٤١٥٠	٤٤	١٢	٨٧٠	بيع	١	٢١		✓	٠١٤		٢٧٧						٢٧٧	Total due: ١.١٣٥; Collection: receipt ٤٤٢٠١٢, date ٤٥/٧/٢٤, amount ٢٦٥; Arrears carried forward: ٧٩١.	high	FALSE	ground_truth
+50	49					١٥	٩٤٢	٤١٢٨	١٣	١٤	٢,٤٣٦					✓	٠٢٤										high	FALSE	ground_truth
+50	49					١٦	""""	""""		١٦	٣,٤٩٠					✓	٠١٧										high	FALSE	ground_truth
+50	49					١٩	٩٤٦	٤١٤٨	٢	١٢	١,٦٩٣	بيع					٠٩٤		١٥٠								low	FALSE	ground_truth
