@@ -207,10 +207,28 @@ Rules:
   compound like 943/944).
 - ROWS WITHOUT SERIAL_NO: a separate case — some rows legitimately have no Serial_No
   at all but still contain content. Typical cases:
+    * Tax-year breakdown rows (a year in Date and tax figures in the Tax/Total columns)
     * Sub-total / running-total rows (figures only in the totals/tax columns on the right)
     * Carry-forward / amendment rows
   Treat each as its own row. Set Serial_No:"" and fill only the cells that have content.
   Do NOT merge a serial-less row's content into the row above or below. Do NOT skip the row.
+- COLUMN POSITION IS FIXED — never shift values leftward to fill an empty cell.
+  In particular, in a row with no Serial_No:
+    * If the row contains a year (e.g. ٩٣٩, ٩٤٠), it belongs in "Date", NOT in "Serial_No".
+    * Output Serial_No:"" explicitly even when the leftmost visible content is a number.
+    * Tax / Total figures stay in their own columns (Tax_LP, Tax_Mils, Total_Tax_LP,
+      Total_Tax_Mils). Do NOT collapse Total_Tax_Mils into Tax_Mils.
+  Example of a tax-year breakdown row that has no serial:
+    {"Serial_No":"","Date":"٩٣٩","Property_recorded_under_Block_No":"",
+     "Property_recorded_under_Parcel_No":"","Parcel_Cat_No":"","Parcel_Area":"",
+     "Nature_of_Entry":"","New_Serial_No":"",
+     "Reference_to_Register_of_Changes_Volume_No":"","Reference_to_Register_of_Changes_Serial_No":"",
+     "Tax_LP":"-","Tax_Mils":"٠٢٢","Total_Tax_LP":"-","Total_Tax_Mils":"٠٢٢",
+     "Reference_to_Register_of_Exemptions_Entry_No":"",
+     "Reference_to_Register_of_Exemptions_Amount_LP":"",
+     "Reference_to_Register_of_Exemptions_Amount_Mils":"",
+     "Net_Assessment_LP":"","Net_Assessment_Mils":"","Remarks":"",
+     "Row_Confidence":"high","Red_Ink":"FALSE"}
 """
 
 
