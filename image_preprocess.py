@@ -144,16 +144,16 @@ def gemini_flatten_headers(
             raw = raw[4:]
     raw = raw.strip()
 
+    # Find the start of the JSON array/object and parse only that portion.
+    # raw_decode stops at the end of the first valid JSON value, so trailing
+    # explanatory text from Gemini doesn't cause a parse failure.
+    start = next((i for i, c in enumerate(raw) if c in "[{"), None)
+    if start is None:
+        raise RuntimeError(f"Gemini returned no JSON: {raw[:300]}")
     try:
-        result = json.loads(raw)
+        result, _ = json.JSONDecoder().raw_decode(raw, start)
     except json.JSONDecodeError as exc:
-        # Try to extract just the array portion
-        import re
-        m = re.search(r'\[.*\]', raw, re.DOTALL)
-        if m:
-            result = json.loads(m.group())
-        else:
-            raise RuntimeError(f"Gemini returned unparseable output: {raw[:300]}") from exc
+        raise RuntimeError(f"Gemini returned unparseable output: {raw[:300]}") from exc
 
     if not isinstance(result, list):
         raise RuntimeError(f"Expected JSON array, got: {type(result)}")
