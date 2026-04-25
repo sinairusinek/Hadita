@@ -64,22 +64,17 @@ def crop_header_strip(
 ) -> np.ndarray:
     """Crop the printed column-header band from a deskewed page.
 
-    The header sits between y=0 and the top edge of the user-confirmed table
-    quadrilateral (the min y of the two top corners).  If that strip is less
-    than 40px tall we fall back to 10% of the table height below the top edge.
+    The column headers are the first printed rows *inside* the table area,
+    not the metadata strip above it. We take the top `header_frac` of the
+    table height starting from the table's top edge.
     Returns the cropped region as a BGR array.
     """
     top_y = min(table_corners[0][1], table_corners[1][1])  # TL, TR
     bot_y = max(table_corners[3][1], table_corners[2][1])  # BL, BR
     table_h = bot_y - top_y
 
-    if top_y < 40:
-        # Very small gap above the table — take a strip *inside* the table
-        strip_y0 = top_y
-        strip_y1 = top_y + max(40, int(table_h * 0.10))
-    else:
-        strip_y0 = 0
-        strip_y1 = top_y
+    strip_y0 = top_y
+    strip_y1 = top_y + max(60, int(table_h * 0.15))
 
     left_x = min(table_corners[0][0], table_corners[3][0])
     right_x = max(table_corners[1][0], table_corners[2][0])
