@@ -197,9 +197,20 @@ Rules:
   and Row_Confidence:"low". (Omitting rows breaks row-keyed evaluation.)
 - UNCERTAINTY: if you cannot confidently read a cell, output "" or append [?] to your best guess.
   Never invent plausible-looking digits or Arabic text to fill a cell you cannot read.
-- MULTI-CATEGORY PARCELS: a single parcel may span multiple consecutive rows (one per cultivation
-  category). In those extra rows, Serial_No, Block_No, Parcel_No, Date, Nature_of_Entry, and
-  New_Serial_No are genuinely blank — not ditto marks. Output "" for those cells; do not fabricate.
+- MULTI-CATEGORY PARCELS: a single physical parcel may span multiple consecutive rows,
+  one per cultivation category. Each such row has its OWN Serial_No (consecutive serials).
+  What is consistently empty in the continuation row(s) is Property_recorded_under_Block_No
+  and Property_recorded_under_Parcel_No — those describe the parcel as a whole, not the
+  individual category. Output "" for those two cells; do not fabricate, do not ditto.
+  Do not assume regular behaviour for the other columns: Date, Nature_of_Entry, and
+  New_Serial_No vary case by case (ditto, written value, or empty; Date may appear as a
+  compound like 943/944).
+- ROWS WITHOUT SERIAL_NO: a separate case — some rows legitimately have no Serial_No
+  at all but still contain content. Typical cases:
+    * Sub-total / running-total rows (figures only in the totals/tax columns on the right)
+    * Carry-forward / amendment rows
+  Treat each as its own row. Set Serial_No:"" and fill only the cells that have content.
+  Do NOT merge a serial-less row's content into the row above or below. Do NOT skip the row.
 """
 
 

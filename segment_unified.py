@@ -384,24 +384,36 @@ def _cluster_lines(lines: list[dict], gap_threshold: int = 60) -> list[dict]:
     return rows
 
 
-def interpolate_gaps(rows: list[dict], min_gap_factor: float = 1.5) -> list[dict]:
-    """Insert synthetic rows in gaps larger than min_gap_factor × median spacing."""
+def interpolate_gaps(rows: list[dict]) -> list[dict]:
+    """Insert synthetic rows in gaps spanning more than one row pitch.
+
+    Pitch is estimated from the smaller half of gaps so it isn't inflated by
+    the large outlier gaps caused by missed rows (the very thing we're trying
+    to fill). A gap is split into n = round(gap / pitch) parts, inserting
+    (n-1) synthetic rows whenever n ≥ 2.
+    """
     if len(rows) < 2:
         return rows
-    spacings  = [rows[i + 1]["y_center"] - rows[i]["y_center"] for i in range(len(rows) - 1)]
-    median_sp = sorted(spacings)[len(spacings) // 2]
-    threshold = median_sp * min_gap_factor
+    spacings = [rows[i + 1]["y_center"] - rows[i]["y_center"] for i in range(len(rows) - 1)]
+    spacings_sorted = sorted(spacings)
+    half = spacings_sorted[: len(spacings_sorted) // 2 + 1]
+    pitch = sorted(half)[len(half) // 2]
+    if pitch <= 0:
+        return rows
+    log.info("Row pitch estimate: %dpx (overall median: %dpx)",
+             pitch, spacings_sorted[len(spacings_sorted) // 2])
+
     result: list[dict] = [rows[0]]
     for i in range(1, len(rows)):
         gap = rows[i]["y_center"] - rows[i - 1]["y_center"]
-        if gap > threshold:
-            n_insert = round(gap / median_sp) - 1
-            for k in range(1, n_insert + 1):
-                sy = rows[i - 1]["y_center"] + round(k * gap / (n_insert + 1))
+        n = round(gap / pitch)
+        if n >= 2:
+            for k in range(1, n):
+                sy = rows[i - 1]["y_center"] + round(k * gap / n)
                 result.append({"y_center": sy, "y_min": sy - 20, "y_max": sy + 20,
                                 "synthetic": True})
-                log.info("  Inserted synthetic row at y=%d (gap=%dpx, median=%dpx)",
-                         sy, gap, median_sp)
+                log.info("  Inserted synthetic row at y=%d (gap=%dpx, pitch=%dpx, n=%d)",
+                         sy, gap, pitch, n)
         result.append(rows[i])
     return result
 
