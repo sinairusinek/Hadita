@@ -997,64 +997,75 @@ def render_preprocess_view(page_num: int) -> None:
         st.subheader("Stage A — Table boundary")
         st.caption(
             "Confirm or adjust the four corners of the data table. "
-            "Click **Set corner** to pick a corner with a click on the image, "
+            "Select an active corner, then click the image to reposition it, "
             "or edit x/y directly in the numeric fields."
         )
 
         page_key = str(page_num)
         saved = nb_cfg.get("table_corners", {}).get(page_key)
         corners_ss_key = f"prep_corners_{page_num}"
+        last_click_key  = f"prep_last_click_{page_num}"
+
         if corners_ss_key not in st.session_state:
-            if saved:
-                st.session_state[corners_ss_key] = [list(c) for c in saved]
-            else:
-                st.session_state[corners_ss_key] = auto_table_corners(
-                    deskewed, HEADER_HEIGHT_FRAC, LEFT_TABLE_WIDTH_FRAC
-                )
+            st.session_state[corners_ss_key] = (
+                [list(c) for c in saved] if saved
+                else auto_table_corners(deskewed, HEADER_HEIGHT_FRAC, LEFT_TABLE_WIDTH_FRAC)
+            )
         corners: list[list[int]] = st.session_state[corners_ss_key]
+
+        # Active corner selector (above image so user picks before clicking)
+        corner_names = ["TL", "TR", "BR", "BL"]
+        active_corner = st.radio(
+            "Active corner (click image to move it):",
+            corner_names, horizontal=True,
+            key=f"prep_active_corner_{page_num}",
+        )
+        active_idx = corner_names.index(active_corner)
 
         # Draw overlay and show
         overlay = corners_to_overlay(deskewed, corners)
         pil_overlay = _bgr_to_pil(overlay)
         pil_small, data_uri = _pil_to_b64_jpeg(pil_overlay, DISPLAY_W)
-        _display_image_uri(data_uri, f"Page {page_num} (deskewed) — red quad = detected table boundary")
+        _display_image_uri(data_uri, f"Page {page_num} — red quad = table boundary")
 
-        # Active corner selector + click interaction
-        corner_names = ["TL (top-left)", "TR (top-right)", "BR (bottom-right)", "BL (bottom-left)"]
-        active_corner = st.radio("Active corner (click image to set):", corner_names, horizontal=True,
-                                 key=f"prep_active_corner_{page_num}")
-        active_idx = corner_names.index(active_corner)
-
-        # streamlit-image-coordinates widget
+        # Click-to-pin: only act on genuinely new clicks (compare against last processed)
         try:
             from streamlit_image_coordinates import streamlit_image_coordinates
             clicked = streamlit_image_coordinates(pil_small, key=f"prep_click_{page_num}")
             if clicked and clicked.get("x") is not None:
-                ix = int(clicked["x"] / scale)
-                iy = int(clicked["y"] / scale)
-                new_corners = [list(c) for c in corners]
-                new_corners[active_idx] = [ix, iy]
-                st.session_state[corners_ss_key] = new_corners
-                st.rerun()
+                click_id = (clicked["x"], clicked["y"], active_idx)
+                if st.session_state.get(last_click_key) != click_id:
+                    st.session_state[last_click_key] = click_id
+                    new_corners = [list(c) for c in corners]
+                    new_corners[active_idx] = [
+                        int(clicked["x"] / scale),
+                        int(clicked["y"] / scale),
+                    ]
+                    st.session_state[corners_ss_key] = new_corners
+                    st.rerun()
         except ImportError:
             st.info("Install `streamlit-image-coordinates` for click-to-set. Use numeric fields below instead.")
 
-        # Numeric inputs (always shown as fallback / fine-tuning)
+        # Numeric inputs — on_change writes directly to session state (no compare+rerun loop)
+        def _make_corner_cb(idx, axis, key):
+            def _cb():
+                c = [list(x) for x in st.session_state[corners_ss_key]]
+                c[idx][axis] = int(st.session_state[key])
+                st.session_state[corners_ss_key] = c
+            return _cb
+
         with st.expander("Edit corners manually (x, y in image pixels)", expanded=False):
             label_short = ["TL", "TR", "BR", "BL"]
-            new_corners = [list(c) for c in corners]
-            cols_a, cols_b = st.columns(2), st.columns(2)
+            row1, row2 = st.columns(2), st.columns(2)
             for i in range(4):
-                col = (cols_a if i < 2 else cols_b)[i % 2]
+                col = (row1 if i < 2 else row2)[i % 2]
+                xk = f"prep_cx_{page_num}_{i}"
+                yk = f"prep_cy_{page_num}_{i}"
                 with col:
-                    nx = st.number_input(f"{label_short[i]} x", value=corners[i][0],
-                                         step=1, key=f"prep_cx_{page_num}_{i}")
-                    ny = st.number_input(f"{label_short[i]} y", value=corners[i][1],
-                                         step=1, key=f"prep_cy_{page_num}_{i}")
-                    new_corners[i] = [int(nx), int(ny)]
-            if new_corners != corners:
-                st.session_state[corners_ss_key] = new_corners
-                st.rerun()
+                    st.number_input(f"{label_short[i]} x", value=corners[i][0],
+                                    step=1, key=xk, on_change=_make_corner_cb(i, 0, xk))
+                    st.number_input(f"{label_short[i]} y", value=corners[i][1],
+                                    step=1, key=yk, on_change=_make_corner_cb(i, 1, yk))
 
         btn_col1, btn_col2, _ = st.columns([1, 1, 3])
         with btn_col1:
@@ -1062,6 +1073,7 @@ def render_preprocess_view(page_num: int) -> None:
                 st.session_state[corners_ss_key] = auto_table_corners(
                     deskewed, HEADER_HEIGHT_FRAC, LEFT_TABLE_WIDTH_FRAC
                 )
+                st.session_state.pop(last_click_key, None)
                 st.rerun()
         with btn_col2:
             if st.button("Save & Continue →", type="primary", key=f"prep_save_a_{page_num}"):
