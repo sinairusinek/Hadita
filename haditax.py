@@ -988,8 +988,15 @@ def render_preprocess_view(page_num: int) -> None:
     _stepper(stage)
     st.divider()
 
-    with st.spinner("Loading original page…"):
-        deskewed = cv2.imread(str(page_image_path(page_num)))
+    with st.spinner("Loading page image…"):
+        _orig_path = page_image_path(page_num)
+        if _orig_path.exists():
+            page_img = cv2.imread(str(_orig_path))
+            st.caption("Showing original (un-deskewed) image.")
+        else:
+            page_img = deskew_page(page_num)
+            st.caption("Original image not found locally — showing deskewed version.")
+    deskewed = page_img
     orig_h, orig_w = deskewed.shape[:2]
     scale = DISPLAY_W / orig_w  # display px → image px: divide by scale
 
