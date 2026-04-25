@@ -854,6 +854,73 @@ def export_page_xml(page_num: int, img_cv: np.ndarray,
     return out_path
 
 
+# ── Correction-table fragment ────────────────────────────────
+# Isolates data_editor reruns so cell commits don't scroll the
+# page to the top or reset other widget state.
+
+@st.fragment
+def _render_table_editor(page_num: int, digit_mode: str,
+                         expand_ditto_view: bool, display_h: int) -> None:
+    all_rows  = st.session_state.get("cv_all_rows", [])
+    page_meta = st.session_state.get("page_meta", {})
+
+    st.caption("Click a cell to edit · Tab / Enter to navigate")
+
+    page_indices = [i for i, r in enumerate(all_rows) if r["_page"] == page_num]
+    page_rows    = [all_rows[i] for i in page_indices]
+
+    df = pd.DataFrame(page_rows) if page_rows else pd.DataFrame(columns=["_page"] + ALL_COLS)
+    for c in ALL_COLS:
+        if c not in df.columns:
+            df[c] = ""
+    df = df[["_page"] + ALL_COLS].fillna("")
+    df.insert(0, "#", range(1, len(df) + 1))
+    for c in ["_page"] + ALL_COLS:
+        df[c] = df[c].astype(str)
+
+    display_df = convert_df_digits(df, digit_mode, skip_cols=["#", "_page"])
+    if expand_ditto_view:
+        display_df = expand_dittos_df(display_df, ALL_COLS)
+        display_df = expand_dates_df(display_df)
+        meta_now = page_meta.get(page_num, {})
+        for mf in META_FIELDS:
+            display_df.insert(2 + META_FIELDS.index(mf), mf, meta_now.get(mf, ""))
+
+    col_config: dict = {
+        "#":     st.column_config.NumberColumn("#",    width="small", disabled=True),
+        "_page": st.column_config.TextColumn("Page",  width="small", disabled=True),
+    }
+    if expand_ditto_view:
+        for mf in META_FIELDS:
+            col_config[mf] = st.column_config.TextColumn(mf, width="medium", disabled=True)
+    for c in ALL_COLS:
+        col_config[c] = st.column_config.TextColumn(c, width="small")
+
+    disabled_cols = ["#", "_page"] + (META_FIELDS if expand_ditto_view else [])
+    edited_df = st.data_editor(
+        display_df,
+        column_config=col_config,
+        use_container_width=True,
+        num_rows="fixed",
+        height=display_h,
+        key=f"cv_editor_{page_num}_{digit_mode}_{expand_ditto_view}",
+        disabled=disabled_cols,
+    )
+
+    # Sync edits back to shared session state (always store as Arabic digits).
+    # Only write a cell when the user actually changed it — preserves ditto marks
+    # when expand_ditto_view is on and the cell was not touched.
+    for j, orig_idx in enumerate(page_indices):
+        for col in ALL_COLS:
+            if col not in edited_df.columns:
+                continue
+            displayed_val = str(display_df.at[j, col]) if j < len(display_df) else ""
+            raw_edited    = edited_df.at[j, col]
+            edited_val    = str(raw_edited) if pd.notna(raw_edited) else ""
+            if edited_val != displayed_val:
+                all_rows[orig_idx][col] = convert_digits(edited_val, "arabic")
+
+
 # ── Streamlit App ────────────────────────────────────────────
 
 st.set_page_config(page_title="Haditax", layout="wide")
@@ -1091,63 +1158,7 @@ if view_mode == "Correction View":
         st.image(crop, width=DISPLAY_W)
 
     with col_tbl:
-        st.caption("Click a cell to edit · Tab / Enter to navigate")
-
-        # Filter to the currently selected page
-        page_indices = [i for i, r in enumerate(all_rows) if r["_page"] == page_num]
-        page_rows = [all_rows[i] for i in page_indices]
-
-        df = pd.DataFrame(page_rows) if page_rows else pd.DataFrame(columns=["_page"] + ALL_COLS)
-        for c in ALL_COLS:
-            if c not in df.columns:
-                df[c] = ""
-        df = df[["_page"] + ALL_COLS].fillna("")
-        df.insert(0, "#", range(1, len(df) + 1))
-        for c in ["_page"] + ALL_COLS:
-            df[c] = df[c].astype(str)
-
-        display_df = convert_df_digits(df, digit_mode, skip_cols=["#", "_page"])
-        if expand_ditto_view:
-            display_df = expand_dittos_df(display_df, ALL_COLS)
-            display_df = expand_dates_df(display_df)
-            # Inject page-level metadata as read-only columns
-            meta_now = page_meta.get(page_num, {})
-            for mf in META_FIELDS:
-                display_df.insert(2 + META_FIELDS.index(mf), mf, meta_now.get(mf, ""))
-
-        col_config = {
-            "#": st.column_config.NumberColumn("#", width="small", disabled=True),
-            "_page": st.column_config.TextColumn("Page", width="small", disabled=True),
-        }
-        if expand_ditto_view:
-            for mf in META_FIELDS:
-                col_config[mf] = st.column_config.TextColumn(mf, width="medium", disabled=True)
-        for c in ALL_COLS:
-            col_config[c] = st.column_config.TextColumn(c, width="small")
-
-        disabled_cols = ["#", "_page"] + (META_FIELDS if expand_ditto_view else [])
-        edited_df = st.data_editor(
-            display_df,
-            column_config=col_config,
-            use_container_width=True,
-            num_rows="fixed",
-            height=display_h,
-            key=f"cv_editor_{page_num}_{digit_mode}_{expand_ditto_view}",
-            disabled=disabled_cols,
-        )
-
-        # Sync edits back to session state (always store as Arabic digits).
-        # Only update a cell if the user actually changed it — this preserves
-        # ditto marks when expand_ditto_view is on and the cell wasn't touched.
-        for j, orig_idx in enumerate(page_indices):
-            for col in ALL_COLS:
-                if col not in edited_df.columns:
-                    continue
-                displayed_val = str(display_df.at[j, col]) if j < len(display_df) else ""
-                raw_edited = edited_df.at[j, col]
-                edited_val = str(raw_edited) if pd.notna(raw_edited) else ""
-                if edited_val != displayed_val:
-                    all_rows[orig_idx][col] = convert_digits(edited_val, "arabic")
+        _render_table_editor(page_num, digit_mode, expand_ditto_view, display_h)
 
 # ═══════════════════════════════════════════════════════════════
 # GRID VIEW — uses shared page_num from top selector
