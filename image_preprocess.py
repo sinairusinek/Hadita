@@ -102,30 +102,65 @@ def crop_header_strip(
     return deskewed[max(0, strip_y0) : min(H, strip_y1), max(0, left_x) : min(W, right_x)]
 
 
-# ── Gemini header recognition ────────────────────────────────────────────────
+# ── Gemini schema extraction (single call for both strips) ───────────────────
 
-_HEADER_PROMPT = """\
-This is a printed multi-tier table header from a British Mandate Palestine \
-property tax register (Form TR/39). The header may span 1, 2, or 3 printed rows \
-with merged cells grouping related leaf columns.
+_SCHEMA_PROMPT = """\
+You are reading two images from a British Mandate Palestine property tax register \
+(Form TR/39).
 
-Output ONLY a JSON array of strings — the leaf column names in left-to-right order.
-Each string must concatenate its ancestor tier labels with "_", for example:
-  "Reference_to_Register_of_Exemptions_Amount_Mils"
-  "Serial_No"
-Do NOT include any explanation, markdown, or extra keys. Output only the raw JSON array.\
+IMAGE 1 — the metadata band ABOVE the main data table. It contains printed field \
+labels filled in by hand for this specific page (e.g. taxpayer name, ID, village, \
+district, date, etc.).
+
+IMAGE 2 — the printed column-header rows at the TOP of the data table. The header \
+may span 1, 2, or 3 printed rows with merged cells grouping related leaf columns.
+
+Output ONLY a JSON object with exactly two keys:
+  "metadata_fields": array of strings — field label names from IMAGE 1 in \
+top-to-bottom, left-to-right order. Use underscores for spaces. Include only \
+label names, NOT their values. E.g. "Tax_Payer", "Tax_Payer_ID", "Village", "Year".
+  "column_names": array of strings — leaf column names from IMAGE 2 in \
+left-to-right order. Each string concatenates ancestor tier labels with "_", e.g. \
+"Reference_to_Register_of_Exemptions_Amount_Mils", "Serial_No".
+
+Do NOT include any explanation, markdown, or extra keys. Output only the raw JSON object.\
 """
 
 
-def gemini_flatten_headers(
+def _encode_bgr(img: np.ndarray) -> bytes:
+    pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    buf = _io.BytesIO()
+    pil.save(buf, format="JPEG", quality=92)
+    return buf.getvalue()
+
+
+def _parse_gemini_json(raw: str) -> object:
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+    start = next((i for i, c in enumerate(raw) if c in "[{"), None)
+    if start is None:
+        raise RuntimeError(f"Gemini returned no JSON: {raw[:300]}")
+    try:
+        result, _ = json.JSONDecoder().raw_decode(raw, start)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Gemini returned unparseable output: {raw[:300]}") from exc
+    return result
+
+
+def gemini_extract_schema(
+    above_crop: np.ndarray,
     header_crop: np.ndarray,
     api_key: Optional[str] = None,
     model: str = "gemini-2.5-flash",
-) -> list[str]:
-    """Send *header_crop* (BGR ndarray) to Gemini and return a flat ordered list of column names.
+) -> tuple[list[str], list[str]]:
+    """Single Gemini call that reads both image strips and returns (metadata_fields, column_names).
 
-    Raises RuntimeError if the API key is missing or the response cannot be parsed.
-    Uses gemini-2.5-flash by default (printed text; Flash is fast and cheap here).
+    above_crop  — BGR crop of the band above the table (metadata labels).
+    header_crop — BGR crop of the top of the table (column headers).
+    Returns (metadata_fields, column_names) — both as flat lists of strings.
     """
     key = api_key or os.environ.get("GOOGLE_API_KEY", "")
     if not key:
@@ -136,107 +171,23 @@ def gemini_flatten_headers(
 
     client = genai.Client(api_key=key)
 
-    pil_img = Image.fromarray(cv2.cvtColor(header_crop, cv2.COLOR_BGR2RGB))
-    buf = _io.BytesIO()
-    pil_img.save(buf, format="JPEG", quality=92)
-
     parts = [
-        types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg"),
-        types.Part.from_text(text=_HEADER_PROMPT),
+        types.Part.from_bytes(data=_encode_bgr(above_crop), mime_type="image/jpeg"),
+        types.Part.from_bytes(data=_encode_bgr(header_crop), mime_type="image/jpeg"),
+        types.Part.from_text(text=_SCHEMA_PROMPT),
     ]
     resp = client.models.generate_content(
         model=model,
         contents=parts,
         config=types.GenerateContentConfig(max_output_tokens=2048),
     )
-    raw = (resp.text or "").strip()
+    result = _parse_gemini_json((resp.text or "").strip())
 
-    # Strip markdown fences if present
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
-
-    # Find the start of the JSON array/object and parse only that portion.
-    # raw_decode stops at the end of the first valid JSON value, so trailing
-    # explanatory text from Gemini doesn't cause a parse failure.
-    start = next((i for i, c in enumerate(raw) if c in "[{"), None)
-    if start is None:
-        raise RuntimeError(f"Gemini returned no JSON: {raw[:300]}")
-    try:
-        result, _ = json.JSONDecoder().raw_decode(raw, start)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Gemini returned unparseable output: {raw[:300]}") from exc
-
-    if not isinstance(result, list):
-        raise RuntimeError(f"Expected JSON array, got: {type(result)}")
-    return [str(s) for s in result]
-
-
-_METADATA_PROMPT = """\
-This is the top portion of a British Mandate Palestine property tax register page \
-(Form TR/39), above the main data table. It contains printed field labels filled in \
-by hand for this specific page — things like taxpayer name, registration number, \
-village/district, date, etc.
-
-Output ONLY a JSON array of strings — the printed field label names you can read, \
-in top-to-bottom, left-to-right order. Use underscores instead of spaces and keep \
-the label concise, e.g. "Tax_Payer", "Tax_Payer_ID", "Village", "Year".
-Do NOT include field values — only the label names.
-Do NOT include any explanation, markdown, or extra keys. Output only the raw JSON array.\
-"""
-
-
-def gemini_extract_metadata_fields(
-    above_crop: np.ndarray,
-    api_key: Optional[str] = None,
-    model: str = "gemini-2.5-flash",
-) -> list[str]:
-    """Send the above-table metadata band to Gemini and return field label names.
-
-    Returns a list of strings like ["Tax_Payer", "Tax_Payer_ID", ...].
-    """
-    key = api_key or os.environ.get("GOOGLE_API_KEY", "")
-    if not key:
-        raise RuntimeError("GOOGLE_API_KEY not set")
-
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=key)
-
-    pil_img = Image.fromarray(cv2.cvtColor(above_crop, cv2.COLOR_BGR2RGB))
-    buf = _io.BytesIO()
-    pil_img.save(buf, format="JPEG", quality=92)
-
-    parts = [
-        types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg"),
-        types.Part.from_text(text=_METADATA_PROMPT),
-    ]
-    resp = client.models.generate_content(
-        model=model,
-        contents=parts,
-        config=types.GenerateContentConfig(max_output_tokens=1024),
-    )
-    raw = (resp.text or "").strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
-
-    start = next((i for i, c in enumerate(raw) if c in "[{"), None)
-    if start is None:
-        raise RuntimeError(f"Gemini returned no JSON: {raw[:300]}")
-    try:
-        result, _ = json.JSONDecoder().raw_decode(raw, start)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Gemini returned unparseable output: {raw[:300]}") from exc
-
-    if not isinstance(result, list):
-        raise RuntimeError(f"Expected JSON array, got: {type(result)}")
-    return [str(s) for s in result]
+    if not isinstance(result, dict):
+        raise RuntimeError(f"Expected JSON object, got: {type(result)}")
+    meta = [str(s) for s in result.get("metadata_fields", [])]
+    cols = [str(s) for s in result.get("column_names", [])]
+    return meta, cols
 
 
 # ── notebook_config.json helpers ─────────────────────────────────────────────
