@@ -171,7 +171,13 @@ def detect_table_frame(table_bgr: np.ndarray) -> dict:
         lb_thresh = int(left_band.shape[0] * 0.20)
         lb_long = np.where(col_left >= lb_thresh)[0]
         if lb_long.size:
-            x_left_col = 10 + int(lb_long[0])
+            lb_g: list[list[int]] = [[int(lb_long[0])]]
+            for x in lb_long[1:]:
+                if x - lb_g[-1][-1] <= 5:
+                    lb_g[-1].append(int(x))
+                else:
+                    lb_g.append([int(x)])
+            x_left_col = 10 + int(np.median(lb_g[0]))
             log.info("Left col: lenient retry succeeded at x=%d", x_left_col)
         else:
             x_left_col = 10
@@ -429,9 +435,12 @@ def build_remap(
         )
         for j in range(n_bounds)
     ]
-    x_left  = float(bands[0]["col_x"][0])
-    x_right = float(bands[0]["col_x"][-1])
-    out_col_x = np.linspace(x_left, x_right, n_bounds)
+    src_col_x_ref = np.array(bands[0]["col_x"], dtype=float)
+    src_span = float(src_col_x_ref[-1] - src_col_x_ref[0])
+    if src_span > 0:
+        out_col_x = (src_col_x_ref - src_col_x_ref[0]) / src_span * out_w
+    else:
+        out_col_x = np.linspace(0, out_w, n_bounds)
 
     oy_arr = np.arange(out_h, dtype=np.float32)
     ox_arr = np.arange(out_w, dtype=np.float32)
@@ -840,8 +849,11 @@ def process_page(page_num: int, args) -> None:
         print(f"Text rows loaded: {len(text_rows)} "
               f"({'GT' if cfg['gt_page'] and text_rows else 'Approach M'})")
 
-    # 9. Build uniform-grid coords (row pitch and column boundaries are the SAME for every page)
-    col_ranges = list(np.linspace(0, W_OUT, EXPECTED_COLS + 1).round().astype(int))
+    # 9. Column boundaries proportional to detected source widths; rows uniform.
+    col_ranges = result.get(
+        "col_ranges",
+        list(np.linspace(0, W_OUT, EXPECTED_COLS + 1).round().astype(int)),
+    )
     row_ranges = [(i * ROW_PITCH, (i + 1) * ROW_PITCH) for i in range(n_rows)]
 
     def _to_eastern(text: str) -> str: return text.translate(W2E)

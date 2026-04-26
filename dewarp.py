@@ -237,7 +237,7 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False) -> di
     # 5. Row detection on the clean data region
     seg_cache = CACHE_DIR / f"dewarp_seg_page{page}.json"
     rows_data = detect_rows(data_region, cache_path=seg_cache,
-                            use_cache=True, method="kraken")
+                            use_cache=True, method="kraken", skip_header_y=0)
     n_rows = len(rows_data)
     log.info("    rows: %d (synthetic: %d)", n_rows, sum(1 for r in rows_data if r.get("synthetic")))
     if debug:
@@ -280,15 +280,15 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False) -> di
     out_path = PROCESSED_DIR / f"Hadita-{page}Processed.jpg"
     cv2.imwrite(str(out_path), output, [cv2.IMWRITE_JPEG_QUALITY, JPEG_Q])
     log.info("    wrote %s (%d×%d)", out_path.relative_to(ROOT), output.shape[1], output.shape[0])
+    col_ranges_out = [round(x * W_OUT / fw) for x in col_ranges]
     if debug:
         ov = output.copy()
         canvas_h = ov.shape[0]
         # Horizontal: meta/pheader boundary, pheader/data boundary
         cv2.line(ov, (0, H_META),   (W_OUT, H_META),   (0, 200, 200), 2)
         cv2.line(ov, (0, H_HEADER), (W_OUT, H_HEADER), (0, 200, 0), 3)
-        # Vertical: uniform column grid — only inside the data region
-        for j in range(EXPECTED_COLS + 1):
-            x = int(round(j * W_OUT / EXPECTED_COLS))
+        # Vertical: proportional column grid (matches dewarped image column positions)
+        for x in col_ranges_out:
             cv2.line(ov, (x, H_HEADER), (x, canvas_h), (0, 0, 220), 1)
         _write_debug(page, "08_processed_with_grid.jpg", ov)
     return {
@@ -296,9 +296,10 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False) -> di
         "n_rows": n_rows,
         "n_cols": len(col_ranges) - 1,
         "bands_usable": len(bands),
-        "synthetic_rows": sum(1 for r in rows if r.get("synthetic")),
+        "synthetic_rows": sum(1 for r in rows_data if r.get("synthetic")),
         "out_w": output.shape[1],
         "out_h": output.shape[0],
+        "col_ranges": col_ranges_out,
     }
 
 
