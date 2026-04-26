@@ -18,6 +18,59 @@ import numpy as np
 from PIL import Image
 
 
+# ── Deskew (perspective warp of paper boundary) ─────────────────────────────
+
+def _order_corners(pts: np.ndarray) -> np.ndarray:
+    """Order 4 points as [top-left, top-right, bottom-right, bottom-left]."""
+    s = pts.sum(axis=1)
+    d = np.diff(pts, axis=1).ravel()
+    tl = pts[np.argmin(s)]
+    br = pts[np.argmax(s)]
+    tr = pts[np.argmin(d)]
+    bl = pts[np.argmax(d)]
+    return np.array([tl, tr, br, bl], dtype=np.float32)
+
+
+def deskew_image(img: np.ndarray) -> np.ndarray:
+    """Detect the paper boundary in *img* and perspective-warp it to a rectangle.
+
+    Pure function — no caching, no Streamlit. Returns the deskewed BGR image.
+    """
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+    cnt = contours[0]
+    approx = None
+    for eps_mult in [0.02, 0.03, 0.04, 0.05]:
+        epsilon = eps_mult * cv2.arcLength(cnt, True)
+        approx = cv2.approxPolyDP(cnt, epsilon, True)
+        if len(approx) == 4:
+            break
+    if approx is None or len(approx) != 4:
+        rect = cv2.minAreaRect(cnt)
+        approx = cv2.boxPoints(rect).astype(np.int32).reshape(4, 1, 2)
+
+    src_pts = _order_corners(approx.reshape(4, 2))
+    w1 = np.linalg.norm(src_pts[1] - src_pts[0])
+    w2 = np.linalg.norm(src_pts[2] - src_pts[3])
+    h1 = np.linalg.norm(src_pts[3] - src_pts[0])
+    h2 = np.linalg.norm(src_pts[2] - src_pts[1])
+    dst_w = int(max(w1, w2))
+    dst_h = int(max(h1, h2))
+    dst_pts = np.array(
+        [[0, 0], [dst_w - 1, 0], [dst_w - 1, dst_h - 1], [0, dst_h - 1]],
+        dtype=np.float32,
+    )
+    M = cv2.getPerspectiveTransform(src_pts, dst_pts)
+    return cv2.warpPerspective(
+        img, M, (dst_w, dst_h),
+        flags=cv2.INTER_LANCZOS4,
+        borderValue=(255, 255, 255),
+    )
+
+
 # ── Table-corner detection ──────────────────────────────────────────────────
 
 def auto_table_corners(

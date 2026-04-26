@@ -31,6 +31,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from scipy.interpolate import interp1d
 from scipy.signal import find_peaks
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -116,9 +117,133 @@ def _trim_vlines(v_lines: list[int], expected_cols: int,
     return sorted(set([left] + chosen + [right]))
 
 
-def detect_columns(table_bgr: np.ndarray, table_left_x: int) -> list[int]:
+def detect_table_frame(table_bgr: np.ndarray) -> dict:
+    """Anchor-based detection of the table's outer frame.
+
+    Finds two strong landmarks:
+      - Header-bottom horizontal line (separates printed header from data rows).
+      - Long verticals that cross it; the leftmost is the leftmost printed column
+        line (right edge of the serial-no column) and the rightmost is the
+        page-split / binding line.
+
+    Returns a dict with:
+      header_bottom_y : int    — y of header-bottom in the cropped table image
+      x_left_col      : int    — x of the leftmost printed column line
+      x_right_split   : int    — x of the page-split line (right edge of table)
+      x_left_frame    : int    — left edge of the canvas frame (= x_left_col − serial_w)
+      serial_w        : int    — inferred width of the serial-no column
+    """
+    gray = cv2.cvtColor(table_bgr, cv2.COLOR_BGR2GRAY)
+    th, tw = gray.shape
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    norm = clahe.apply(gray)
+    binary = cv2.adaptiveThreshold(
+        norm, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 41, 5)
+
+    # ── Vertical column lines (permissive opening that survives obstruction) ──
+    v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, max(50, th // 25)))
+    v_mask = cv2.morphologyEx(binary, cv2.MORPH_OPEN, v_kernel, iterations=1)
+    # Per-column on-fraction in the lower 60% of the table (data region)
+    lower = v_mask[int(th * 0.30):, :]
+    col_lower = (lower > 0).sum(axis=0)
+    long_x = np.where(col_lower >= int(lower.shape[0] * 0.45))[0]
+    if long_x.size == 0:
+        log.warning("No long verticals; falling back to crop edges")
+        line_xs: list[int] = [0, tw - 1]
+    else:
+        groups: list[list[int]] = [[int(long_x[0])]]
+        for x in long_x[1:]:
+            if x - groups[-1][-1] <= 20:
+                groups[-1].append(int(x))
+            else:
+                groups.append([int(x)])
+        line_xs = sorted(int(np.median(g)) for g in groups)
+    # Leftmost printed column line: ignore crop-edge artifacts (x < 10).
+    # The leftmost line should be within the leftward 25% of the crop; if no
+    # strict-filter survivor lands there, retry with a lenient threshold.
+    left_window_end = int(tw * 0.25)
+    interior_xs = [x for x in line_xs if 10 <= x <= left_window_end]
+    if interior_xs:
+        x_left_col = min(interior_xs)
+    else:
+        left_band = v_mask[int(th * 0.30):, 10:left_window_end]
+        col_left = (left_band > 0).sum(axis=0)
+        lb_thresh = int(left_band.shape[0] * 0.20)
+        lb_long = np.where(col_left >= lb_thresh)[0]
+        if lb_long.size:
+            x_left_col = 10 + int(lb_long[0])
+            log.info("Left col: lenient retry succeeded at x=%d", x_left_col)
+        else:
+            x_left_col = 10
+            log.warning("Left col not detected; defaulting to x=%d", x_left_col)
+
+    # Page-split line: the LEFTMOST strong vertical in the rightward 15% of the
+    # crop is the binding gutter. (Anything to its right is the right page's
+    # content — typically the leftmost printed column line of the next page.)
+    right_window_start = int(tw * 0.88)
+    right_band = v_mask[int(th * 0.30):, right_window_start:]
+    col_right = (right_band > 0).sum(axis=0)
+    rb_thresh = int(right_band.shape[0] * 0.20)
+    rb_long = np.where(col_right >= rb_thresh)[0]
+    if rb_long.size:
+        # Cluster contiguous x's; take the LEFTMOST cluster's median.
+        rb_groups: list[list[int]] = [[int(rb_long[0])]]
+        for x in rb_long[1:]:
+            if x - rb_groups[-1][-1] <= 20:
+                rb_groups[-1].append(int(x))
+            else:
+                rb_groups.append([int(x)])
+        x_right_split = right_window_start + int(np.median(rb_groups[0]))
+        log.info("Page split: %d cluster(s) in right window; leftmost at x=%d",
+                 len(rb_groups), x_right_split)
+    else:
+        x_right_split = tw - 5
+        log.warning("Page split not detected; defaulting to crop edge x=%d", x_right_split)
+    log.info("Long verticals (%d): leftmost x=%d, rightmost (page split) x=%d",
+             len(line_xs), x_left_col, x_right_split)
+
+    # ── Header-bottom: deepest strong horizontal in top 18% of the table ──
+    # The page-top edge / outer table-frame top will be near y=0. The printed
+    # column-header rows produce one or more horizontals slightly below it. We
+    # want the LAST (deepest) of those — the line where data rows start.
+    h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (max(80, tw // 8), 1))
+    h_mask = cv2.morphologyEx(binary, cv2.MORPH_OPEN, h_kernel, iterations=1)
+    proj_y = (h_mask > 0).sum(axis=1).astype(float)
+    band_top, band_bot = 30, int(th * 0.18)  # skip page-edge; restrict to header band
+    band = proj_y[band_top:band_bot].copy()
+    if band.size == 0 or band.max() == 0:
+        header_bottom_y = int(th * 0.08)
+        log.warning("Header-bottom fallback to y=%d", header_bottom_y)
+    else:
+        peaks_idx, _ = find_peaks(band, height=band.max() * 0.4, distance=10)
+        if peaks_idx.size == 0:
+            header_bottom_y = band_top + int(np.argmax(band))
+        else:
+            header_bottom_y = band_top + int(peaks_idx[-1])
+    log.info("Header-bottom y = %d (search band y∈[%d,%d])",
+             header_bottom_y, band_top, band_bot)
+
+    # The leftmost printed column line (x_left_col) IS the leftmost grid line.
+    # The serial column lives to the right of it (between x_left_col and the
+    # next printed line), not in the margin. So the frame's left edge = x_left_col.
+    x_left_frame = x_left_col
+    serial_w = 0
+
+    log.info("Frame: x_left=%d (serial_w=%d), x_right=%d", x_left_frame, serial_w, x_right_split)
+
+    return {
+        "header_bottom_y": header_bottom_y,
+        "x_left_col": x_left_col,
+        "x_right_split": x_right_split,
+        "x_left_frame": x_left_frame,
+        "serial_w": serial_w,
+    }
+
+
+def detect_columns(table_bgr: np.ndarray, table_left_x: int,
+                   expected_cols: int = EXPECTED_COLS) -> list[int]:
     """CLAHE + adaptive threshold + morphological column detection.
-    Returns sorted boundary x-positions trimmed to EXPECTED_COLS columns."""
+    Returns sorted boundary x-positions trimmed to `expected_cols` columns."""
     COL_SHIFT      = 15
     WIDE_COL_PX    = 200
     WIDE_COL_MIN_X = 1900
@@ -141,8 +266,8 @@ def detect_columns(table_bgr: np.ndarray, table_left_x: int) -> list[int]:
 
     if len(v_lines) < 3:
         log.warning("Only %d v-lines detected — using uniform grid", len(v_lines))
-        col_w = (tw - table_left_x) // EXPECTED_COLS
-        return [table_left_x + i * col_w for i in range(EXPECTED_COLS + 1)]
+        col_w = (tw - table_left_x) // expected_cols
+        return [table_left_x + i * col_w for i in range(expected_cols + 1)]
 
     if not v_lines or v_lines[0] > 30:
         v_lines = [0] + v_lines
@@ -177,9 +302,17 @@ def detect_columns(table_bgr: np.ndarray, table_left_x: int) -> list[int]:
         final.append(real[i + 1])
     final = sorted(set(final))
 
+    # Force exactly expected_cols columns. _trim_vlines anchors the outer
+    # boundaries (left edge, right edge) and selects the expected_cols-1
+    # interior boundaries closest to evenly-spaced positions.
+    if len(final) - 1 != expected_cols:
+        before = len(final) - 1
+        final = _trim_vlines(final, expected_cols, left=final[0], right=final[-1])
+        log.info("Column trim: %d → %d cols", before, len(final) - 1)
+
     n_cols = len(final) - 1
-    if n_cols != EXPECTED_COLS:
-        log.warning("Column detection: %d cols (expected %d)", n_cols, EXPECTED_COLS)
+    if n_cols != expected_cols:
+        log.warning("Column detection: %d cols (expected %d)", n_cols, expected_cols)
     log.info("Column boundaries (%d cols): %s", n_cols, final)
     return final
 
@@ -233,6 +366,107 @@ def detect_columns_banded(table_bgr: np.ndarray,
 
     log.info("Per-band detection: %d/%d bands usable", len(bands), n_bands)
     return sorted(bands, key=lambda b: b["y_center"])
+
+
+# ── Dewarp remap construction ──────────────────────────────────────────────────
+
+def build_remap(
+    table_bgr: np.ndarray,
+    rows: list[dict],
+    bands: list[dict],
+    pheader_anchor: tuple[int, int, int] | None = None,
+) -> tuple[np.ndarray, np.ndarray, int, int]:
+    """Build cv2.remap maps that flatten the table grid.
+
+    Rows  → evenly-spaced horizontal lines in output.
+    Bands → evenly-spaced vertical lines in output (per-y column x corrected).
+
+    If `pheader_anchor=(src_y_top, src_y_bot, out_h_top)`, the output also covers
+    the printed-header band: output-y ∈ [0, out_h_top] linearly maps source-y ∈
+    [src_y_top, src_y_bot]. Data rows then start at output-y = out_h_top.
+
+    Returns (map_x, map_y, out_w, out_h).
+    """
+    th, tw = table_bgr.shape[:2]
+    n_rows = len(rows)
+    if n_rows < 2:
+        raise ValueError(f"Too few rows: {n_rows}")
+
+    row_centers = np.array([r["y_center"] for r in rows], dtype=float)
+    pitch = int(np.median(np.diff(row_centers)))
+    out_h_data = n_rows * pitch
+    out_w = tw
+
+    if pheader_anchor is None:
+        out_h = out_h_data
+        out_anchors = np.arange(n_rows) * pitch + pitch / 2
+        src_anchors = row_centers
+        out_anchors = np.concatenate([[0], out_anchors, [out_h]])
+        src_anchors = np.concatenate(
+            [[src_anchors[0] - pitch / 2], src_anchors, [src_anchors[-1] + pitch / 2]]
+        )
+    else:
+        src_y_top, src_y_bot, out_h_top = pheader_anchor
+        out_h = out_h_top + out_h_data
+        data_centers_out = np.arange(n_rows) * pitch + pitch / 2 + out_h_top
+        out_anchors = np.concatenate([[0], [out_h_top], data_centers_out, [out_h]])
+        src_anchors = np.concatenate(
+            [[src_y_top], [src_y_bot], row_centers, [row_centers[-1] + pitch / 2]]
+        )
+    row_interp = interp1d(
+        out_anchors, src_anchors, kind="linear",
+        bounds_error=False, fill_value=(src_anchors[0], src_anchors[-1]),
+    )
+
+    n_bounds = len(bands[0]["col_x"])
+    band_ys = np.array([b["y_center"] for b in bands], dtype=float)
+    col_interps = [
+        interp1d(
+            band_ys,
+            [b["col_x"][j] for b in bands],
+            kind="linear", bounds_error=False,
+            fill_value=(bands[0]["col_x"][j], bands[-1]["col_x"][j]),
+        )
+        for j in range(n_bounds)
+    ]
+    x_left  = float(bands[0]["col_x"][0])
+    x_right = float(bands[0]["col_x"][-1])
+    out_col_x = np.linspace(x_left, x_right, n_bounds)
+
+    oy_arr = np.arange(out_h, dtype=np.float32)
+    ox_arr = np.arange(out_w, dtype=np.float32)
+    OY, OX = np.meshgrid(oy_arr, ox_arr, indexing="ij")
+
+    src_y_map = row_interp(OY).astype(np.float32)
+    src_x_map = np.zeros((out_h, out_w), dtype=np.float32)
+    j_map = np.clip(
+        np.searchsorted(out_col_x, OX, side="right") - 1, 0, n_bounds - 2
+    )
+    for j in range(n_bounds - 1):
+        mask = j_map == j
+        if not np.any(mask):
+            continue
+        src_lo = col_interps[j    ](src_y_map).astype(np.float32)
+        src_hi = col_interps[j + 1](src_y_map).astype(np.float32)
+        span_out = float(out_col_x[j + 1] - out_col_x[j])
+        t = np.clip((OX - out_col_x[j]) / span_out, 0.0, 1.0)
+        src_x_map[mask] = (src_lo + t * (src_hi - src_lo))[mask]
+
+    return src_x_map, src_y_map, out_w, out_h
+
+
+def dewarped_grid(
+    n_rows: int, n_cols: int, out_w: int, out_h: int,
+) -> tuple[np.ndarray, np.ndarray, int]:
+    """Geometry of the uniform target grid produced by build_remap.
+
+    Returns (row_y_boundaries, col_x_boundaries, row_pitch).
+    Row boundaries length = n_rows + 1; col boundaries length = n_cols + 1.
+    """
+    row_pitch = out_h // n_rows
+    row_y = np.arange(n_rows + 1) * row_pitch
+    col_x = np.linspace(0, out_w, n_cols + 1).round().astype(int)
+    return row_y, col_x, row_pitch
 
 
 def interp_col_x(c_idx: int, y_table: int, bands: list[dict]) -> int:
@@ -581,44 +815,23 @@ def write_page_xml(col_ranges: list[int],
 # ── Process one page ───────────────────────────────────────────────────────────
 
 def process_page(page_num: int, args) -> None:
-    cfg        = PAGE_CONFIG[page_num]
-    image_path = IMAGES_DIR / cfg["image"]
+    """Run dewarp pipeline → save dewarped JPEG + write uniform-grid PAGE XML for both digit variants."""
+    import shutil
+    from dewarp import process_page as run_dewarp, W_OUT, H_HEADER, ROW_PITCH
 
-    if not image_path.exists():
-        log.error("Image not found: %s", image_path)
-        return
-
+    cfg = PAGE_CONFIG[page_num]
     print(f"\n{'='*60}")
-    print(f"Page {page_num}  ({image_path.name})")
+    print(f"Page {page_num}")
     print(f"{'='*60}")
 
-    image = cv2.imread(str(image_path))
-    ph, pw = image.shape[:2]
+    # 1–7. Run the full image pipeline (deskew → crop → detect → remap → normalize)
+    result = run_dewarp(page_num, debug=getattr(args, "debug", False),
+                        from_cache=getattr(args, "from_cache", False))
+    n_rows = result["n_rows"]
+    page_h = result["out_h"]
+    page_w = result["out_w"]
 
-    # 1. Crop table
-    table_bgr, y_offset, _ = crop_table(image, cfg)
-    th, tw = table_bgr.shape[:2]
-    log.info("Table crop: %d×%d px, y_offset=%d", tw, th, y_offset)
-
-    # 2. Column detection (global + per-band)
-    col_ranges = detect_columns(table_bgr, cfg["table_left_x"])
-    bands      = detect_columns_banded(table_bgr, col_ranges)
-    print(f"Columns: {len(col_ranges)-1} detected (expected {EXPECTED_COLS}), "
-          f"{len(bands)}/{N_BANDS} bands usable")
-
-    # 3. Row detection
-    seg_cache  = CACHE_DIR / f"unified_seg_page{page_num}.json"
-    skip_y     = int(th * 0.10)   # skip top 10% of table — clears the printed column-label header area
-    row_dicts  = detect_rows(table_bgr, seg_cache,
-                              use_cache=not args.no_cache,
-                              method=args.row_method,
-                              skip_header_y=skip_y)
-    row_ranges = rows_to_ranges(row_dicts, th)
-
-    synth = sum(1 for r in row_dicts if r.get("synthetic"))
-    print(f"Rows: {len(row_dicts)} detected ({synth} synthetic from gap interpolation)")
-
-    # 4. Load text for cells
+    # 8. Load text for cells
     if args.no_text:
         text_rows = None
         print("Text rows: skipped (--no-text)")
@@ -627,36 +840,30 @@ def process_page(page_num: int, args) -> None:
         print(f"Text rows loaded: {len(text_rows)} "
               f"({'GT' if cfg['gt_page'] and text_rows else 'Approach M'})")
 
-    # 5. Export PAGE XML — two variants (no header row; row 0 = serial no. 1)
-    full_ranges = list(row_ranges)
+    # 9. Build uniform-grid coords (row pitch and column boundaries are the SAME for every page)
+    col_ranges = list(np.linspace(0, W_OUT, EXPECTED_COLS + 1).round().astype(int))
+    row_ranges = [(i * ROW_PITCH, (i + 1) * ROW_PITCH) for i in range(n_rows)]
 
-    def _to_eastern(text: str) -> str:
-        return text.translate(W2E)
+    def _to_eastern(text: str) -> str: return text.translate(W2E)
+    def _to_western(text: str) -> str: return text.translate(E2W)
 
-    def _to_western(text: str) -> str:
-        return text.translate(E2W)
+    img_name = f"Hadita_{page_num}.jpeg"
 
-    xml_name = cfg["xml_name"]
-    img_name = cfg["transkribus_image"]
-
-    # Original (Arabic-Indic digits)
-    out_orig = UPLOAD_DIR / "original" / xml_name
-    out_orig.parent.mkdir(parents=True, exist_ok=True)
-    write_page_xml(col_ranges, full_ranges, y_offset, pw, ph,
-                   img_name, out_orig,
-                   text_rows=text_rows, bands=bands, text_fn=_to_eastern,
-                   col_tags=args.col_tags)
-
-    # Western Arabic transliteration (digits as-is)
-    out_west = UPLOAD_DIR / "western arabic transliteration" / xml_name
-    out_west.parent.mkdir(parents=True, exist_ok=True)
-    write_page_xml(col_ranges, full_ranges, y_offset, pw, ph,
-                   img_name, out_west,
-                   text_rows=text_rows, bands=bands, text_fn=_to_western,
-                   col_tags=args.col_tags)
-
-    print(f"Original → {out_orig}")
-    print(f"Western  → {out_west}")
+    for sub, text_fn in [("original", _to_eastern),
+                         ("western arabic transliteration", _to_western)]:
+        out_dir = UPLOAD_DIR / sub
+        out_dir.mkdir(parents=True, exist_ok=True)
+        # Copy dewarped JPEG into the upload folder so XML+image stay co-located.
+        shutil.copyfile(result["path"], out_dir / img_name)
+        # Write uniform-grid XML targeting the dewarped JPEG.
+        write_page_xml(col_ranges, row_ranges,
+                       y_offset=H_HEADER,
+                       page_w=page_w, page_h=page_h,
+                       image_filename=img_name,
+                       out_path=out_dir / f"Hadita_{page_num}.xml",
+                       text_rows=text_rows, bands=None, text_fn=text_fn,
+                       col_tags=args.col_tags)
+        print(f"{sub:35s} → {out_dir / f'Hadita_{page_num}.xml'}")
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -665,10 +872,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--page", type=int, choices=[3, 10, 50],
                         help="Process a single page (default: all pages)")
-    parser.add_argument("--no-cache", action="store_true",
-                        help="Ignore cached Kraken segmentation and re-run")
-    parser.add_argument("--row-method", choices=["kraken", "morph"], default="kraken",
-                        help="Row detection method (default: kraken, fallback: morph)")
+    parser.add_argument("--from-cache", action="store_true",
+                        help="Skip deskew; reuse .ocr_cache/deskewed_page{N}.{png,jpg}")
+    parser.add_argument("--debug", action="store_true",
+                        help="Write per-step images to processed/_debug/page{N}/")
     parser.add_argument("--col-tags", action="store_true",
                         help="Embed column names as Transkribus structural tags in TableCell custom attribute")
     parser.add_argument("--no-text", action="store_true",
