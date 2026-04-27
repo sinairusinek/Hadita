@@ -23,6 +23,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -33,12 +34,15 @@ import numpy as np
 ROOT = Path(__file__).parent
 sys.path.insert(0, str(ROOT))
 
-from image_preprocess import deskew_image
+from image_preprocess import deskew_image, detect_x_left_col_cached
 from segment_unified import (
     N_BANDS, EXPECTED_COLS,
     crop_table, detect_columns, detect_columns_banded, detect_rows,
-    detect_table_frame, build_remap,
+    detect_table_frame, build_remap, fix_x_left_col_geometric,
+    fix_col_ranges_with_first_interior,
 )
+
+X_LEFT_COL_MODES = ("none", "geometric", "gemini", "claude", "consensus")
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -94,8 +98,9 @@ def load_or_make_deskewed(page: int, from_cache: bool) -> np.ndarray:
 
 # ── Debug overlays ────────────────────────────────────────────────────────────
 
-def _write_debug(page: int, name: str, img: np.ndarray) -> None:
-    d = DEBUG_DIR / f"page{page}"
+def _write_debug(page: int, name: str, img: np.ndarray, mode: str = "none") -> None:
+    suffix = "" if mode == "none" else f"_{mode}"
+    d = DEBUG_DIR / f"page{page}{suffix}"
     d.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(d / name), img, [cv2.IMWRITE_JPEG_QUALITY, 88])
 
@@ -192,7 +197,8 @@ def _dewarp_pheader(pheader_region: np.ndarray, bands: list[dict]) -> np.ndarray
 
 # ── Per-page processing ───────────────────────────────────────────────────────
 
-def process_page(page: int, debug: bool = False, from_cache: bool = False) -> dict:
+def process_page(page: int, debug: bool = False, from_cache: bool = False,
+                 x_left_col_mode: str = "none") -> dict:
     """Run the full pipeline for one page; return metadata dict.
 
     Order: deskew → wide crop (safety) → detect frame anchors → tight crop to frame
@@ -205,20 +211,31 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False) -> di
     # 1. Deskew (perspective warp of paper boundary)
     deskewed = load_or_make_deskewed(page, from_cache)
     if debug:
-        _write_debug(page, "01_deskewed.jpg", deskewed)
+        _write_debug(page, "01_deskewed.jpg", deskewed, mode=x_left_col_mode)
 
     # 2. Wide crop — generous fractions just to bring the table region into view.
     wide_crop, y_offset, x_offset = crop_table(deskewed, CFG)
     wh, ww = wide_crop.shape[:2]
     log.info("    wide crop %d×%d  offset=(x=%d, y=%d)", ww, wh, x_offset, y_offset)
     if debug:
-        _write_debug(page, "02_wide_crop.jpg", wide_crop)
+        _write_debug(page, "02_wide_crop.jpg", wide_crop, mode=x_left_col_mode)
 
-    # 3. Detect frame anchors on the wide crop
+    # 3. Detect frame anchors on the wide crop. If an LLM mode is selected,
+    # we will ask the vision model for the right edge of Serial_No (the first
+    # interior printed line) and use it later to disambiguate col_ranges[1]
+    # against spurious paper-edge / handwriting peaks.
+    x_first_interior_wide: int | None = None
+    if x_left_col_mode in ("gemini", "claude", "consensus"):
+        x_first_interior_wide = detect_x_left_col_cached(
+            wide_crop, page=page, cache_dir=CACHE_DIR, mode=x_left_col_mode,
+        )
+        log.info("    LLM (%s) x_first_interior (wide) → %s",
+                 x_left_col_mode, x_first_interior_wide)
     frame = detect_table_frame(wide_crop)
     if debug:
         _write_debug(page, "03_anchors.jpg",
-                     _overlay_anchors(deskewed, wide_crop, y_offset, x_offset, frame))
+                     _overlay_anchors(deskewed, wide_crop, y_offset, x_offset, frame),
+                     mode=x_left_col_mode)
 
     # 4. Tight crop to frame — defines all downstream coordinates
     x_l = frame["x_left_frame"]
@@ -231,8 +248,8 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False) -> di
     log.info("    framed %d×%d  hb_y=%d  data region %d×%d",
              fw, fh, hb_y, data_region.shape[1], data_region.shape[0])
     if debug:
-        _write_debug(page, "04_framed.jpg", framed)
-        _write_debug(page, "04a_data_region.jpg", data_region)
+        _write_debug(page, "04_framed.jpg", framed, mode=x_left_col_mode)
+        _write_debug(page, "04a_data_region.jpg", data_region, mode=x_left_col_mode)
 
     # 5. Row detection on the clean data region
     seg_cache = CACHE_DIR / f"dewarp_seg_page{page}.json"
@@ -241,7 +258,8 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False) -> di
     n_rows = len(rows_data)
     log.info("    rows: %d (synthetic: %d)", n_rows, sum(1 for r in rows_data if r.get("synthetic")))
     if debug:
-        _write_debug(page, "05_rows.jpg", _overlay_rows(data_region, rows_data))
+        _write_debug(page, "05_rows.jpg", _overlay_rows(data_region, rows_data),
+                     mode=x_left_col_mode)
 
     # 6. Column detection on the framed image. The frame already anchors x=0
     # (= x_left_col, leftmost printed line) and x=fw (= page split, rightmost).
@@ -249,16 +267,23 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False) -> di
     # forces exactly EXPECTED_COLS=19 columns.
     col_ranges = detect_columns(framed, table_left_x=0,
                                 expected_cols=EXPECTED_COLS)
+    if x_left_col_mode == "geometric":
+        col_ranges = fix_x_left_col_geometric(col_ranges)
+    elif x_first_interior_wide is not None:
+        col_ranges = fix_col_ranges_with_first_interior(
+            col_ranges, x_first_interior=x_first_interior_wide - x_l,
+        )
     bands = detect_columns_banded(framed, col_ranges, n_bands=N_BANDS)
     log.info("    cols: %d (expected %d), bands usable: %d/%d  (frame: x=[0,%d])",
              len(col_ranges) - 1, EXPECTED_COLS, len(bands), N_BANDS, fw)
     if debug:
-        _write_debug(page, "06_cols.jpg", _overlay_cols(framed, bands))
+        _write_debug(page, "06_cols.jpg", _overlay_cols(framed, bands),
+                     mode=x_left_col_mode)
 
     # 7. Build a single remap that covers BOTH pheader and data. Row centers
     # come from detect_rows (in data_region coords) → shift by hb_y for framed.
     rows_framed = [{**r, "y_center": r["y_center"] + hb_y} for r in rows_data]
-    map_x, map_y, _, out_h = build_remap(
+    map_x, map_y, _, out_h, out_col_x_full = build_remap(
         framed, rows_framed, bands,
         pheader_anchor=(0, hb_y, H_PHEADER),
     )
@@ -267,7 +292,7 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False) -> di
         cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE,
     )
     if debug:
-        _write_debug(page, "07_dewarped_full.jpg", dewarped_full)
+        _write_debug(page, "07_dewarped_full.jpg", dewarped_full, mode=x_left_col_mode)
 
     # 8. Compose final canvas: meta strip + dewarped (pheader+data) resized to
     # (W_OUT, H_PHEADER + n_rows*ROW_PITCH).
@@ -280,7 +305,20 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False) -> di
     out_path = PROCESSED_DIR / f"Hadita-{page}Processed.jpg"
     cv2.imwrite(str(out_path), output, [cv2.IMWRITE_JPEG_QUALITY, JPEG_Q])
     log.info("    wrote %s (%d×%d)", out_path.relative_to(ROOT), output.shape[1], output.shape[0])
-    col_ranges_out = [round(x * W_OUT / fw) for x in col_ranges]
+    # Overlay positions: derive from build_remap's actual out_col_x so the red
+    # grid exactly matches where the dewarp placed each column boundary in the
+    # canvas. (Using col_ranges directly here was off by 15–30 px on the left
+    # because col_ranges carries COL_SHIFT and bands[0]["col_x"] does not.)
+    col_ranges_out = [round(float(x) * W_OUT / fw) for x in out_col_x_full]
+    cols_meta = {
+        "page": page,
+        "x_left_col_mode": x_left_col_mode,
+        "col_ranges_framed": list(col_ranges),
+        "col_ranges_out": col_ranges_out,
+        "framed_w": fw,
+    }
+    (CACHE_DIR / f"dewarp_cols_page{page}.json").write_text(
+        json.dumps(cols_meta, indent=2), encoding="utf-8")
     if debug:
         ov = output.copy()
         canvas_h = ov.shape[0]
@@ -290,7 +328,7 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False) -> di
         # Vertical: proportional column grid (matches dewarped image column positions)
         for x in col_ranges_out:
             cv2.line(ov, (x, H_HEADER), (x, canvas_h), (0, 0, 220), 1)
-        _write_debug(page, "08_processed_with_grid.jpg", ov)
+        _write_debug(page, "08_processed_with_grid.jpg", ov, mode=x_left_col_mode)
     return {
         "path": out_path,
         "n_rows": n_rows,
@@ -329,6 +367,10 @@ def main() -> None:
                         help="Skip deskew; require .ocr_cache/deskewed_page{N}.{png,jpg}")
     parser.add_argument("--debug", action="store_true",
                         help="Write per-step images to processed/_debug/page{N}/")
+    parser.add_argument("--x-left-col-mode", choices=X_LEFT_COL_MODES, default="none",
+                        help="How to detect leftmost printed column line (right edge of Serial_No). "
+                             "geometric=median-pitch fallback (no LLM); gemini/claude=vision LLM; "
+                             "consensus=both LLMs cross-checked.")
     args = parser.parse_args()
 
     pages = _resolve_pages(args)
@@ -339,7 +381,8 @@ def main() -> None:
     failures: list[tuple[int, str]] = []
     for n in pages:
         try:
-            process_page(n, debug=args.debug, from_cache=args.from_cache)
+            process_page(n, debug=args.debug, from_cache=args.from_cache,
+                         x_left_col_mode=args.x_left_col_mode)
         except Exception as exc:
             log.warning("page %d failed: %s", n, exc)
             failures.append((n, str(exc)))

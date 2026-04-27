@@ -117,7 +117,102 @@ def _trim_vlines(v_lines: list[int], expected_cols: int,
     return sorted(set([left] + chosen + [right]))
 
 
-def detect_table_frame(table_bgr: np.ndarray) -> dict:
+# Empirically derived from page 3 (gold-standard alignment): the Serial_No
+# column is ~2.9× wider than the median printed-column pitch. Other pages
+# should match within ±50%; deviations beyond that indicate a spine/paper-edge
+# artifact polluting col_ranges[0..1].
+SERIAL_W_RATIO = 2.9
+
+
+def fix_x_left_col_geometric(col_ranges: list[int]) -> list[int]:
+    """Geometric fallback for a misdetected x_left_col (the right edge of Serial_No).
+
+    Premise: column gaps 9..end of `col_ranges` are far from the spine and
+    reliably detected. Their median pitch × SERIAL_W_RATIO predicts the
+    correct Serial_No width. Two failure modes:
+
+      A. serial_w too small (~1× pitch): col_ranges[1] is a spurious line
+         (paper edge / handwriting). Drop it; the next boundary becomes the
+         real Serial_No right edge. (Page 50.)
+      B. serial_w too large: col_ranges[0] is too far left (spine artifact
+         pulled it). Raise it to col_ranges[1] - expected_serial_w.
+
+    Operates in *framed* coordinates. Returns a new list (possibly shorter
+    by 1 in case A).
+    """
+    if len(col_ranges) < 12:
+        return list(col_ranges)
+    right_gaps = [col_ranges[i + 1] - col_ranges[i] for i in range(9, len(col_ranges) - 1)]
+    if not right_gaps:
+        return list(col_ranges)
+    median_pitch = float(np.median(right_gaps))
+    if median_pitch <= 1:
+        return list(col_ranges)
+    expected_serial_w = median_pitch * SERIAL_W_RATIO
+    serial_w = col_ranges[1] - col_ranges[0]
+
+    # Case A: spurious narrow first column (e.g. paper edge between spine and
+    # real first printed line). Drop col_ranges[1] if a real line lives further
+    # right at roughly the expected distance.
+    if serial_w < 0.5 * expected_serial_w and len(col_ranges) > 3:
+        next_w = col_ranges[2] - col_ranges[0]
+        if 0.6 * expected_serial_w <= next_w <= 1.5 * expected_serial_w:
+            log.info("Geometric x_left_col fix (drop spurious): serial_w %d → %d "
+                     "(expected=%.0f, pitch=%.1f)",
+                     serial_w, next_w, expected_serial_w, median_pitch)
+            return [col_ranges[0]] + col_ranges[2:]
+
+    # Case B: serial_w too large — raise col_ranges[0].
+    if serial_w > 1.5 * expected_serial_w:
+        new_x_left = int(round(col_ranges[1] - expected_serial_w))
+        new_x_left = max(0, min(col_ranges[1] - 30, new_x_left))
+        log.info("Geometric x_left_col fix (raise left): serial_w %d → %d "
+                 "(expected=%.0f, pitch=%.1f)",
+                 serial_w, col_ranges[1] - new_x_left, expected_serial_w, median_pitch)
+        fixed = list(col_ranges)
+        fixed[0] = new_x_left
+        return fixed
+
+    return list(col_ranges)
+
+
+def fix_col_ranges_with_first_interior(col_ranges: list[int],
+                                       x_first_interior: int) -> list[int]:
+    """Force col_ranges[1] to equal x_first_interior (in framed coords).
+
+    The right edge of the Serial_No column is the most error-prone boundary;
+    when an LLM identifies it confidently, we trust it and discard any
+    spurious boundaries (paper edges, handwriting, etc.) that detect_columns
+    placed between col_ranges[0] and the real interior line.
+
+    Returns a new list where col_ranges[0] is unchanged, col_ranges[1] is the
+    boundary closest to x_first_interior (within tolerance) — any boundaries
+    strictly between them are dropped — and the rest follow.
+    """
+    if len(col_ranges) < 3 or x_first_interior <= col_ranges[0]:
+        return list(col_ranges)
+    interior = [(i, x) for i, x in enumerate(col_ranges) if i >= 1]
+    nearest_idx, nearest_x = min(interior, key=lambda p: abs(p[1] - x_first_interior))
+    # Tolerance: within 1/2 of typical pitch
+    if len(col_ranges) >= 12:
+        right_gaps = [col_ranges[i + 1] - col_ranges[i] for i in range(9, len(col_ranges) - 1)]
+        tol = 0.5 * float(np.median(right_gaps)) if right_gaps else 80.0
+    else:
+        tol = 80.0
+    if abs(nearest_x - x_first_interior) > tol:
+        log.info("LLM first-interior x=%d not near any detected boundary "
+                 "(nearest=%d, tol=%.0f) — keeping original", x_first_interior, nearest_x, tol)
+        return list(col_ranges)
+    fixed = [col_ranges[0], col_ranges[nearest_idx]] + col_ranges[nearest_idx + 1:]
+    if len(fixed) != len(col_ranges):
+        log.info("LLM first-interior fix: dropped %d spurious boundaries "
+                 "(col_ranges[1]: %d → %d)",
+                 len(col_ranges) - len(fixed), col_ranges[1], col_ranges[nearest_idx])
+    return fixed
+
+
+def detect_table_frame(table_bgr: np.ndarray,
+                       x_left_col_override: int | None = None) -> dict:
     """Anchor-based detection of the table's outer frame.
 
     Finds two strong landmarks:
@@ -162,26 +257,30 @@ def detect_table_frame(table_bgr: np.ndarray) -> dict:
     # The leftmost line should be within the leftward 25% of the crop; if no
     # strict-filter survivor lands there, retry with a lenient threshold.
     left_window_end = int(tw * 0.25)
-    interior_xs = [x for x in line_xs if 10 <= x <= left_window_end]
-    if interior_xs:
-        x_left_col = min(interior_xs)
+    if x_left_col_override is not None and 10 <= x_left_col_override <= left_window_end:
+        x_left_col = int(x_left_col_override)
+        log.info("Left col: override → x=%d", x_left_col)
     else:
-        left_band = v_mask[int(th * 0.30):, 10:left_window_end]
-        col_left = (left_band > 0).sum(axis=0)
-        lb_thresh = int(left_band.shape[0] * 0.20)
-        lb_long = np.where(col_left >= lb_thresh)[0]
-        if lb_long.size:
-            lb_g: list[list[int]] = [[int(lb_long[0])]]
-            for x in lb_long[1:]:
-                if x - lb_g[-1][-1] <= 5:
-                    lb_g[-1].append(int(x))
-                else:
-                    lb_g.append([int(x)])
-            x_left_col = 10 + int(np.median(lb_g[0]))
-            log.info("Left col: lenient retry succeeded at x=%d", x_left_col)
+        interior_xs = [x for x in line_xs if 10 <= x <= left_window_end]
+        if interior_xs:
+            x_left_col = min(interior_xs)
         else:
-            x_left_col = 10
-            log.warning("Left col not detected; defaulting to x=%d", x_left_col)
+            left_band = v_mask[int(th * 0.30):, 10:left_window_end]
+            col_left = (left_band > 0).sum(axis=0)
+            lb_thresh = int(left_band.shape[0] * 0.20)
+            lb_long = np.where(col_left >= lb_thresh)[0]
+            if lb_long.size:
+                lb_g: list[list[int]] = [[int(lb_long[0])]]
+                for x in lb_long[1:]:
+                    if x - lb_g[-1][-1] <= 5:
+                        lb_g[-1].append(int(x))
+                    else:
+                        lb_g.append([int(x)])
+                x_left_col = 10 + int(np.median(lb_g[0]))
+                log.info("Left col: lenient retry succeeded at x=%d", x_left_col)
+            else:
+                x_left_col = 10
+                log.warning("Left col not detected; defaulting to x=%d", x_left_col)
 
     # Page-split line: the LEFTMOST strong vertical in the rightward 15% of the
     # crop is the binding gutter. (Anything to its right is the right page's
@@ -381,7 +480,7 @@ def build_remap(
     rows: list[dict],
     bands: list[dict],
     pheader_anchor: tuple[int, int, int] | None = None,
-) -> tuple[np.ndarray, np.ndarray, int, int]:
+) -> tuple[np.ndarray, np.ndarray, int, int, np.ndarray]:
     """Build cv2.remap maps that flatten the table grid.
 
     Rows  → evenly-spaced horizontal lines in output.
@@ -391,7 +490,10 @@ def build_remap(
     the printed-header band: output-y ∈ [0, out_h_top] linearly maps source-y ∈
     [src_y_top, src_y_bot]. Data rows then start at output-y = out_h_top.
 
-    Returns (map_x, map_y, out_w, out_h).
+    Returns (map_x, map_y, out_w, out_h, out_col_x).
+    `out_col_x` is the array of column-boundary x positions in the dewarped
+    output (same coordinate system as map_x), so callers can draw an overlay
+    that exactly matches the dewarp's column placement.
     """
     th, tw = table_bgr.shape[:2]
     n_rows = len(rows)
@@ -461,7 +563,7 @@ def build_remap(
         t = np.clip((OX - out_col_x[j]) / span_out, 0.0, 1.0)
         src_x_map[mask] = (src_lo + t * (src_hi - src_lo))[mask]
 
-    return src_x_map, src_y_map, out_w, out_h
+    return src_x_map, src_y_map, out_w, out_h, out_col_x
 
 
 def dewarped_grid(

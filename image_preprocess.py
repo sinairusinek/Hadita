@@ -243,6 +243,160 @@ def gemini_extract_schema(
     return meta, cols
 
 
+# ── x_left_col detection (LLM anchor for the leftmost printed column line) ──
+
+_X_LEFT_COL_PROMPT = """\
+This image is a crop from a British Mandate Palestine tax-register scan \
+(landscape, left page of a spread). The first column of the table is the \
+narrow "Serial_No" column. Look at the printed vertical lines of the table \
+grid; the line we want is the printed vertical line that forms the RIGHT \
+edge of the Serial_No column (and the LEFT edge of the next column, "Date"). \
+This is typically between 12% and 18% of the image width — well inside the \
+page, not at the page/binding edge.
+
+Return ONLY a JSON object: {{"x_first_interior": <int>}}
+
+`x_first_interior` is the x-coordinate (pixels from the left of THIS image) \
+of that printed line. Image width is {W} px. Ignore the binding shadow, the \
+outer page edge, the outer-left frame line of the table, and any handwriting. \
+No explanation, no markdown, no extra keys.\
+"""
+
+
+def _validate_x_left_col(value, image_w: int) -> Optional[int]:
+    try:
+        x = int(value)
+    except (TypeError, ValueError):
+        return None
+    if not (30 <= x <= int(image_w * 0.30)):
+        return None
+    return x
+
+
+def detect_x_left_col_gemini(
+    wide_crop_bgr: np.ndarray,
+    api_key: Optional[str] = None,
+    model: str = "gemini-2.5-flash",
+) -> Optional[int]:
+    """Ask Gemini for the x of the leftmost printed column line in wide_crop.
+    Returns int x in image coords, or None if unavailable / invalid."""
+    key = api_key or os.environ.get("GOOGLE_API_KEY", "")
+    if not key:
+        return None
+
+    from google import genai
+    from google.genai import types
+
+    h, w = wide_crop_bgr.shape[:2]
+    client = genai.Client(api_key=key)
+    parts = [
+        types.Part.from_bytes(data=_encode_bgr(wide_crop_bgr), mime_type="image/jpeg"),
+        types.Part.from_text(text=_X_LEFT_COL_PROMPT.format(W=w)),
+    ]
+    try:
+        cfg = types.GenerateContentConfig(
+            max_output_tokens=2048,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        )
+        resp = client.models.generate_content(model=model, contents=parts, config=cfg)
+        result = _parse_gemini_json((resp.text or "").strip())
+    except Exception:
+        return None
+    if not isinstance(result, dict):
+        return None
+    return _validate_x_left_col(
+        result.get("x_first_interior", result.get("x_left_col")), w)
+
+
+def detect_x_left_col_claude(
+    wide_crop_bgr: np.ndarray,
+    api_key: Optional[str] = None,
+    model: str = "claude-sonnet-4-6",
+) -> Optional[int]:
+    """Cross-check via Anthropic Claude (vision). Same prompt, same return type."""
+    key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        return None
+    try:
+        import anthropic
+    except ImportError:
+        return None
+
+    import base64
+    h, w = wide_crop_bgr.shape[:2]
+    img_b64 = base64.standard_b64encode(_encode_bgr(wide_crop_bgr)).decode("ascii")
+    client = anthropic.Anthropic(api_key=key)
+    try:
+        resp = client.messages.create(
+            model=model,
+            max_tokens=128,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {
+                        "type": "base64", "media_type": "image/jpeg", "data": img_b64,
+                    }},
+                    {"type": "text", "text": _X_LEFT_COL_PROMPT.format(W=w)},
+                ],
+            }],
+        )
+        text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip()
+        result = _parse_gemini_json(text)
+    except Exception:
+        return None
+    if not isinstance(result, dict):
+        return None
+    return _validate_x_left_col(
+        result.get("x_first_interior", result.get("x_left_col")), w)
+
+
+def detect_x_left_col_cached(
+    wide_crop_bgr: np.ndarray,
+    page: int,
+    cache_dir: Path,
+    mode: str = "gemini",
+) -> Optional[int]:
+    """Cached LLM dispatch.
+
+    mode: "gemini" | "claude" | "consensus".
+    consensus = call both; if both valid and within 15px of each other, average;
+                otherwise return Gemini's answer (with both written to cache for audit).
+    Cache file: cache_dir/x_left_col_page{N}.json containing {"gemini":..,"claude":..,"chosen":..,"mode":..}.
+    """
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / f"x_left_col_page{page}.json"
+    cached: dict = {}
+    if cache_path.exists():
+        try:
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            if cached.get("mode") == mode and isinstance(cached.get("chosen"), int):
+                return int(cached["chosen"])
+        except Exception:
+            cached = {}
+
+    g = c = None
+    if mode in ("gemini", "consensus"):
+        g = detect_x_left_col_gemini(wide_crop_bgr)
+    if mode in ("claude", "consensus"):
+        c = detect_x_left_col_claude(wide_crop_bgr)
+
+    if mode == "gemini":
+        chosen = g
+    elif mode == "claude":
+        chosen = c
+    else:  # consensus
+        if g is not None and c is not None and abs(g - c) <= 15:
+            chosen = (g + c) // 2
+        else:
+            chosen = g if g is not None else c
+
+    cache_path.write_text(
+        json.dumps({"mode": mode, "gemini": g, "claude": c, "chosen": chosen}, indent=2),
+        encoding="utf-8",
+    )
+    return chosen
+
+
 # ── notebook_config.json helpers ─────────────────────────────────────────────
 
 def load_notebook_config(path: Path) -> dict:

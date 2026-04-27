@@ -14,11 +14,13 @@ Usage:
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
 
 import cv2
+import numpy as np
 
 ROOT = Path(__file__).parent
 sys.path.insert(0, str(ROOT))
@@ -27,6 +29,39 @@ from dewarp import W_OUT, H_HEADER, ROW_PITCH, PROCESSED_DIR, DEBUG_DIR
 
 ROW_COUNT_RANGE = (25, 50)
 MAX_SYNTHETIC_FRAC = 0.20
+SERIAL_W_RATIO_RANGE = (2.0, 4.0)  # serial_w / median(interior_pitch_cols_9..19);
+                                    # ~2.9 on page 3 (gold) — Serial_No is ~3× wider
+                                    # than other columns. Outside this band → likely
+                                    # spine/paper-edge artifact polluting col_ranges[1].
+
+
+def _check_serial_width(page: int) -> tuple[bool, str]:
+    """Verify Serial_No column width is within [0.7×, 1.3×] of median interior pitch.
+
+    Catches the page-10/50 failure mode where x_left_col lands on a spine artifact
+    or paper edge and Serial_No collapses or balloons.
+    """
+    p = ROOT / ".ocr_cache" / f"dewarp_cols_page{page}.json"
+    if not p.exists():
+        return True, "no col cache"
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+        cr = d["col_ranges_framed"]
+    except Exception as e:
+        return False, f"col cache unreadable: {e}"
+    if len(cr) < 12:
+        return False, f"only {len(cr)} boundaries"
+    serial_w = cr[1] - cr[0]
+    right_gaps = [cr[i + 1] - cr[i] for i in range(9, len(cr) - 1)]
+    if not right_gaps:
+        return False, "no right-side gaps"
+    pitch = float(np.median(right_gaps))
+    if pitch <= 1:
+        return False, f"degenerate median pitch {pitch}"
+    ratio = serial_w / pitch
+    lo, hi = SERIAL_W_RATIO_RANGE
+    ok = lo <= ratio <= hi
+    return ok, f"serial_w/pitch={ratio:.2f} (serial_w={serial_w}, pitch={pitch:.0f})"
 
 
 def _scan_outputs() -> list[Path]:
@@ -108,6 +143,12 @@ def main() -> None:
         rows_text = str(n_rows)
         if not (ROW_COUNT_RANGE[0] <= n_rows <= ROW_COUNT_RANGE[1]):
             problems.append(f"row count {n_rows} outside {ROW_COUNT_RANGE}")
+
+        ok_sw, sw_info = _check_serial_width(page)
+        if not ok_sw:
+            problems.append(f"serial_w invariant: {sw_info}")
+        else:
+            cols_text = sw_info
 
         status = "OK" if not problems else "FAIL: " + "; ".join(problems)
         if problems:
