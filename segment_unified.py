@@ -43,6 +43,7 @@ IMAGES_DIR   = PROJECT_DIR / "images"
 CACHE_DIR    = PROJECT_DIR / ".ocr_cache"
 GT_FILE      = PROJECT_DIR / "ground_truth.tsv"
 SEG_MODEL    = PROJECT_DIR / "sc_100p_full_line (1).mlmodel"
+REC_MODEL    = PROJECT_DIR / "gen2_sc_clean_best.mlmodel"   # Kraken recognition model (gen2)
 KRAKEN_BIN   = "/opt/anaconda3/bin/kraken"
 UPLOAD_DIR   = PROJECT_DIR / "Transkribus upload"
 
@@ -911,6 +912,236 @@ def load_text_rows(page_num: int, cfg: dict) -> list[dict]:
     return load_approach_m_rows(page_num)
 
 
+# ── Kraken HTR (recognition) ───────────────────────────────────────────────────
+
+def _kraken_recognize_image(img_bgr: np.ndarray, model_path: Path) -> str:
+    """Run Kraken recognition on a single line image (no internal segmentation).
+
+    Mirrors compare_ocr._kraken_recognize_cell but accepts a numpy BGR array.
+    Returns the recognized text, or "" on failure.
+    """
+    if img_bgr is None or img_bgr.size == 0:
+        return ""
+    with tempfile.TemporaryDirectory() as tmp:
+        in_path  = Path(tmp) / "line.jpg"
+        out_path = Path(tmp) / "line.txt"
+        cv2.imwrite(str(in_path), img_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        cmd = [KRAKEN_BIN, "-i", str(in_path), str(out_path),
+               "binarize", "ocr", "-s", "-m", str(model_path)]
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        except subprocess.TimeoutExpired:
+            return ""
+        if res.returncode != 0 or not out_path.exists():
+            return ""
+        return out_path.read_text(encoding="utf-8").strip()
+
+
+def _kraken_segment_image(img_bgr: np.ndarray) -> list[dict]:
+    """Run Kraken baseline segmentation on a single image. Returns parsed lines."""
+    with tempfile.TemporaryDirectory() as tmp:
+        in_path  = Path(tmp) / "strip.jpg"
+        out_path = Path(tmp) / "seg.json"
+        cv2.imwrite(str(in_path), img_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        cmd = [KRAKEN_BIN, "--native", "-i", str(in_path), str(out_path),
+               "segment", "--baseline", "--model", str(SEG_MODEL)]
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=240)
+        except subprocess.TimeoutExpired:
+            log.warning("Kraken segment timed out on strip")
+            return []
+        if res.returncode != 0 or not out_path.exists():
+            log.warning("Kraken segment failed on strip: %s", res.stderr[-200:])
+            return []
+        with open(out_path) as f:
+            raw = json.load(f)
+    return raw.get("lines", []) or []
+
+
+def _line_bbox(line: dict, h: int, w: int, pad_y: int = 8) -> tuple[int, int, int, int]:
+    """Bounding box (x0, y0, x1, y1) for a Kraken line in the strip's pixel coords."""
+    boundary = line.get("boundary") or []
+    baseline = line.get("baseline") or []
+    if boundary:
+        xs = [pt[0] for pt in boundary]
+        ys = [pt[1] for pt in boundary]
+    elif baseline:
+        xs = [pt[0] for pt in baseline]
+        ys_b = [pt[1] for pt in baseline]
+        ys = [min(ys_b) - 30, max(ys_b) + 10]
+    else:
+        return 0, 0, 0, 0
+    x0 = max(0, int(min(xs)) - 4)
+    x1 = min(w, int(max(xs)) + 4)
+    y0 = max(0, int(min(ys)) - pad_y)
+    y1 = min(h, int(max(ys)) + pad_y)
+    return x0, y0, x1, y1
+
+
+def _trim_to_ink(crop_bgr: np.ndarray, pad_y: int = 12, pad_x: int = 16,
+                 row_min_frac: float = 0.04,
+                 col_min_frac: float = 0.05) -> tuple[np.ndarray, tuple[int, int, int, int]]:
+    """Tighten a crop to the ink-bearing band via horizontal/vertical projections.
+
+    Y-trim: rows whose ink-pixel fraction (along the row's width) exceeds
+    `row_min_frac` are kept; the band is the contiguous range from the first
+    to last such row, with `pad_y` padding.
+
+    X-trim is applied *only after* y-trim so faint full-width artifacts (page
+    edge, table borders) don't dominate the column sums. Uses `col_min_frac`
+    of the *trimmed* band's height as the threshold.
+
+    No morphological opening — that erodes thin Arabic strokes. Falls back to
+    the full input if no ink band is detected.
+    """
+    if crop_bgr is None or crop_bgr.size == 0:
+        return crop_bgr, (0, 0, 0, 0)
+    h, w = crop_bgr.shape[:2]
+    gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+    _, binv = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+
+    row_frac = (binv > 0).sum(axis=1) / max(1, w)
+    rows = np.where(row_frac >= row_min_frac)[0]
+    if rows.size == 0:
+        return crop_bgr, (0, 0, w, h)
+    y0t = max(0, int(rows[0])  - pad_y)
+    y1t = min(h, int(rows[-1]) + pad_y + 1)
+    if y1t - y0t < 12:
+        return crop_bgr, (0, 0, w, h)
+
+    band = binv[y0t:y1t, :]
+    col_frac = (band > 0).sum(axis=0) / max(1, band.shape[0])
+    cols = np.where(col_frac >= col_min_frac)[0]
+    if cols.size == 0:
+        x0t, x1t = 0, w
+    else:
+        x0t = max(0, int(cols[0])  - pad_x)
+        x1t = min(w, int(cols[-1]) + pad_x + 1)
+
+    return crop_bgr[y0t:y1t, x0t:x1t].copy(), (x0t, y0t, x1t, y1t)
+
+
+def recognize_top_strip(canvas_bgr: np.ndarray, h_meta: int,
+                        page_num: int, debug_dir: Path | None = None,
+                        y_top_frac: float = 0.25,
+                        y_bot_extra: int = 0) -> dict | None:
+    """Recognize the taxpayer name + index in the strip above the printed header.
+
+    Strip layout (three equal columns over the strip's width):
+      left third  = printed "Tax-payer:" label  → ignored
+      middle third = handwritten taxpayer name
+      right third  = handwritten index / "number #"
+
+    The strip's vertical extent is y∈[h_meta * y_top_frac, h_meta + y_bot_extra)
+    in canvas coords. The bottom overshoots H_META by `y_bot_extra` pixels to
+    catch writing that bled into the printed-header band on pages whose
+    metadata anchor isn't perfectly aligned. Each third's crop is then
+    tight-trimmed via projection to the ink band before recognition (no
+    internal segmentation).
+    """
+    h_meta = max(1, int(h_meta))
+    H, W = canvas_bgr.shape[:2]
+    y0 = int(round(h_meta * y_top_frac))
+    y1 = min(H, h_meta + max(0, int(y_bot_extra)))
+    if y1 - y0 < 8:
+        return None
+    strip = canvas_bgr[y0:y1, :].copy()
+    h_s, w_s = strip.shape[:2]
+
+    third = w_s // 3
+    fields = {
+        "name":  (third,     2 * third),
+        "index": (2 * third, w_s),
+    }
+
+    result: dict = {}
+    for key, (xa, xb) in fields.items():
+        sub = strip[:, xa:xb]
+        trimmed, (dx0, dy0, dx1, dy1) = _trim_to_ink(sub)
+        text = _kraken_recognize_image(trimmed, REC_MODEL)
+        cx0 = xa + dx0
+        cy0 = y0 + dy0
+        cx1 = xa + dx1
+        cy1 = y0 + dy1
+        coords = [(cx0, cy0), (cx1, cy0), (cx1, cy1), (cx0, cy1)]
+        yb_ = int(cy0 + 0.75 * (cy1 - cy0))
+        baseline = [(cx0 + 5, yb_), (cx1 - 5, yb_)]
+        result[key] = {"text": text, "baseline": baseline, "coords": coords,
+                       "bbox": (cx0, cy0, cx1, cy1)}
+
+    log.info("Top strip page %d: name=%r  index=%r",
+             page_num, result["name"]["text"], result["index"]["text"])
+
+    if debug_dir is not None:
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        # Show the whole strip we read (extended past h_meta) and mark the
+        # h_meta boundary so the overshoot region is visible.
+        ov = canvas_bgr[0:y1, :].copy()
+        cv2.line(ov, (0, h_meta), (ov.shape[1], h_meta), (160, 160, 160), 1)
+        for key, color in (("name", (0, 200, 0)), ("index", (0, 100, 255))):
+            entry = result[key]
+            x0, ya, x1, yb_ = entry["bbox"]
+            cv2.rectangle(ov, (x0, ya), (x1, yb_), color, 2)
+            cv2.putText(ov, f"{key}: {entry['text']}", (x0 + 6, max(15, ya + 22)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+        cv2.imwrite(str(debug_dir / f"topstrip_page{page_num}.png"), ov)
+
+    return result
+
+
+def recognize_table_cells(canvas_bgr: np.ndarray,
+                          col_ranges: list[int],
+                          n_rows: int,
+                          h_header: int,
+                          row_pitch: int,
+                          page_num: int,
+                          max_workers: int = 4) -> list[dict]:
+    """Run Kraken HTR on every (row × column) cell of the dewarped table.
+
+    Returns a list of dicts shaped like load_text_rows() output: one dict per
+    row, keyed by LEFT_COLS column names. Cells whose recognition yields the
+    empty string remain "".
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    n_cols = len(col_ranges) - 1
+    H, W = canvas_bgr.shape[:2]
+
+    tasks: list[tuple[int, int, np.ndarray]] = []
+    for r in range(n_rows):
+        cy0 = h_header + r * row_pitch
+        cy1 = h_header + (r + 1) * row_pitch
+        cy0 = max(0, min(H, cy0))
+        cy1 = max(0, min(H, cy1))
+        if cy1 - cy0 < 8:
+            continue
+        for c in range(n_cols):
+            x0 = max(0, min(W, int(col_ranges[c])))
+            x1 = max(0, min(W, int(col_ranges[c + 1])))
+            if x1 - x0 < 8:
+                tasks.append((r, c, np.zeros((1, 1, 3), dtype=np.uint8)))
+                continue
+            tasks.append((r, c, canvas_bgr[cy0:cy1, x0:x1].copy()))
+
+    log.info("HTR cells page %d: %d cells (%d rows × %d cols)",
+             page_num, len(tasks), n_rows, n_cols)
+
+    results: dict[tuple[int, int], str] = {}
+    def _do(task):
+        r, c, crop = task
+        return (r, c), _kraken_recognize_image(crop, REC_MODEL)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        for (r, c), text in pool.map(_do, tasks):
+            results[(r, c)] = text
+
+    text_rows: list[dict] = []
+    for r in range(n_rows):
+        row = {LEFT_COLS[c]: results.get((r, c), "") for c in range(min(n_cols, len(LEFT_COLS)))}
+        text_rows.append(row)
+    return text_rows
+
+
 # ── PAGE XML export ────────────────────────────────────────────────────────────
 
 def write_page_xml(col_ranges: list[int],
@@ -923,7 +1154,8 @@ def write_page_xml(col_ranges: list[int],
                    bands: list[dict] | None = None,
                    text_fn=None,
                    col_tags: bool = False,
-                   row_baseline_y: list[int] | None = None) -> None:
+                   row_baseline_y: list[int] | None = None,
+                   top_strip: dict | None = None) -> None:
     """Write a PAGE XML (2013-07-15) with TableRegion + TableCells.
 
     Row 0 = printed column-label header (empty). Rows 1…N = data rows.
@@ -962,6 +1194,10 @@ def write_page_xml(col_ranges: list[int],
     tx1, ty1 = col_ranges[-1], row_ranges[-1][1] + y_offset
     table_pts = f"{tx0},{ty0} {tx1},{ty0} {tx1},{ty1} {tx0},{ty1}"
 
+    def _xml_escape(s: str) -> str:
+        return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                 .replace('"', "&quot;"))
+
     cells_xml: list[str] = []
     for r_idx, (y0, y1) in enumerate(row_ranges):
         y_bl_canvas = (
@@ -986,7 +1222,7 @@ def write_page_xml(col_ranges: list[int],
                 f'        <TextLine id="line_{cid}">\n'
                 f'          <Coords points="{cpts}"/>\n'
                 f'          <Baseline points="{bl}"/>\n'
-                f'          <TextEquiv><Unicode>{text}</Unicode></TextEquiv>\n'
+                f'          <TextEquiv><Unicode>{_xml_escape(text)}</Unicode></TextEquiv>\n'
                 f'        </TextLine>\n'
             )
             col_tag = LEFT_COLS[c_idx] if c_idx < len(LEFT_COLS) else f"col_{c_idx}"
@@ -998,6 +1234,40 @@ def write_page_xml(col_ranges: list[int],
                 + textline_xml +
                 f'      </TableCell>'
             )
+
+    text_regions_xml: list[str] = []
+    if top_strip:
+        for region_id, label in (("taxpayer_name", "name"),
+                                  ("taxpayer_index", "index")):
+            entry = top_strip.get(label)
+            if not entry or not entry.get("coords"):
+                continue
+            coords = entry["coords"]
+            baseline = entry.get("baseline") or []
+            text = (entry.get("text") or "").strip()
+            if text and text_fn:
+                text = text_fn(text)
+            coords_pts = " ".join(f"{int(x)},{int(y)}" for x, y in coords)
+            if len(baseline) >= 2:
+                bl_pts = " ".join(f"{int(x)},{int(y)}" for x, y in baseline)
+            else:
+                # Synthesize a horizontal baseline at ~75% of bbox height.
+                xs = [p[0] for p in coords]; ys = [p[1] for p in coords]
+                yb = int(min(ys) + 0.75 * (max(ys) - min(ys)))
+                bl_pts = f"{int(min(xs))},{yb} {int(max(xs))},{yb}"
+            text_regions_xml.append(
+                f'    <TextRegion id="{region_id}" type="header" '
+                f'custom="structure {{type:{region_id};}}">\n'
+                f'      <Coords points="{coords_pts}"/>\n'
+                f'      <TextLine id="line_{region_id}">\n'
+                f'        <Coords points="{coords_pts}"/>\n'
+                f'        <Baseline points="{bl_pts}"/>\n'
+                f'        <TextEquiv><Unicode>{_xml_escape(text)}</Unicode></TextEquiv>\n'
+                f'      </TextLine>\n'
+                f'    </TextRegion>'
+            )
+
+    text_regions_block = ("\n".join(text_regions_xml) + "\n") if text_regions_xml else ""
 
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -1011,6 +1281,7 @@ def write_page_xml(col_ranges: list[int],
         f'    <LastChange>{now}</LastChange>\n'
         '  </Metadata>\n'
         f'  <Page imageFilename="{image_filename}" imageWidth="{page_w}" imageHeight="{page_h}">\n'
+        + text_regions_block +
         f'    <TableRegion id="table1" rows="{n_rows}" columns="{n_cols}">\n'
         f'      <Coords points="{table_pts}"/>\n'
         + "\n".join(cells_xml) + "\n"
@@ -1027,7 +1298,7 @@ def write_page_xml(col_ranges: list[int],
 def process_page(page_num: int, args) -> None:
     """Run dewarp pipeline → save dewarped JPEG + write uniform-grid PAGE XML for both digit variants."""
     import shutil
-    from dewarp import process_page as run_dewarp, W_OUT, H_HEADER, ROW_PITCH
+    from dewarp import process_page as run_dewarp, W_OUT, H_META, H_HEADER, ROW_PITCH
 
     cfg = PAGE_CONFIG[page_num]
     print(f"\n{'='*60}")
@@ -1036,19 +1307,11 @@ def process_page(page_num: int, args) -> None:
 
     # 1–7. Run the full image pipeline (deskew → crop → detect → remap → normalize)
     result = run_dewarp(page_num, debug=getattr(args, "debug", False),
-                        from_cache=getattr(args, "from_cache", False))
+                        from_cache=getattr(args, "from_cache", False),
+                        x_left_col_mode=getattr(args, "x_left_col_mode", "geometric"))
     n_rows = result["n_rows"]
     page_h = result["out_h"]
     page_w = result["out_w"]
-
-    # 8. Load text for cells
-    if args.no_text:
-        text_rows = None
-        print("Text rows: skipped (--no-text)")
-    else:
-        text_rows = load_text_rows(page_num, cfg)
-        print(f"Text rows loaded: {len(text_rows)} "
-              f"({'GT' if cfg['gt_page'] and text_rows else 'Approach M'})")
 
     # 9. Column boundaries proportional to detected source widths; rows uniform.
     col_ranges = result.get(
@@ -1057,6 +1320,32 @@ def process_page(page_num: int, args) -> None:
     )
     row_ranges = [(i * ROW_PITCH, (i + 1) * ROW_PITCH) for i in range(n_rows)]
     row_baseline_y = result.get("row_baseline_y_canvas")
+
+    # 8. Load text for cells.
+    #   - If --no-text: skip entirely.
+    #   - If --htr-cells: run Kraken HTR on every cell of the dewarped canvas.
+    #   - Else: load GT (page 3) or fall back to Approach M cache.
+    canvas_bgr = cv2.imread(str(result["path"]))
+    if canvas_bgr is None:
+        raise RuntimeError(f"Could not read dewarped canvas: {result['path']}")
+
+    if args.no_text:
+        text_rows = None
+        print("Text rows: skipped (--no-text)")
+    elif getattr(args, "htr_cells", False):
+        text_rows = recognize_table_cells(
+            canvas_bgr, col_ranges, n_rows, H_HEADER, ROW_PITCH, page_num)
+        print(f"Text rows from Kraken HTR: {len(text_rows)} ({n_rows} × {len(col_ranges)-1} cells)")
+    else:
+        text_rows = load_text_rows(page_num, cfg)
+        print(f"Text rows loaded: {len(text_rows)} "
+              f"({'GT' if cfg['gt_page'] and text_rows else 'Approach M'})")
+
+    # 8b. Recognize the two header-strip fields (taxpayer name + index) above the table.
+    top_strip = None
+    if not args.no_text and getattr(args, "top_strip", True):
+        top_strip = recognize_top_strip(
+            canvas_bgr, H_META, page_num, debug_dir=CACHE_DIR)
 
     def _to_eastern(text: str) -> str: return text.translate(W2E)
     def _to_western(text: str) -> str: return text.translate(E2W)
@@ -1077,7 +1366,8 @@ def process_page(page_num: int, args) -> None:
                        out_path=out_dir / f"Hadita_{page_num}.xml",
                        text_rows=text_rows, bands=None, text_fn=text_fn,
                        col_tags=args.col_tags,
-                       row_baseline_y=row_baseline_y)
+                       row_baseline_y=row_baseline_y,
+                       top_strip=top_strip)
         print(f"{sub:35s} → {out_dir / f'Hadita_{page_num}.xml'}")
 
 
@@ -1095,6 +1385,16 @@ def main() -> None:
                         help="Embed column names as Transkribus structural tags in TableCell custom attribute")
     parser.add_argument("--no-text", action="store_true",
                         help="Produce PAGE XML without text content")
+    parser.add_argument("--htr-cells", action="store_true",
+                        help="Run Kraken HTR on every table cell instead of loading text from GT/Approach M cache")
+    parser.add_argument("--no-top-strip", dest="top_strip", action="store_false",
+                        help="Skip taxpayer name/index recognition above the table header")
+    parser.add_argument("--x-left-col-mode",
+                        choices=("none", "geometric", "gemini", "claude", "consensus"),
+                        default="geometric",
+                        help="Strategy for fixing the right edge of the Serial_No column "
+                             "(default: geometric — auto-corrects too-narrow first column)")
+    parser.set_defaults(top_strip=True)
     args = parser.parse_args()
 
     pages = [args.page] if args.page else [3, 10, 50]

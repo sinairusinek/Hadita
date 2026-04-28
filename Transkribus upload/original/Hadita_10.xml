@@ -4,10 +4,26 @@
        xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd">
   <Metadata>
     <Creator>segment_unified.py</Creator>
-    <Created>2026-04-28T05:22:46</Created>
-    <LastChange>2026-04-28T05:22:46</LastChange>
+    <Created>2026-04-28T12:12:39</Created>
+    <LastChange>2026-04-28T12:12:39</LastChange>
   </Metadata>
   <Page imageFilename="Hadita_10.jpeg" imageWidth="2299" imageHeight="3120">
+    <TextRegion id="taxpayer_name" type="header" custom="structure {type:taxpayer_name;}">
+      <Coords points="842,146 1314,146 1314,215 842,215"/>
+      <TextLine id="line_taxpayer_name">
+        <Coords points="842,146 1314,146 1314,215 842,215"/>
+        <Baseline points="847,197 1309,197"/>
+        <TextEquiv><Unicode>امنه لا سسين محمد عيسشين&gt;</Unicode></TextEquiv>
+      </TextLine>
+    </TextRegion>
+    <TextRegion id="taxpayer_index" type="header" custom="structure {type:taxpayer_index;}">
+      <Coords points="1772,186 2060,186 2060,220 1772,220"/>
+      <TextLine id="line_taxpayer_index">
+        <Coords points="1772,186 2060,186 2060,220 1772,220"/>
+        <Baseline points="1777,211 2055,211"/>
+        <TextEquiv><Unicode>ح عس خ٨</Unicode></TextEquiv>
+      </TextLine>
+    </TextRegion>
     <TableRegion id="table1" rows="27" columns="19">
       <Coords points="0,420 2299,420 2299,3120 0,3120"/>
       <TableCell id="cell_r0_c0" row="0" col="0" rowSpan="1" colSpan="1">
@@ -15,7 +31,7 @@
         <TextLine id="line_cell_r0_c0">
           <Coords points="0,420 259,420 259,520 0,520"/>
           <Baseline points="0,488 259,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c1" row="0" col="1" rowSpan="1" colSpan="1">
@@ -23,7 +39,7 @@
         <TextLine id="line_cell_r0_c1">
           <Coords points="259,420 410,420 410,520 259,520"/>
           <Baseline points="259,488 410,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٣٨</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c2" row="0" col="2" rowSpan="1" colSpan="1">
@@ -31,7 +47,7 @@
         <TextLine id="line_cell_r0_c2">
           <Coords points="410,420 515,420 515,520 410,520"/>
           <Baseline points="410,488 515,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٤١٢٩</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c3" row="0" col="3" rowSpan="1" colSpan="1">
@@ -39,7 +55,7 @@
         <TextLine id="line_cell_r0_c3">
           <Coords points="515,420 623,420 623,520 515,520"/>
           <Baseline points="515,488 623,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٥١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c4" row="0" col="4" rowSpan="1" colSpan="1">
@@ -47,7 +63,7 @@
         <TextLine id="line_cell_r0_c4">
           <Coords points="623,420 727,420 727,520 623,520"/>
           <Baseline points="623,488 727,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c5" row="0" col="5" rowSpan="1" colSpan="1">
@@ -55,7 +71,7 @@
         <TextLine id="line_cell_r0_c5">
           <Coords points="727,420 835,420 835,520 727,520"/>
           <Baseline points="727,488 835,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢٬٧٧٩</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c6" row="0" col="6" rowSpan="1" colSpan="1">
@@ -63,7 +79,7 @@
         <TextLine id="line_cell_r0_c6">
           <Coords points="835,420 1001,420 1001,520 835,520"/>
           <Baseline points="835,488 1001,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>تح</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c7" row="0" col="7" rowSpan="1" colSpan="1">
@@ -79,7 +95,7 @@
         <TextLine id="line_cell_r0_c8">
           <Coords points="1127,420 1234,420 1234,520 1127,520"/>
           <Baseline points="1127,488 1234,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>✓</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c9" row="0" col="9" rowSpan="1" colSpan="1">
@@ -87,7 +103,7 @@
         <TextLine id="line_cell_r0_c9">
           <Coords points="1234,420 1342,420 1342,520 1234,520"/>
           <Baseline points="1234,488 1342,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٤</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c10" row="0" col="10" rowSpan="1" colSpan="1">
@@ -95,7 +111,7 @@
         <TextLine id="line_cell_r0_c10">
           <Coords points="1342,420 1462,420 1462,520 1342,520"/>
           <Baseline points="1342,488 1462,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c11" row="0" col="11" rowSpan="1" colSpan="1">
@@ -103,7 +119,7 @@
         <TextLine id="line_cell_r0_c11">
           <Coords points="1462,420 1550,420 1550,520 1462,520"/>
           <Baseline points="1462,488 1550,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠١٩</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c12" row="0" col="12" rowSpan="1" colSpan="1">
@@ -151,7 +167,7 @@
         <TextLine id="line_cell_r0_c17">
           <Coords points="2042,420 2150,420 2150,520 2042,520"/>
           <Baseline points="2042,488 2150,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c18" row="0" col="18" rowSpan="1" colSpan="1">
@@ -159,7 +175,7 @@
         <TextLine id="line_cell_r0_c18">
           <Coords points="2150,420 2299,420 2299,520 2150,520"/>
           <Baseline points="2150,488 2299,488"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r1_c0" row="1" col="0" rowSpan="1" colSpan="1">
@@ -167,7 +183,7 @@
         <TextLine id="line_cell_r1_c0">
           <Coords points="0,520 259,520 259,620 0,620"/>
           <Baseline points="0,585 259,585"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r1_c1" row="1" col="1" rowSpan="1" colSpan="1">
@@ -175,7 +191,7 @@
         <TextLine id="line_cell_r1_c1">
           <Coords points="259,520 410,520 410,620 259,620"/>
           <Baseline points="259,585 410,585"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r1_c2" row="1" col="2" rowSpan="1" colSpan="1">
@@ -199,7 +215,7 @@
         <TextLine id="line_cell_r1_c4">
           <Coords points="623,520 727,520 727,620 623,620"/>
           <Baseline points="623,585 727,585"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٦</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r1_c5" row="1" col="5" rowSpan="1" colSpan="1">
@@ -207,7 +223,7 @@
         <TextLine id="line_cell_r1_c5">
           <Coords points="727,520 835,520 835,620 727,620"/>
           <Baseline points="727,585 835,585"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢٬٥٦٩</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r1_c6" row="1" col="6" rowSpan="1" colSpan="1">
@@ -215,7 +231,7 @@
         <TextLine id="line_cell_r1_c6">
           <Coords points="835,520 1001,520 1001,620 835,620"/>
           <Baseline points="835,585 1001,585"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>✓</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r1_c7" row="1" col="7" rowSpan="1" colSpan="1">
@@ -231,7 +247,7 @@
         <TextLine id="line_cell_r1_c8">
           <Coords points="1127,520 1234,520 1234,620 1127,620"/>
           <Baseline points="1127,585 1234,585"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>✓</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r1_c9" row="1" col="9" rowSpan="1" colSpan="1">
@@ -247,7 +263,7 @@
         <TextLine id="line_cell_r1_c10">
           <Coords points="1342,520 1462,520 1462,620 1342,620"/>
           <Baseline points="1342,585 1462,585"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r1_c11" row="1" col="11" rowSpan="1" colSpan="1">
@@ -319,7 +335,7 @@
         <TextLine id="line_cell_r2_c0">
           <Coords points="0,620 259,620 259,720 0,720"/>
           <Baseline points="0,685 259,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٣</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c1" row="2" col="1" rowSpan="1" colSpan="1">
@@ -327,7 +343,7 @@
         <TextLine id="line_cell_r2_c1">
           <Coords points="259,620 410,620 410,720 259,720"/>
           <Baseline points="259,685 410,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c2" row="2" col="2" rowSpan="1" colSpan="1">
@@ -335,7 +351,7 @@
         <TextLine id="line_cell_r2_c2">
           <Coords points="410,620 515,620 515,720 410,720"/>
           <Baseline points="410,685 515,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٤١٤٦</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c3" row="2" col="3" rowSpan="1" colSpan="1">
@@ -343,7 +359,7 @@
         <TextLine id="line_cell_r2_c3">
           <Coords points="515,620 623,620 623,720 515,720"/>
           <Baseline points="515,685 623,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٩</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c4" row="2" col="4" rowSpan="1" colSpan="1">
@@ -351,7 +367,7 @@
         <TextLine id="line_cell_r2_c4">
           <Coords points="623,620 727,620 727,720 623,720"/>
           <Baseline points="623,685 727,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c5" row="2" col="5" rowSpan="1" colSpan="1">
@@ -359,7 +375,7 @@
         <TextLine id="line_cell_r2_c5">
           <Coords points="727,620 835,620 835,720 727,720"/>
           <Baseline points="727,685 835,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٤٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c6" row="2" col="6" rowSpan="1" colSpan="1">
@@ -367,7 +383,7 @@
         <TextLine id="line_cell_r2_c6">
           <Coords points="835,620 1001,620 1001,720 835,720"/>
           <Baseline points="835,685 1001,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c7" row="2" col="7" rowSpan="1" colSpan="1">
@@ -383,7 +399,7 @@
         <TextLine id="line_cell_r2_c8">
           <Coords points="1127,620 1234,620 1234,720 1127,720"/>
           <Baseline points="1127,685 1234,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>✓</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c9" row="2" col="9" rowSpan="1" colSpan="1">
@@ -391,7 +407,7 @@
         <TextLine id="line_cell_r2_c9">
           <Coords points="1234,620 1342,620 1342,720 1234,720"/>
           <Baseline points="1234,685 1342,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٠٨</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c10" row="2" col="10" rowSpan="1" colSpan="1">
@@ -399,7 +415,7 @@
         <TextLine id="line_cell_r2_c10">
           <Coords points="1342,620 1462,620 1462,720 1342,720"/>
           <Baseline points="1342,685 1462,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c11" row="2" col="11" rowSpan="1" colSpan="1">
@@ -407,7 +423,7 @@
         <TextLine id="line_cell_r2_c11">
           <Coords points="1462,620 1550,620 1550,720 1462,720"/>
           <Baseline points="1462,685 1550,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٠٧</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c12" row="2" col="12" rowSpan="1" colSpan="1">
@@ -455,7 +471,7 @@
         <TextLine id="line_cell_r2_c17">
           <Coords points="2042,620 2150,620 2150,720 2042,720"/>
           <Baseline points="2042,685 2150,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c18" row="2" col="18" rowSpan="1" colSpan="1">
@@ -463,7 +479,7 @@
         <TextLine id="line_cell_r2_c18">
           <Coords points="2150,620 2299,620 2299,720 2150,720"/>
           <Baseline points="2150,685 2299,685"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٤٤</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c0" row="3" col="0" rowSpan="1" colSpan="1">
@@ -471,7 +487,7 @@
         <TextLine id="line_cell_r3_c0">
           <Coords points="0,720 259,720 259,820 0,820"/>
           <Baseline points="0,785 259,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٤</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c1" row="3" col="1" rowSpan="1" colSpan="1">
@@ -479,7 +495,7 @@
         <TextLine id="line_cell_r3_c1">
           <Coords points="259,720 410,720 410,820 259,820"/>
           <Baseline points="259,785 410,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c2" row="3" col="2" rowSpan="1" colSpan="1">
@@ -487,7 +503,7 @@
         <TextLine id="line_cell_r3_c2">
           <Coords points="410,720 515,720 515,820 410,820"/>
           <Baseline points="410,785 515,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c3" row="3" col="3" rowSpan="1" colSpan="1">
@@ -495,7 +511,7 @@
         <TextLine id="line_cell_r3_c3">
           <Coords points="515,720 623,720 623,820 515,820"/>
           <Baseline points="515,785 623,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c4" row="3" col="4" rowSpan="1" colSpan="1">
@@ -503,7 +519,7 @@
         <TextLine id="line_cell_r3_c4">
           <Coords points="623,720 727,720 727,820 623,820"/>
           <Baseline points="623,785 727,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c5" row="3" col="5" rowSpan="1" colSpan="1">
@@ -511,7 +527,7 @@
         <TextLine id="line_cell_r3_c5">
           <Coords points="727,720 835,720 835,820 727,820"/>
           <Baseline points="727,785 835,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c6" row="3" col="6" rowSpan="1" colSpan="1">
@@ -519,7 +535,7 @@
         <TextLine id="line_cell_r3_c6">
           <Coords points="835,720 1001,720 1001,820 835,820"/>
           <Baseline points="835,785 1001,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c7" row="3" col="7" rowSpan="1" colSpan="1">
@@ -535,7 +551,7 @@
         <TextLine id="line_cell_r3_c8">
           <Coords points="1127,720 1234,720 1234,820 1127,820"/>
           <Baseline points="1127,785 1234,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>✓</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c9" row="3" col="9" rowSpan="1" colSpan="1">
@@ -543,7 +559,7 @@
         <TextLine id="line_cell_r3_c9">
           <Coords points="1234,720 1342,720 1342,820 1234,820"/>
           <Baseline points="1234,785 1342,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٠٨</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c10" row="3" col="10" rowSpan="1" colSpan="1">
@@ -551,7 +567,7 @@
         <TextLine id="line_cell_r3_c10">
           <Coords points="1342,720 1462,720 1462,820 1342,820"/>
           <Baseline points="1342,785 1462,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c11" row="3" col="11" rowSpan="1" colSpan="1">
@@ -559,7 +575,7 @@
         <TextLine id="line_cell_r3_c11">
           <Coords points="1462,720 1550,720 1550,820 1462,820"/>
           <Baseline points="1462,785 1550,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٠٣</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c12" row="3" col="12" rowSpan="1" colSpan="1">
@@ -607,7 +623,7 @@
         <TextLine id="line_cell_r3_c17">
           <Coords points="2042,720 2150,720 2150,820 2042,820"/>
           <Baseline points="2042,785 2150,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r3_c18" row="3" col="18" rowSpan="1" colSpan="1">
@@ -615,7 +631,7 @@
         <TextLine id="line_cell_r3_c18">
           <Coords points="2150,720 2299,720 2299,820 2150,820"/>
           <Baseline points="2150,785 2299,785"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٩٤</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c0" row="4" col="0" rowSpan="1" colSpan="1">
@@ -623,7 +639,7 @@
         <TextLine id="line_cell_r4_c0">
           <Coords points="0,820 259,820 259,920 0,920"/>
           <Baseline points="0,884 259,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٥</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c1" row="4" col="1" rowSpan="1" colSpan="1">
@@ -631,7 +647,7 @@
         <TextLine id="line_cell_r4_c1">
           <Coords points="259,820 410,820 410,920 259,920"/>
           <Baseline points="259,884 410,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c2" row="4" col="2" rowSpan="1" colSpan="1">
@@ -639,7 +655,7 @@
         <TextLine id="line_cell_r4_c2">
           <Coords points="410,820 515,820 515,920 410,920"/>
           <Baseline points="410,884 515,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c3" row="4" col="3" rowSpan="1" colSpan="1">
@@ -647,7 +663,7 @@
         <TextLine id="line_cell_r4_c3">
           <Coords points="515,820 623,820 623,920 515,920"/>
           <Baseline points="515,884 623,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٣</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c4" row="4" col="4" rowSpan="1" colSpan="1">
@@ -655,7 +671,7 @@
         <TextLine id="line_cell_r4_c4">
           <Coords points="623,820 727,820 727,920 623,920"/>
           <Baseline points="623,884 727,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c5" row="4" col="5" rowSpan="1" colSpan="1">
@@ -663,7 +679,7 @@
         <TextLine id="line_cell_r4_c5">
           <Coords points="727,820 835,820 835,920 727,920"/>
           <Baseline points="727,884 835,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢٥١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c6" row="4" col="6" rowSpan="1" colSpan="1">
@@ -671,7 +687,7 @@
         <TextLine id="line_cell_r4_c6">
           <Coords points="835,820 1001,820 1001,920 835,920"/>
           <Baseline points="835,884 1001,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c7" row="4" col="7" rowSpan="1" colSpan="1">
@@ -687,7 +703,7 @@
         <TextLine id="line_cell_r4_c8">
           <Coords points="1127,820 1234,820 1234,920 1127,920"/>
           <Baseline points="1127,884 1234,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>✓</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c9" row="4" col="9" rowSpan="1" colSpan="1">
@@ -695,7 +711,7 @@
         <TextLine id="line_cell_r4_c9">
           <Coords points="1234,820 1342,820 1342,920 1234,920"/>
           <Baseline points="1234,884 1342,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٠٨</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c10" row="4" col="10" rowSpan="1" colSpan="1">
@@ -703,7 +719,7 @@
         <TextLine id="line_cell_r4_c10">
           <Coords points="1342,820 1462,820 1462,920 1342,920"/>
           <Baseline points="1342,884 1462,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c11" row="4" col="11" rowSpan="1" colSpan="1">
@@ -711,7 +727,7 @@
         <TextLine id="line_cell_r4_c11">
           <Coords points="1462,820 1550,820 1550,920 1462,920"/>
           <Baseline points="1462,884 1550,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٠٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c12" row="4" col="12" rowSpan="1" colSpan="1">
@@ -759,7 +775,7 @@
         <TextLine id="line_cell_r4_c17">
           <Coords points="2042,820 2150,820 2150,920 2042,920"/>
           <Baseline points="2042,884 2150,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r4_c18" row="4" col="18" rowSpan="1" colSpan="1">
@@ -767,7 +783,7 @@
         <TextLine id="line_cell_r4_c18">
           <Coords points="2150,820 2299,820 2299,920 2150,920"/>
           <Baseline points="2150,884 2299,884"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c0" row="5" col="0" rowSpan="1" colSpan="1">
@@ -775,7 +791,7 @@
         <TextLine id="line_cell_r5_c0">
           <Coords points="0,920 259,920 259,1020 0,1020"/>
           <Baseline points="0,983 259,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٦</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c1" row="5" col="1" rowSpan="1" colSpan="1">
@@ -783,7 +799,7 @@
         <TextLine id="line_cell_r5_c1">
           <Coords points="259,920 410,920 410,1020 259,1020"/>
           <Baseline points="259,983 410,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c2" row="5" col="2" rowSpan="1" colSpan="1">
@@ -791,7 +807,7 @@
         <TextLine id="line_cell_r5_c2">
           <Coords points="410,920 515,920 515,1020 410,1020"/>
           <Baseline points="410,983 515,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c3" row="5" col="3" rowSpan="1" colSpan="1">
@@ -799,7 +815,7 @@
         <TextLine id="line_cell_r5_c3">
           <Coords points="515,920 623,920 623,1020 515,1020"/>
           <Baseline points="515,983 623,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٤</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c4" row="5" col="4" rowSpan="1" colSpan="1">
@@ -807,7 +823,7 @@
         <TextLine id="line_cell_r5_c4">
           <Coords points="623,920 727,920 727,1020 623,1020"/>
           <Baseline points="623,983 727,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c5" row="5" col="5" rowSpan="1" colSpan="1">
@@ -815,7 +831,7 @@
         <TextLine id="line_cell_r5_c5">
           <Coords points="727,920 835,920 835,1020 727,1020"/>
           <Baseline points="727,983 835,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c6" row="5" col="6" rowSpan="1" colSpan="1">
@@ -823,7 +839,7 @@
         <TextLine id="line_cell_r5_c6">
           <Coords points="835,920 1001,920 1001,1020 835,1020"/>
           <Baseline points="835,983 1001,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c7" row="5" col="7" rowSpan="1" colSpan="1">
@@ -831,7 +847,7 @@
         <TextLine id="line_cell_r5_c7">
           <Coords points="1001,920 1127,920 1127,1020 1001,1020"/>
           <Baseline points="1001,983 1127,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٢٩</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c8" row="5" col="8" rowSpan="1" colSpan="1">
@@ -839,7 +855,7 @@
         <TextLine id="line_cell_r5_c8">
           <Coords points="1127,920 1234,920 1234,1020 1127,1020"/>
           <Baseline points="1127,983 1234,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>✓</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c9" row="5" col="9" rowSpan="1" colSpan="1">
@@ -847,7 +863,7 @@
         <TextLine id="line_cell_r5_c9">
           <Coords points="1234,920 1342,920 1342,1020 1234,1020"/>
           <Baseline points="1234,983 1342,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٠٨</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c10" row="5" col="10" rowSpan="1" colSpan="1">
@@ -855,7 +871,7 @@
         <TextLine id="line_cell_r5_c10">
           <Coords points="1342,920 1462,920 1462,1020 1342,1020"/>
           <Baseline points="1342,983 1462,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c11" row="5" col="11" rowSpan="1" colSpan="1">
@@ -863,7 +879,7 @@
         <TextLine id="line_cell_r5_c11">
           <Coords points="1462,920 1550,920 1550,1020 1462,1020"/>
           <Baseline points="1462,983 1550,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٠١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c12" row="5" col="12" rowSpan="1" colSpan="1">
@@ -871,7 +887,7 @@
         <TextLine id="line_cell_r5_c12">
           <Coords points="1550,920 1657,920 1657,1020 1550,1020"/>
           <Baseline points="1550,983 1657,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c13" row="5" col="13" rowSpan="1" colSpan="1">
@@ -879,7 +895,7 @@
         <TextLine id="line_cell_r5_c13">
           <Coords points="1657,920 1747,920 1747,1020 1657,1020"/>
           <Baseline points="1657,983 1747,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c14" row="5" col="14" rowSpan="1" colSpan="1">
@@ -911,7 +927,7 @@
         <TextLine id="line_cell_r5_c17">
           <Coords points="2042,920 2150,920 2150,1020 2042,1020"/>
           <Baseline points="2042,983 2150,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r5_c18" row="5" col="18" rowSpan="1" colSpan="1">
@@ -919,7 +935,7 @@
         <TextLine id="line_cell_r5_c18">
           <Coords points="2150,920 2299,920 2299,1020 2150,1020"/>
           <Baseline points="2150,983 2299,983"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r6_c0" row="6" col="0" rowSpan="1" colSpan="1">
@@ -935,7 +951,7 @@
         <TextLine id="line_cell_r6_c1">
           <Coords points="259,1020 410,1020 410,1120 259,1120"/>
           <Baseline points="259,1082 410,1082"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٣٩</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r6_c2" row="6" col="2" rowSpan="1" colSpan="1">
@@ -1007,7 +1023,7 @@
         <TextLine id="line_cell_r6_c10">
           <Coords points="1342,1020 1462,1020 1462,1120 1342,1120"/>
           <Baseline points="1342,1082 1462,1082"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r6_c11" row="6" col="11" rowSpan="1" colSpan="1">
@@ -1015,7 +1031,7 @@
         <TextLine id="line_cell_r6_c11">
           <Coords points="1462,1020 1550,1020 1550,1120 1462,1120"/>
           <Baseline points="1462,1082 1550,1082"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r6_c12" row="6" col="12" rowSpan="1" colSpan="1">
@@ -1023,7 +1039,7 @@
         <TextLine id="line_cell_r6_c12">
           <Coords points="1550,1020 1657,1020 1657,1120 1550,1120"/>
           <Baseline points="1550,1082 1657,1082"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r6_c13" row="6" col="13" rowSpan="1" colSpan="1">
@@ -1031,7 +1047,7 @@
         <TextLine id="line_cell_r6_c13">
           <Coords points="1657,1020 1747,1020 1747,1120 1657,1120"/>
           <Baseline points="1657,1082 1747,1082"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r6_c14" row="6" col="14" rowSpan="1" colSpan="1">
@@ -1063,7 +1079,7 @@
         <TextLine id="line_cell_r6_c17">
           <Coords points="2042,1020 2150,1020 2150,1120 2042,1120"/>
           <Baseline points="2042,1082 2150,1082"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r6_c18" row="6" col="18" rowSpan="1" colSpan="1">
@@ -1071,7 +1087,7 @@
         <TextLine id="line_cell_r6_c18">
           <Coords points="2150,1020 2299,1020 2299,1120 2150,1120"/>
           <Baseline points="2150,1082 2299,1082"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r7_c0" row="7" col="0" rowSpan="1" colSpan="1">
@@ -1087,7 +1103,7 @@
         <TextLine id="line_cell_r7_c1">
           <Coords points="259,1120 410,1120 410,1220 259,1220"/>
           <Baseline points="259,1182 410,1182"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٤٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r7_c2" row="7" col="2" rowSpan="1" colSpan="1">
@@ -1159,7 +1175,7 @@
         <TextLine id="line_cell_r7_c10">
           <Coords points="1342,1120 1462,1120 1462,1220 1342,1220"/>
           <Baseline points="1342,1182 1462,1182"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r7_c11" row="7" col="11" rowSpan="1" colSpan="1">
@@ -1167,7 +1183,7 @@
         <TextLine id="line_cell_r7_c11">
           <Coords points="1462,1120 1550,1120 1550,1220 1462,1220"/>
           <Baseline points="1462,1182 1550,1182"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r7_c12" row="7" col="12" rowSpan="1" colSpan="1">
@@ -1175,7 +1191,7 @@
         <TextLine id="line_cell_r7_c12">
           <Coords points="1550,1120 1657,1120 1657,1220 1550,1220"/>
           <Baseline points="1550,1182 1657,1182"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r7_c13" row="7" col="13" rowSpan="1" colSpan="1">
@@ -1183,7 +1199,7 @@
         <TextLine id="line_cell_r7_c13">
           <Coords points="1657,1120 1747,1120 1747,1220 1657,1220"/>
           <Baseline points="1657,1182 1747,1182"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r7_c14" row="7" col="14" rowSpan="1" colSpan="1">
@@ -1215,7 +1231,7 @@
         <TextLine id="line_cell_r7_c17">
           <Coords points="2042,1120 2150,1120 2150,1220 2042,1220"/>
           <Baseline points="2042,1182 2150,1182"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r7_c18" row="7" col="18" rowSpan="1" colSpan="1">
@@ -1223,7 +1239,7 @@
         <TextLine id="line_cell_r7_c18">
           <Coords points="2150,1120 2299,1120 2299,1220 2150,1220"/>
           <Baseline points="2150,1182 2299,1182"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r8_c0" row="8" col="0" rowSpan="1" colSpan="1">
@@ -1239,7 +1255,7 @@
         <TextLine id="line_cell_r8_c1">
           <Coords points="259,1220 410,1220 410,1320 259,1320"/>
           <Baseline points="259,1281 410,1281"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٤١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r8_c2" row="8" col="2" rowSpan="1" colSpan="1">
@@ -1311,7 +1327,7 @@
         <TextLine id="line_cell_r8_c10">
           <Coords points="1342,1220 1462,1220 1462,1320 1342,1320"/>
           <Baseline points="1342,1281 1462,1281"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r8_c11" row="8" col="11" rowSpan="1" colSpan="1">
@@ -1319,7 +1335,7 @@
         <TextLine id="line_cell_r8_c11">
           <Coords points="1462,1220 1550,1220 1550,1320 1462,1320"/>
           <Baseline points="1462,1281 1550,1281"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r8_c12" row="8" col="12" rowSpan="1" colSpan="1">
@@ -1327,7 +1343,7 @@
         <TextLine id="line_cell_r8_c12">
           <Coords points="1550,1220 1657,1220 1657,1320 1550,1320"/>
           <Baseline points="1550,1281 1657,1281"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r8_c13" row="8" col="13" rowSpan="1" colSpan="1">
@@ -1335,7 +1351,7 @@
         <TextLine id="line_cell_r8_c13">
           <Coords points="1657,1220 1747,1220 1747,1320 1657,1320"/>
           <Baseline points="1657,1281 1747,1281"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r8_c14" row="8" col="14" rowSpan="1" colSpan="1">
@@ -1367,7 +1383,7 @@
         <TextLine id="line_cell_r8_c17">
           <Coords points="2042,1220 2150,1220 2150,1320 2042,1320"/>
           <Baseline points="2042,1281 2150,1281"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r8_c18" row="8" col="18" rowSpan="1" colSpan="1">
@@ -1375,7 +1391,7 @@
         <TextLine id="line_cell_r8_c18">
           <Coords points="2150,1220 2299,1220 2299,1320 2150,1320"/>
           <Baseline points="2150,1281 2299,1281"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r9_c0" row="9" col="0" rowSpan="1" colSpan="1">
@@ -1391,7 +1407,7 @@
         <TextLine id="line_cell_r9_c1">
           <Coords points="259,1320 410,1320 410,1420 259,1420"/>
           <Baseline points="259,1379 410,1379"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٤٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r9_c2" row="9" col="2" rowSpan="1" colSpan="1">
@@ -1463,7 +1479,7 @@
         <TextLine id="line_cell_r9_c10">
           <Coords points="1342,1320 1462,1320 1462,1420 1342,1420"/>
           <Baseline points="1342,1379 1462,1379"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r9_c11" row="9" col="11" rowSpan="1" colSpan="1">
@@ -1471,7 +1487,7 @@
         <TextLine id="line_cell_r9_c11">
           <Coords points="1462,1320 1550,1320 1550,1420 1462,1420"/>
           <Baseline points="1462,1379 1550,1379"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r9_c12" row="9" col="12" rowSpan="1" colSpan="1">
@@ -1479,7 +1495,7 @@
         <TextLine id="line_cell_r9_c12">
           <Coords points="1550,1320 1657,1320 1657,1420 1550,1420"/>
           <Baseline points="1550,1379 1657,1379"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r9_c13" row="9" col="13" rowSpan="1" colSpan="1">
@@ -1487,7 +1503,7 @@
         <TextLine id="line_cell_r9_c13">
           <Coords points="1657,1320 1747,1320 1747,1420 1657,1420"/>
           <Baseline points="1657,1379 1747,1379"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r9_c14" row="9" col="14" rowSpan="1" colSpan="1">
@@ -1519,7 +1535,7 @@
         <TextLine id="line_cell_r9_c17">
           <Coords points="2042,1320 2150,1320 2150,1420 2042,1420"/>
           <Baseline points="2042,1379 2150,1379"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r9_c18" row="9" col="18" rowSpan="1" colSpan="1">
@@ -1527,7 +1543,7 @@
         <TextLine id="line_cell_r9_c18">
           <Coords points="2150,1320 2299,1320 2299,1420 2150,1420"/>
           <Baseline points="2150,1379 2299,1379"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r10_c0" row="10" col="0" rowSpan="1" colSpan="1">
@@ -1543,7 +1559,7 @@
         <TextLine id="line_cell_r10_c1">
           <Coords points="259,1420 410,1420 410,1520 259,1520"/>
           <Baseline points="259,1480 410,1480"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٤٣</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r10_c2" row="10" col="2" rowSpan="1" colSpan="1">
@@ -1615,7 +1631,7 @@
         <TextLine id="line_cell_r10_c10">
           <Coords points="1342,1420 1462,1420 1462,1520 1342,1520"/>
           <Baseline points="1342,1480 1462,1480"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r10_c11" row="10" col="11" rowSpan="1" colSpan="1">
@@ -1623,7 +1639,7 @@
         <TextLine id="line_cell_r10_c11">
           <Coords points="1462,1420 1550,1420 1550,1520 1462,1520"/>
           <Baseline points="1462,1480 1550,1480"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r10_c12" row="10" col="12" rowSpan="1" colSpan="1">
@@ -1631,7 +1647,7 @@
         <TextLine id="line_cell_r10_c12">
           <Coords points="1550,1420 1657,1420 1657,1520 1550,1520"/>
           <Baseline points="1550,1480 1657,1480"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r10_c13" row="10" col="13" rowSpan="1" colSpan="1">
@@ -1639,7 +1655,7 @@
         <TextLine id="line_cell_r10_c13">
           <Coords points="1657,1420 1747,1420 1747,1520 1657,1520"/>
           <Baseline points="1657,1480 1747,1480"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r10_c14" row="10" col="14" rowSpan="1" colSpan="1">
@@ -1671,7 +1687,7 @@
         <TextLine id="line_cell_r10_c17">
           <Coords points="2042,1420 2150,1420 2150,1520 2042,1520"/>
           <Baseline points="2042,1480 2150,1480"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r10_c18" row="10" col="18" rowSpan="1" colSpan="1">
@@ -1679,7 +1695,7 @@
         <TextLine id="line_cell_r10_c18">
           <Coords points="2150,1420 2299,1420 2299,1520 2150,1520"/>
           <Baseline points="2150,1480 2299,1480"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r11_c0" row="11" col="0" rowSpan="1" colSpan="1">
@@ -1687,7 +1703,7 @@
         <TextLine id="line_cell_r11_c0">
           <Coords points="0,1520 259,1520 259,1620 0,1620"/>
           <Baseline points="0,1579 259,1579"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٧</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r11_c1" row="11" col="1" rowSpan="1" colSpan="1">
@@ -1695,7 +1711,7 @@
         <TextLine id="line_cell_r11_c1">
           <Coords points="259,1520 410,1520 410,1620 259,1620"/>
           <Baseline points="259,1579 410,1579"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٤٤</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r11_c2" row="11" col="2" rowSpan="1" colSpan="1">
@@ -1703,7 +1719,7 @@
         <TextLine id="line_cell_r11_c2">
           <Coords points="410,1520 515,1520 515,1620 410,1620"/>
           <Baseline points="410,1579 515,1579"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٤١٤٦</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r11_c3" row="11" col="3" rowSpan="1" colSpan="1">
@@ -1711,7 +1727,7 @@
         <TextLine id="line_cell_r11_c3">
           <Coords points="515,1520 623,1520 623,1620 515,1620"/>
           <Baseline points="515,1579 623,1579"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٩</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r11_c4" row="11" col="4" rowSpan="1" colSpan="1">
@@ -1719,7 +1735,7 @@
         <TextLine id="line_cell_r11_c4">
           <Coords points="623,1520 727,1520 727,1620 623,1620"/>
           <Baseline points="623,1579 727,1579"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r11_c5" row="11" col="5" rowSpan="1" colSpan="1">
@@ -1727,7 +1743,7 @@
         <TextLine id="line_cell_r11_c5">
           <Coords points="727,1520 835,1520 835,1620 727,1620"/>
           <Baseline points="727,1579 835,1579"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٤٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r11_c6" row="11" col="6" rowSpan="1" colSpan="1">
@@ -1735,7 +1751,7 @@
         <TextLine id="line_cell_r11_c6">
           <Coords points="835,1520 1001,1520 1001,1620 835,1620"/>
           <Baseline points="835,1579 1001,1579"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>ضريبة حرب</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r11_c7" row="11" col="7" rowSpan="1" colSpan="1">
@@ -1767,7 +1783,7 @@
         <TextLine id="line_cell_r11_c10">
           <Coords points="1342,1520 1462,1520 1462,1620 1342,1620"/>
           <Baseline points="1342,1579 1462,1579"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r11_c11" row="11" col="11" rowSpan="1" colSpan="1">
@@ -1775,7 +1791,7 @@
         <TextLine id="line_cell_r11_c11">
           <Coords points="1462,1520 1550,1520 1550,1620 1462,1620"/>
           <Baseline points="1462,1579 1550,1579"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٤٨</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r11_c12" row="11" col="12" rowSpan="1" colSpan="1">
@@ -1839,7 +1855,7 @@
         <TextLine id="line_cell_r12_c0">
           <Coords points="0,1620 259,1620 259,1720 0,1720"/>
           <Baseline points="0,1679 259,1679"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٨</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c1" row="12" col="1" rowSpan="1" colSpan="1">
@@ -1847,7 +1863,7 @@
         <TextLine id="line_cell_r12_c1">
           <Coords points="259,1620 410,1620 410,1720 259,1720"/>
           <Baseline points="259,1679 410,1679"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c2" row="12" col="2" rowSpan="1" colSpan="1">
@@ -1855,7 +1871,7 @@
         <TextLine id="line_cell_r12_c2">
           <Coords points="410,1620 515,1620 515,1720 410,1720"/>
           <Baseline points="410,1679 515,1679"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c3" row="12" col="3" rowSpan="1" colSpan="1">
@@ -1863,7 +1879,7 @@
         <TextLine id="line_cell_r12_c3">
           <Coords points="515,1620 623,1620 623,1720 515,1720"/>
           <Baseline points="515,1679 623,1679"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c4" row="12" col="4" rowSpan="1" colSpan="1">
@@ -1871,7 +1887,7 @@
         <TextLine id="line_cell_r12_c4">
           <Coords points="623,1620 727,1620 727,1720 623,1720"/>
           <Baseline points="623,1679 727,1679"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c5" row="12" col="5" rowSpan="1" colSpan="1">
@@ -1879,7 +1895,7 @@
         <TextLine id="line_cell_r12_c5">
           <Coords points="727,1620 835,1620 835,1720 727,1720"/>
           <Baseline points="727,1679 835,1679"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c6" row="12" col="6" rowSpan="1" colSpan="1">
@@ -1887,7 +1903,7 @@
         <TextLine id="line_cell_r12_c6">
           <Coords points="835,1620 1001,1620 1001,1720 835,1720"/>
           <Baseline points="835,1679 1001,1679"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>ضريبة حرب</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c7" row="12" col="7" rowSpan="1" colSpan="1">
@@ -1919,7 +1935,7 @@
         <TextLine id="line_cell_r12_c10">
           <Coords points="1342,1620 1462,1620 1462,1720 1342,1720"/>
           <Baseline points="1342,1679 1462,1679"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c11" row="12" col="11" rowSpan="1" colSpan="1">
@@ -1927,7 +1943,7 @@
         <TextLine id="line_cell_r12_c11">
           <Coords points="1462,1620 1550,1620 1550,1720 1462,1720"/>
           <Baseline points="1462,1679 1550,1679"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٣٦</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c12" row="12" col="12" rowSpan="1" colSpan="1">
@@ -1935,7 +1951,7 @@
         <TextLine id="line_cell_r12_c12">
           <Coords points="1550,1620 1657,1620 1657,1720 1550,1720"/>
           <Baseline points="1550,1679 1657,1679"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c13" row="12" col="13" rowSpan="1" colSpan="1">
@@ -1943,7 +1959,7 @@
         <TextLine id="line_cell_r12_c13">
           <Coords points="1657,1620 1747,1620 1747,1720 1657,1720"/>
           <Baseline points="1657,1679 1747,1679"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١١٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c14" row="12" col="14" rowSpan="1" colSpan="1">
@@ -1991,7 +2007,7 @@
         <TextLine id="line_cell_r13_c0">
           <Coords points="0,1720 259,1720 259,1820 0,1820"/>
           <Baseline points="0,1779 259,1779"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r13_c1" row="13" col="1" rowSpan="1" colSpan="1">
@@ -1999,7 +2015,7 @@
         <TextLine id="line_cell_r13_c1">
           <Coords points="259,1720 410,1720 410,1820 259,1820"/>
           <Baseline points="259,1779 410,1779"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r13_c2" row="13" col="2" rowSpan="1" colSpan="1">
@@ -2007,7 +2023,7 @@
         <TextLine id="line_cell_r13_c2">
           <Coords points="410,1720 515,1720 515,1820 410,1820"/>
           <Baseline points="410,1779 515,1779"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r13_c3" row="13" col="3" rowSpan="1" colSpan="1">
@@ -2015,7 +2031,7 @@
         <TextLine id="line_cell_r13_c3">
           <Coords points="515,1720 623,1720 623,1820 515,1820"/>
           <Baseline points="515,1779 623,1779"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٣</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r13_c4" row="13" col="4" rowSpan="1" colSpan="1">
@@ -2023,7 +2039,7 @@
         <TextLine id="line_cell_r13_c4">
           <Coords points="623,1720 727,1720 727,1820 623,1820"/>
           <Baseline points="623,1779 727,1779"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r13_c5" row="13" col="5" rowSpan="1" colSpan="1">
@@ -2031,7 +2047,7 @@
         <TextLine id="line_cell_r13_c5">
           <Coords points="727,1720 835,1720 835,1820 727,1820"/>
           <Baseline points="727,1779 835,1779"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٢٥١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r13_c6" row="13" col="6" rowSpan="1" colSpan="1">
@@ -2039,7 +2055,7 @@
         <TextLine id="line_cell_r13_c6">
           <Coords points="835,1720 1001,1720 1001,1820 835,1820"/>
           <Baseline points="835,1779 1001,1779"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>ضريبة حرب</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r13_c7" row="13" col="7" rowSpan="1" colSpan="1">
@@ -2071,7 +2087,7 @@
         <TextLine id="line_cell_r13_c10">
           <Coords points="1342,1720 1462,1720 1462,1820 1342,1820"/>
           <Baseline points="1342,1779 1462,1779"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r13_c11" row="13" col="11" rowSpan="1" colSpan="1">
@@ -2079,7 +2095,7 @@
         <TextLine id="line_cell_r13_c11">
           <Coords points="1462,1720 1550,1720 1550,1820 1462,1820"/>
           <Baseline points="1462,1779 1550,1779"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٢٦</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r13_c12" row="13" col="12" rowSpan="1" colSpan="1">
@@ -2143,7 +2159,7 @@
         <TextLine id="line_cell_r14_c0">
           <Coords points="0,1820 259,1820 259,1920 0,1920"/>
           <Baseline points="0,1877 259,1877"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r14_c1" row="14" col="1" rowSpan="1" colSpan="1">
@@ -2151,7 +2167,7 @@
         <TextLine id="line_cell_r14_c1">
           <Coords points="259,1820 410,1820 410,1920 259,1920"/>
           <Baseline points="259,1877 410,1877"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r14_c2" row="14" col="2" rowSpan="1" colSpan="1">
@@ -2159,7 +2175,7 @@
         <TextLine id="line_cell_r14_c2">
           <Coords points="410,1820 515,1820 515,1920 410,1920"/>
           <Baseline points="410,1877 515,1877"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>&quot;</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r14_c3" row="14" col="3" rowSpan="1" colSpan="1">
@@ -2167,7 +2183,7 @@
         <TextLine id="line_cell_r14_c3">
           <Coords points="515,1820 623,1820 623,1920 515,1920"/>
           <Baseline points="515,1877 623,1877"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٤</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r14_c4" row="14" col="4" rowSpan="1" colSpan="1">
@@ -2175,7 +2191,7 @@
         <TextLine id="line_cell_r14_c4">
           <Coords points="623,1820 727,1820 727,1920 623,1920"/>
           <Baseline points="623,1877 727,1877"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r14_c5" row="14" col="5" rowSpan="1" colSpan="1">
@@ -2183,7 +2199,7 @@
         <TextLine id="line_cell_r14_c5">
           <Coords points="727,1820 835,1820 835,1920 727,1920"/>
           <Baseline points="727,1877 835,1877"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r14_c6" row="14" col="6" rowSpan="1" colSpan="1">
@@ -2191,7 +2207,7 @@
         <TextLine id="line_cell_r14_c6">
           <Coords points="835,1820 1001,1820 1001,1920 835,1920"/>
           <Baseline points="835,1877 1001,1877"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>ضريبة حرب</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r14_c7" row="14" col="7" rowSpan="1" colSpan="1">
@@ -2223,7 +2239,7 @@
         <TextLine id="line_cell_r14_c10">
           <Coords points="1342,1820 1462,1820 1462,1920 1342,1920"/>
           <Baseline points="1342,1877 1462,1877"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r14_c11" row="14" col="11" rowSpan="1" colSpan="1">
@@ -2231,7 +2247,7 @@
         <TextLine id="line_cell_r14_c11">
           <Coords points="1462,1820 1550,1820 1550,1920 1462,1920"/>
           <Baseline points="1462,1877 1550,1877"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٣٦</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r14_c12" row="14" col="12" rowSpan="1" colSpan="1">
@@ -2239,7 +2255,7 @@
         <TextLine id="line_cell_r14_c12">
           <Coords points="1550,1820 1657,1820 1657,1920 1550,1920"/>
           <Baseline points="1550,1877 1657,1877"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r14_c13" row="14" col="13" rowSpan="1" colSpan="1">
@@ -2247,7 +2263,7 @@
         <TextLine id="line_cell_r14_c13">
           <Coords points="1657,1820 1747,1820 1747,1920 1657,1920"/>
           <Baseline points="1657,1877 1747,1877"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٩٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r14_c14" row="14" col="14" rowSpan="1" colSpan="1">
@@ -2295,7 +2311,7 @@
         <TextLine id="line_cell_r15_c0">
           <Coords points="0,1920 259,1920 259,2020 0,2020"/>
           <Baseline points="0,1977 259,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c1" row="15" col="1" rowSpan="1" colSpan="1">
@@ -2303,7 +2319,7 @@
         <TextLine id="line_cell_r15_c1">
           <Coords points="259,1920 410,1920 410,2020 259,2020"/>
           <Baseline points="259,1977 410,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٩٤٨</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c2" row="15" col="2" rowSpan="1" colSpan="1">
@@ -2311,7 +2327,7 @@
         <TextLine id="line_cell_r15_c2">
           <Coords points="410,1920 515,1920 515,2020 410,2020"/>
           <Baseline points="410,1977 515,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٤١٤٦</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c3" row="15" col="3" rowSpan="1" colSpan="1">
@@ -2319,7 +2335,7 @@
         <TextLine id="line_cell_r15_c3">
           <Coords points="515,1920 623,1920 623,2020 515,2020"/>
           <Baseline points="515,1977 623,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٩</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c4" row="15" col="4" rowSpan="1" colSpan="1">
@@ -2327,7 +2343,7 @@
         <TextLine id="line_cell_r15_c4">
           <Coords points="623,1920 727,1920 727,2020 623,2020"/>
           <Baseline points="623,1977 727,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c5" row="15" col="5" rowSpan="1" colSpan="1">
@@ -2335,7 +2351,7 @@
         <TextLine id="line_cell_r15_c5">
           <Coords points="727,1920 835,1920 835,2020 727,2020"/>
           <Baseline points="727,1977 835,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>١٤٢</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c6" row="15" col="6" rowSpan="1" colSpan="1">
@@ -2343,7 +2359,7 @@
         <TextLine id="line_cell_r15_c6">
           <Coords points="835,1920 1001,1920 1001,2020 835,2020"/>
           <Baseline points="835,1977 1001,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>بيع</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c7" row="15" col="7" rowSpan="1" colSpan="1">
@@ -2359,7 +2375,7 @@
         <TextLine id="line_cell_r15_c8">
           <Coords points="1127,1920 1234,1920 1234,2020 1127,2020"/>
           <Baseline points="1127,1977 1234,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٤٢١</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c9" row="15" col="9" rowSpan="1" colSpan="1">
@@ -2367,7 +2383,7 @@
         <TextLine id="line_cell_r15_c9">
           <Coords points="1234,1920 1342,1920 1342,2020 1234,2020"/>
           <Baseline points="1234,1977 1342,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٤٥/٢٠١٥</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c10" row="15" col="10" rowSpan="1" colSpan="1">
@@ -2375,7 +2391,7 @@
         <TextLine id="line_cell_r15_c10">
           <Coords points="1342,1920 1462,1920 1462,2020 1342,2020"/>
           <Baseline points="1342,1977 1462,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c11" row="15" col="11" rowSpan="1" colSpan="1">
@@ -2383,7 +2399,7 @@
         <TextLine id="line_cell_r15_c11">
           <Coords points="1462,1920 1550,1920 1550,2020 1462,2020"/>
           <Baseline points="1462,1977 1550,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٤٨</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c12" row="15" col="12" rowSpan="1" colSpan="1">
@@ -2431,7 +2447,7 @@
         <TextLine id="line_cell_r15_c17">
           <Coords points="2042,1920 2150,1920 2150,2020 2042,2020"/>
           <Baseline points="2042,1977 2150,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>-</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c18" row="15" col="18" rowSpan="1" colSpan="1">
@@ -2439,7 +2455,7 @@
         <TextLine id="line_cell_r15_c18">
           <Coords points="2150,1920 2299,1920 2299,2020 2150,2020"/>
           <Baseline points="2150,1977 2299,1977"/>
-          <TextEquiv><Unicode></Unicode></TextEquiv>
+          <TextEquiv><Unicode>٠٤٨</Unicode></TextEquiv>
         </TextLine>
       </TableCell>
       <TableCell id="cell_r16_c0" row="16" col="0" rowSpan="1" colSpan="1">
