@@ -42,6 +42,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Optional
 
@@ -54,6 +55,7 @@ from PIL import Image
 # ──────────────────────────────────────────────────────────
 
 PROJECT_DIR = Path(__file__).parent
+XML_UPLOAD_DIR = PROJECT_DIR / "Transkribus upload" / "original"
 IMAGE_PATTERN = "000nvrj-432316TAX 1-85_page-{:04d}.jpg"
 TEST_PAGES = [3, 10, 50]
 
@@ -1035,6 +1037,225 @@ def run_gemini25_cell_hybrid_extended(page_num: int) -> list[dict]:
     return rows
 
 
+# ──────────────────────────────────────────────────────────
+# APPROACH S — XML-scaffold column-strip OCR
+# ──────────────────────────────────────────────────────────
+
+_S_EXTRA_PROMPTS: dict[str, str] = {
+    "Nature_of_Entry": _CELL_PREAMBLE + """\
+You are reading the "Nature_of_Entry" column from a British Mandate Palestine tax register.
+This column describes how the ownership record originated. Common values:
+  تسلل (encroachment), من تسلل, شراء (purchase), شرائي, ضريبة حرب (war tax), or empty.
+Read each cell from top to bottom. Return ONLY a JSON array of strings, one per row.
+Example: ["تسلل", "", '"', "شراء", ""]
+""",
+    "Remarks": _CELL_PREAMBLE + """\
+You are reading the "Remarks" free-text column from a British Mandate Palestine tax register.
+Cells may contain Arabic annotations, struck-through corrections, or be empty.
+Read each cell from top to bottom. Return ONLY a JSON array of strings, one per row.
+Example: ["ملاحظة", "", '"', ""]
+""",
+}
+
+_S_CELL_PROMPTS: dict[str, str] = {**CELL_PROMPTS, **_S_EXTRA_PROMPTS}
+_FREE_TEXT_COLS: frozenset[str] = frozenset({"Nature_of_Entry", "Remarks"})
+
+_DEFAULT_COL_PROMPT_TMPL = _CELL_PREAMBLE + """\
+You are reading the column "{col_name}" from a British Mandate Palestine \
+property tax register (1930s, Haditha village). Eastern Arabic numerals are used.
+Read each cell from top to bottom. Return ONLY a JSON array of strings, one per row.
+Example: ["٣٤٥", "", '"', "١٢"]
+"""
+
+
+def _col_bounds_from_xml(page_num: int) -> tuple[dict[str, tuple[int, int]], tuple[int, int]]:
+    """Parse PAGE XML to get {col_name: (x0, x1)} from row-0 TableCells and table (y0, y1)."""
+    xml_path = XML_UPLOAD_DIR / f"Hadita_{page_num}.xml"
+    ns = {"pc": "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15"}
+    root = ET.parse(xml_path).getroot()
+
+    # Table y-bounds from TableRegion Coords
+    table_y: tuple[int, int] = (0, 999999)
+    tr = root.find(".//pc:TableRegion", ns)
+    if tr is not None:
+        coords_el = tr.find("pc:Coords", ns)
+        if coords_el is not None:
+            pts = coords_el.attrib["points"].split()
+            ys = [int(p.split(",")[1]) for p in pts]
+            table_y = (min(ys), max(ys))
+
+    # Column x-bounds from row=0 TableCells
+    col_bounds: dict[str, tuple[int, int]] = {}
+    for cell in root.findall(".//pc:TableCell", ns):
+        if int(cell.attrib.get("row", -1)) != 0:
+            continue
+        col_idx = int(cell.attrib.get("col", -1))
+        if col_idx < 0 or col_idx >= len(LEFT_COLS):
+            continue
+        coords_el = cell.find("pc:Coords", ns)
+        if coords_el is None:
+            continue
+        pts = coords_el.attrib["points"].split()
+        xs = [int(p.split(",")[0]) for p in pts]
+        col_bounds[LEFT_COLS[col_idx]] = (min(xs), max(xs))
+
+    log.info("_col_bounds_from_xml page %d: %d cols, table y=%s", page_num, len(col_bounds), table_y)
+    return col_bounds, table_y
+
+
+def _ocr_strip_generic(client, strip_img: Image.Image, col_name: str,
+                       context_images: Optional[list] = None) -> list[str]:
+    """Send a column strip to Gemini. Uses _S_CELL_PROMPTS or a default prompt."""
+    prompt = _S_CELL_PROMPTS.get(col_name) or _DEFAULT_COL_PROMPT_TMPL.format(col_name=col_name)
+    images = [strip_img] + (context_images or [])
+    raw = _gemini_ocr(client, GEMINI_25_PRO, prompt, images)
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    try:
+        values = json.loads(raw)
+        if isinstance(values, list):
+            return [str(v) for v in values]
+    except json.JSONDecodeError:
+        log.warning("S: Could not parse strip response for %s: %s", col_name, raw[:200])
+    return []
+
+
+def run_gemini25_xml_scaffold_lite(page_num: int) -> list[dict]:
+    """Approach S-lite: Approach M base + 4 hard-column overrides from XML-geometry strips.
+
+    Same structure as Approach O but column boundaries come from PAGE XML (deskewed-image
+    coordinate space) rather than detect_grid — more accurate, no grid_offset heuristic.
+    """
+    cached = load_cache("S_lite", page_num)
+    if cached is not None:
+        return cached
+
+    base_rows = run_gemini25_full_fewshot(page_num)
+    if not base_rows:
+        save_cache("S_lite", page_num, [])
+        return []
+
+    col_bounds, table_y = _col_bounds_from_xml(page_num)
+    deskewed_path = CACHE_DIR / f"deskewed_page{page_num}.jpg"
+    img_bgr = cv2.imread(str(deskewed_path))
+    if img_bgr is None:
+        log.error("S-lite: deskewed image not found: %s — falling back to M", deskewed_path)
+        save_cache("S_lite", page_num, base_rows)
+        return base_rows
+
+    y0, y1 = table_y
+    client = _gemini_client()
+    col_overrides: dict[str, list[str]] = {}
+
+    for col_name in CELL_TARGET_COLS:
+        bounds = col_bounds.get(col_name)
+        if bounds is None:
+            log.warning("S-lite: col %s not found in XML", col_name)
+            continue
+        x0, x1 = bounds
+        strip_cv = img_bgr[y0:y1, x0:x1]
+        strip_pil = Image.fromarray(cv2.cvtColor(strip_cv, cv2.COLOR_BGR2RGB))
+        strip_enhanced = _preprocess_cell_image(strip_pil, upscale=2)
+
+        values = _ocr_strip_generic(client, strip_enhanced, col_name)
+        if values:
+            col_overrides[col_name] = values
+            log.info("S-lite %s: %d values", col_name, len(values))
+        else:
+            log.warning("S-lite %s: no values returned", col_name)
+        time.sleep(1)
+
+    rows = [dict(r) for r in base_rows]
+    for col_name, values in col_overrides.items():
+        for i, val in enumerate(values):
+            if i < len(rows):
+                rows[i][col_name] = val
+
+    save_cache("S_lite", page_num, rows)
+    return rows
+
+
+def run_gemini25_xml_scaffold_full(page_num: int) -> list[dict]:
+    """Approach S-full: all 20 columns as XML-geometry strips, no Approach M dependency.
+
+    Each column is sent as a vertical strip (all rows in one image) with a column-specific
+    prompt. Free-text columns (Nature_of_Entry, Remarks) also receive a full-page thumbnail
+    for row-level context. Column boundaries come from PAGE XML (deskewed-image coords).
+    Per-column sub-caches allow re-runs without re-calling completed columns.
+    """
+    cached = load_cache("S_full", page_num)
+    if cached is not None:
+        return cached
+
+    col_bounds, table_y = _col_bounds_from_xml(page_num)
+    deskewed_path = CACHE_DIR / f"deskewed_page{page_num}.jpg"
+    img_bgr = cv2.imread(str(deskewed_path))
+    if img_bgr is None:
+        log.error("S-full: deskewed image not found: %s", deskewed_path)
+        return []
+
+    y0, y1 = table_y
+    full_pil = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
+    thumb_w = 800
+    thumb_h = int(full_pil.height * thumb_w / full_pil.width)
+    thumb_pil = full_pil.resize((thumb_w, thumb_h), Image.LANCZOS)
+
+    client = _gemini_client()
+    col_values: dict[str, list[str]] = {}
+    n_rows = 0
+
+    for col_name in LEFT_COLS:
+        sub_key = f"S_full_{col_name}"
+        sub_cached = load_cache(sub_key, page_num)
+        if sub_cached is not None:
+            vals = [r.get(col_name, "") for r in sub_cached]
+            col_values[col_name] = vals
+            if n_rows == 0:
+                n_rows = len(vals)
+            log.info("S-full %s: cache hit (%d values)", col_name, len(vals))
+            continue
+
+        bounds = col_bounds.get(col_name)
+        if bounds is None:
+            log.warning("S-full: col %s not in XML bounds", col_name)
+            col_values[col_name] = []
+            continue
+
+        x0, x1 = bounds
+        strip_cv = img_bgr[y0:y1, x0:x1]
+        strip_pil = Image.fromarray(cv2.cvtColor(strip_cv, cv2.COLOR_BGR2RGB))
+        strip_enhanced = _preprocess_cell_image(strip_pil, upscale=2)
+
+        context = [thumb_pil] if col_name in _FREE_TEXT_COLS else None
+        values = _ocr_strip_generic(client, strip_enhanced, col_name, context_images=context)
+        col_values[col_name] = values
+        if values:
+            if n_rows == 0:
+                n_rows = len(values)
+            log.info("S-full %s: %d values", col_name, len(values))
+        else:
+            log.warning("S-full %s: no values returned", col_name)
+
+        save_cache(sub_key, page_num, [{col_name: v} for v in values])
+        time.sleep(1)
+
+    if not n_rows:
+        log.error("S-full page %d: could not determine row count", page_num)
+        return []
+
+    rows: list[dict] = []
+    for i in range(n_rows):
+        row: dict[str, str] = {}
+        for col_name in LEFT_COLS:
+            vals = col_values.get(col_name, [])
+            row[col_name] = vals[i] if i < len(vals) else ""
+        rows.append(row)
+
+    save_cache("S_full", page_num, rows)
+    return rows
+
+
 def run_fewshot_ensemble(page_num: int) -> list[dict]:
     """Approach Q: Run 5 few-shot variants of Gemini 2.5 and majority-vote per cell.
 
@@ -1602,6 +1823,8 @@ def run_approach(approach: str, page_num: int) -> list[dict]:
         elif approach == "P": return run_majority_vote_ensemble(page_num)
         elif approach == "Q": return run_fewshot_ensemble(page_num)
         elif approach == "R": return run_gemini25_zoomed_fewshot(page_num)
+        elif approach == "S_lite": return run_gemini25_xml_scaffold_lite(page_num)
+        elif approach == "S_full": return run_gemini25_xml_scaffold_full(page_num)
         else:
             log.error("Unknown approach: %s", approach)
             return []
@@ -1900,7 +2123,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--pages",     nargs="+", type=int, default=TEST_PAGES,
                         help="Page numbers to process (default: 3 10 50)")
-    valid_approaches = list(ALL_APPROACHES) + ["O2"]
+    valid_approaches = list(ALL_APPROACHES) + ["O2", "S_lite", "S_full"]
     parser.add_argument("--approaches", nargs="+", default=ALL_APPROACHES,
                         choices=valid_approaches, metavar="APPROACH",
                         help="Approaches to run: A B C D E F G H I J K L M N O O2 P Q R")

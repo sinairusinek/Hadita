@@ -207,9 +207,27 @@ def load_kraken(page_num: int) -> list[dict]:
     return []
 
 
+def load_approach_s_lite(page_num: int) -> list[dict]:
+    """Load cached Approach S-lite (XML-scaffold, hard columns override)."""
+    cache_file = CACHE_DIR / f"S_lite_page{page_num}.json"
+    if cache_file.exists():
+        return json.loads(cache_file.read_text())
+    return []
+
+
+def load_approach_s_full(page_num: int) -> list[dict]:
+    """Load cached Approach S-full (XML-scaffold, all columns)."""
+    cache_file = CACHE_DIR / f"S_full_page{page_num}.json"
+    if cache_file.exists():
+        return json.loads(cache_file.read_text())
+    return []
+
+
 OCR_SOURCES = {
-    "Approach M (Gemini)": load_approach_m,
-    "Kraken (two-model)":  load_kraken,
+    "Approach M (Gemini)":             load_approach_m,
+    "Approach S-lite (XML scaffold)":  load_approach_s_lite,
+    "Approach S-full (XML scaffold)":  load_approach_s_full,
+    "Kraken (two-model)":              load_kraken,
 }
 
 
