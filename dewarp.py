@@ -38,8 +38,8 @@ from image_preprocess import deskew_image, detect_x_left_col_cached
 from segment_unified import (
     N_BANDS, EXPECTED_COLS,
     crop_table, detect_columns, detect_columns_banded, detect_rows,
-    detect_table_frame, build_remap, fix_x_left_col_geometric,
-    fix_col_ranges_with_first_interior,
+    detect_table_frame, build_remap, compute_row_baselines,
+    fix_x_left_col_geometric, fix_col_ranges_with_first_interior,
 )
 
 X_LEFT_COL_MODES = ("none", "geometric", "gemini", "claude", "consensus")
@@ -283,7 +283,7 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False,
     # 7. Build a single remap that covers BOTH pheader and data. Row centers
     # come from detect_rows (in data_region coords) → shift by hb_y for framed.
     rows_framed = [{**r, "y_center": r["y_center"] + hb_y} for r in rows_data]
-    map_x, map_y, _, out_h, out_col_x_full = build_remap(
+    map_x, map_y, _, out_h, out_col_x_full, src_to_out = build_remap(
         framed, rows_framed, bands,
         pheader_anchor=(0, hb_y, H_PHEADER),
     )
@@ -310,12 +310,31 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False,
     # canvas. (Using col_ranges directly here was off by 15–30 px on the left
     # because col_ranges carries COL_SHIFT and bands[0]["col_x"] does not.)
     col_ranges_out = [round(float(x) * W_OUT / fw) for x in out_col_x_full]
+
+    # Per-row baseline y (canvas coords). Real Kraken baselines bucket into
+    # rows; remaining rows backfilled via the calibrated within-row offset.
+    try:
+        with open(seg_cache) as f:
+            seg_raw = json.load(f).get("lines", [])
+    except (OSError, json.JSONDecodeError):
+        seg_raw = []
+    row_baseline_y, row_baseline_frac, n_real_baseline_rows = compute_row_baselines(
+        seg_raw, hb_y=hb_y, src_to_out=src_to_out,
+        framed_w=fw, out_h=out_h, target_h=target_h,
+        n_rows=n_rows, h_header=H_HEADER, h_meta=H_META, row_pitch=ROW_PITCH,
+    )
+    log.info("    row baselines: %d/%d real, frac=%.3f",
+             n_real_baseline_rows, n_rows, row_baseline_frac)
+
     cols_meta = {
         "page": page,
         "x_left_col_mode": x_left_col_mode,
         "col_ranges_framed": list(col_ranges),
         "col_ranges_out": col_ranges_out,
         "framed_w": fw,
+        "row_baseline_y_canvas": [int(round(y)) for y in row_baseline_y],
+        "row_baseline_frac": row_baseline_frac,
+        "row_baseline_real_count": n_real_baseline_rows,
     }
     (CACHE_DIR / f"dewarp_cols_page{page}.json").write_text(
         json.dumps(cols_meta, indent=2), encoding="utf-8")
@@ -328,6 +347,23 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False,
         # Vertical: proportional column grid (matches dewarped image column positions)
         for x in col_ranges_out:
             cv2.line(ov, (x, H_HEADER), (x, canvas_h), (0, 0, 220), 1)
+        # Horizontal: uniform row pitch in the dewarped data region (i=0 coincides
+        # with the H_HEADER line drawn above; skip it to avoid overdraw).
+        for i in range(1, n_rows + 1):
+            y = H_HEADER + i * ROW_PITCH
+            if y >= canvas_h:
+                break
+            cv2.line(ov, (0, y), (W_OUT, y), (0, 0, 220), 1)
+        # Per-row baselines: one horizontal segment per row spanning the full
+        # data column range. Real (Kraken-derived) and interpolated rows are
+        # drawn identically — that's the point of the unified output.
+        x_left  = col_ranges_out[0]
+        x_right = col_ranges_out[-1]
+        for y_canvas in row_baseline_y:
+            yc = int(round(float(y_canvas)))
+            if yc >= canvas_h:
+                continue
+            cv2.line(ov, (x_left, yc), (x_right, yc), (255, 80, 0), 2)
         _write_debug(page, "08_processed_with_grid.jpg", ov, mode=x_left_col_mode)
     return {
         "path": out_path,
@@ -338,6 +374,8 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False,
         "out_w": output.shape[1],
         "out_h": output.shape[0],
         "col_ranges": col_ranges_out,
+        "row_baseline_y_canvas": [int(round(y)) for y in row_baseline_y],
+        "row_baseline_frac": row_baseline_frac,
     }
 
 

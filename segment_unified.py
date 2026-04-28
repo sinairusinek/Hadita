@@ -563,7 +563,81 @@ def build_remap(
         t = np.clip((OX - out_col_x[j]) / span_out, 0.0, 1.0)
         src_x_map[mask] = (src_lo + t * (src_hi - src_lo))[mask]
 
-    return src_x_map, src_y_map, out_w, out_h, out_col_x
+    # Inverse map (src → out) for projecting arbitrary annotated points (e.g.
+    # Kraken baselines) onto the dewarped canvas. src_anchors is monotonic
+    # (rows are sorted by y_center), so a direct interp1d works for y. For x,
+    # at any given src_y we know where each column boundary lives in src
+    # (via col_interps) and where it lands in out (out_col_x), so linear
+    # interpolation between those boundaries inverts the per-row warp.
+    src_to_out_y = interp1d(
+        src_anchors, out_anchors, kind="linear",
+        bounds_error=False, fill_value=(out_anchors[0], out_anchors[-1]),
+    )
+
+    def src_to_out(src_x: float, src_y: float) -> tuple[float, float]:
+        out_y = float(src_to_out_y(src_y))
+        src_col_at_y = np.array([float(ci(src_y)) for ci in col_interps])
+        out_x = float(np.interp(src_x, src_col_at_y, out_col_x))
+        return out_x, out_y
+
+    return src_x_map, src_y_map, out_w, out_h, out_col_x, src_to_out
+
+
+def compute_row_baselines(
+    seg_lines: list[dict],
+    hb_y: int,
+    src_to_out,
+    framed_w: int,
+    out_h: int,
+    target_h: int,
+    n_rows: int,
+    h_header: int,
+    h_meta: int,
+    row_pitch: int,
+) -> tuple[np.ndarray, float, int]:
+    """Per-row baseline y in final-canvas coords.
+
+    Each Kraken baseline polyline is projected to the dewarped canvas, mean-y'd,
+    and bucketed into the row band that contains it. Rows with at least one real
+    baseline take the mean; the remaining rows use h_header + (i+frac)*row_pitch
+    where frac is calibrated from real rows' within-band offsets (default 0.7
+    when nothing is available).
+
+    Returns (row_baseline_y, frac, n_real_rows).
+    """
+    scale_y = target_h / out_h
+    buckets: list[list[float]] = [[] for _ in range(n_rows)]
+    for kline in seg_lines:
+        bl = kline.get("baseline") or []
+        if len(bl) < 2:
+            continue
+        ys = []
+        for pt in bl:
+            sx, sy = float(pt[0]), float(pt[1]) + hb_y
+            _ox, oy = src_to_out(sx, sy)
+            ys.append(oy * scale_y + h_meta)
+        cy = float(np.mean(ys))
+        i = int((cy - h_header) // row_pitch)
+        if 0 <= i < n_rows:
+            buckets[i].append(cy)
+
+    real_y = np.full(n_rows, np.nan, dtype=np.float64)
+    for i, ys in enumerate(buckets):
+        if ys:
+            real_y[i] = float(np.mean(ys))
+
+    real_idx = np.where(~np.isnan(real_y))[0]
+    if real_idx.size:
+        fracs = (real_y[real_idx] - (h_header + real_idx * row_pitch)) / row_pitch
+        frac = float(np.mean(np.clip(fracs, 0.0, 1.0)))
+    else:
+        frac = 0.7
+
+    row_baseline_y = real_y.copy()
+    missing = np.isnan(row_baseline_y)
+    miss_idx = np.where(missing)[0]
+    row_baseline_y[miss_idx] = h_header + (miss_idx + frac) * row_pitch
+    return row_baseline_y, frac, int(real_idx.size)
 
 
 def dewarped_grid(
@@ -603,12 +677,21 @@ def detect_rows_kraken(table_bgr: np.ndarray,
                        skip_header_y: int = 200) -> list[dict]:
     """Detect rows using Kraken segmentation model.
     Returns list of row dicts with y_center, y_min, y_max."""
+    lines = None
     if use_cache and cache_path.exists():
-        log.info("Loading cached Kraken segmentation from %s", cache_path)
         with open(cache_path) as f:
             data = json.load(f)
-        lines = data["lines"]
-    else:
+        cached = data.get("lines", [])
+        # Schema migration: pre-baseline caches lack the `baseline` key. Force
+        # regeneration so callers (e.g. baseline overlay) get the polyline data.
+        if cached and "baseline" not in cached[0]:
+            log.info("Cache %s lacks baselines (old schema); re-running Kraken",
+                     cache_path)
+        else:
+            log.info("Loading cached Kraken segmentation from %s", cache_path)
+            lines = cached
+
+    if lines is None:
         with tempfile.TemporaryDirectory() as tmp:
             in_path  = Path(tmp) / "table.jpg"
             out_path = Path(tmp) / "seg.json"
@@ -639,7 +722,13 @@ def detect_rows_kraken(table_bgr: np.ndarray,
                 y_min, y_max = min(ys_b), max(ys_b)
             else:
                 y_min = y_max = y_center
-            lines.append({"y_center": y_center, "y_min": y_min, "y_max": y_max})
+            lines.append({
+                "y_center": y_center,
+                "y_min": y_min,
+                "y_max": y_max,
+                "baseline": baseline,
+                "boundary": boundary,
+            })
         lines.sort(key=lambda l: l["y_center"])
         log.info("Kraken detected %d raw line regions", len(lines))
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -833,7 +922,8 @@ def write_page_xml(col_ranges: list[int],
                    text_rows: list[dict] | None = None,
                    bands: list[dict] | None = None,
                    text_fn=None,
-                   col_tags: bool = False) -> None:
+                   col_tags: bool = False,
+                   row_baseline_y: list[int] | None = None) -> None:
     """Write a PAGE XML (2013-07-15) with TableRegion + TableCells.
 
     Row 0 = printed column-label header (empty). Rows 1…N = data rows.
@@ -865,12 +955,20 @@ def write_page_xml(col_ranges: list[int],
         y_bl  = cy_bl + y_offset
         return f"{_col_x(c0, cy_bl)},{y_bl} {_col_x(c1, cy_bl)},{y_bl}"
 
+    def _baseline_pts_canvas(c0, c1, y_canvas, cy_for_colx) -> str:
+        return f"{_col_x(c0, cy_for_colx)},{y_canvas} {_col_x(c1, cy_for_colx)},{y_canvas}"
+
     tx0, ty0 = col_ranges[0], row_ranges[0][0] + y_offset
     tx1, ty1 = col_ranges[-1], row_ranges[-1][1] + y_offset
     table_pts = f"{tx0},{ty0} {tx1},{ty0} {tx1},{ty1} {tx0},{ty1}"
 
     cells_xml: list[str] = []
     for r_idx, (y0, y1) in enumerate(row_ranges):
+        y_bl_canvas = (
+            int(round(row_baseline_y[r_idx]))
+            if row_baseline_y is not None and r_idx < len(row_baseline_y)
+            else None
+        )
         for c_idx in range(n_cols):
             cid  = f"cell_r{r_idx}_c{c_idx}"
             cpts = _cell_pts(c_idx, y0, c_idx + 1, y1)
@@ -880,16 +978,17 @@ def write_page_xml(col_ranges: list[int],
                 text = text_rows[r_idx].get(col_name, "").strip()
                 if text and text_fn:
                     text = text_fn(text)
-            textline_xml = ""
-            if text:
+            if y_bl_canvas is not None:
+                bl = _baseline_pts_canvas(c_idx, c_idx + 1, y_bl_canvas, (y0 + y1) // 2)
+            else:
                 bl = _baseline_pts(c_idx, y0, c_idx + 1, y1)
-                textline_xml = (
-                    f'        <TextLine id="line_{cid}">\n'
-                    f'          <Coords points="{cpts}"/>\n'
-                    f'          <Baseline points="{bl}"/>\n'
-                    f'          <TextEquiv><Unicode>{text}</Unicode></TextEquiv>\n'
-                    f'        </TextLine>\n'
-                )
+            textline_xml = (
+                f'        <TextLine id="line_{cid}">\n'
+                f'          <Coords points="{cpts}"/>\n'
+                f'          <Baseline points="{bl}"/>\n'
+                f'          <TextEquiv><Unicode>{text}</Unicode></TextEquiv>\n'
+                f'        </TextLine>\n'
+            )
             col_tag = LEFT_COLS[c_idx] if c_idx < len(LEFT_COLS) else f"col_{c_idx}"
             custom_attr = f' custom="structure {{type:{col_tag};}}"' if col_tags else ""
             cells_xml.append(
@@ -957,6 +1056,7 @@ def process_page(page_num: int, args) -> None:
         list(np.linspace(0, W_OUT, EXPECTED_COLS + 1).round().astype(int)),
     )
     row_ranges = [(i * ROW_PITCH, (i + 1) * ROW_PITCH) for i in range(n_rows)]
+    row_baseline_y = result.get("row_baseline_y_canvas")
 
     def _to_eastern(text: str) -> str: return text.translate(W2E)
     def _to_western(text: str) -> str: return text.translate(E2W)
@@ -976,7 +1076,8 @@ def process_page(page_num: int, args) -> None:
                        image_filename=img_name,
                        out_path=out_dir / f"Hadita_{page_num}.xml",
                        text_rows=text_rows, bands=None, text_fn=text_fn,
-                       col_tags=args.col_tags)
+                       col_tags=args.col_tags,
+                       row_baseline_y=row_baseline_y)
         print(f"{sub:35s} → {out_dir / f'Hadita_{page_num}.xml'}")
 
 
