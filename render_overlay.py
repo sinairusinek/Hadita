@@ -24,14 +24,19 @@ def parse_points(s: str) -> list[tuple[int, int]]:
 
 def parse_pagexml(xml_text: str) -> dict:
     """Return {'cells': [...], 'regions': [{'id', 'coords', 'text'}], 'baselines': [...]}."""
+    # Coords/Baseline may be self-closing (/>) or have explicit close tags (></Coords>)
+    # after patch_baselines.py rewrites them with ElementTree.
+    _pts = r'"([^"]+)"[^>]*/?>'   # captures points="..." then handles /> or >
+    _uni = r'(?:<Unicode\s*/>|<Unicode>(.*?)</Unicode>)'  # handles empty or text
     cells: list[dict] = []
     for m in re.finditer(
         r'<TableCell id="([^"]+)" row="(\d+)" col="(\d+)".*?'
-        r'<Coords points="([^"]+)"/>.*?'
-        r'<Baseline points="([^"]+)"/>.*?'
-        r'<Unicode>(.*?)</Unicode>',
+        r'<Coords points=' + _pts + r'.*?'
+        r'<Baseline points=' + _pts + r'.*?' + _uni,
         xml_text, re.S):
-        cid, r, c, coords, bl, txt = m.groups()
+        cid, r, c, coords, bl, txt = (
+            m.group(1), m.group(2), m.group(3),
+            m.group(4), m.group(5), m.group(6) or "")
         cells.append({
             "id": cid, "row": int(r), "col": int(c),
             "coords": parse_points(coords),
@@ -40,9 +45,9 @@ def parse_pagexml(xml_text: str) -> dict:
         })
     regions: list[dict] = []
     for m in re.finditer(
-        r'<TextRegion id="([^"]+)"[^>]*>\s*<Coords points="([^"]+)"/>.*?'
-        r'<Unicode>(.*?)</Unicode>', xml_text, re.S):
-        rid, coords, txt = m.groups()
+        r'<TextRegion id="([^"]+)"[^>]*>\s*<Coords points=' + _pts + r'.*?' + _uni,
+        xml_text, re.S):
+        rid, coords, txt = m.group(1), m.group(2), m.group(3) or ""
         regions.append({"id": rid, "coords": parse_points(coords), "text": txt})
     return {"cells": cells, "regions": regions}
 
@@ -52,9 +57,8 @@ def html_unescape(s: str) -> str:
              .replace("&gt;", ">").replace("&quot;", '"'))
 
 
-def render_page(page_num: int) -> Path:
-    img_path = UPLOAD / f"Hadita_{page_num}.jpeg"
-    xml_path = UPLOAD / f"Hadita_{page_num}.xml"
+def render_page_from_paths(img_path: Path, xml_path: Path, out_path: Path,
+                           show_baselines: bool = False) -> Path:
     if not img_path.exists() or not xml_path.exists():
         raise FileNotFoundError(f"Missing {img_path} or {xml_path}")
 
@@ -62,10 +66,8 @@ def render_page(page_num: int) -> Path:
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
     pil = Image.fromarray(rgb).convert("RGBA")
 
-    # Translucent overlay layer for shapes
     overlay = Image.new("RGBA", pil.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
-    # Solid layer for text (drawn last so it sits on top)
     text_layer = Image.new("RGBA", pil.size, (0, 0, 0, 0))
     tdraw = ImageDraw.Draw(text_layer)
 
@@ -82,12 +84,13 @@ def render_page(page_num: int) -> Path:
             draw.polygon(coords, fill=(255, 230, 90, 90), outline=(0, 80, 200, 220))
             xs = [p[0] for p in coords]; ys = [p[1] for p in coords]
             tx, ty = min(xs) + 4, min(ys) + 2
-            # Draw with white halo for readability
             for dx, dy in ((-1,0),(1,0),(0,-1),(0,1)):
                 tdraw.text((tx+dx, ty+dy), text, font=cell_font, fill=(255,255,255,230))
             tdraw.text((tx, ty), text, font=cell_font, fill=(20, 20, 20, 255))
         else:
             draw.polygon(coords, outline=(0, 80, 200, 130))
+        if show_baselines and len(c["baseline"]) >= 2:
+            draw.line(c["baseline"], fill=(255, 30, 30, 230), width=2)
 
     # Header TextRegions: thick colored border + recognized text in big font
     region_colors = {
@@ -108,10 +111,16 @@ def render_page(page_num: int) -> Path:
     composed = Image.alpha_composite(pil, overlay)
     composed = Image.alpha_composite(composed, text_layer)
 
-    OUT_DIR.mkdir(exist_ok=True)
-    out_path = OUT_DIR / f"Hadita_{page_num}_overlay.png"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     composed.convert("RGB").save(out_path, "PNG")
     return out_path
+
+
+def render_page(page_num: int) -> Path:
+    img_path = UPLOAD / f"Hadita_{page_num}.jpeg"
+    xml_path = UPLOAD / f"Hadita_{page_num}.xml"
+    out_path = OUT_DIR / f"Hadita_{page_num}_overlay.png"
+    return render_page_from_paths(img_path, xml_path, out_path)
 
 
 def main():

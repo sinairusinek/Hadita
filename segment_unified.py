@@ -49,16 +49,21 @@ UPLOAD_DIR   = PROJECT_DIR / "Transkribus upload"
 
 # ── Per-page config ────────────────────────────────────────────────────────────
 # Tuned on page 3; adjust if pages 10/50 differ significantly after inspection.
+def _page_cfg(n: int, gt: str | None = None) -> dict:
+    return {"image": f"deskewed_page{n}.jpg", "transkribus_image": f"Hadita_{n}.jpeg",
+            "xml_name": f"Hadita_{n}.xml", "header_frac": 0.08,
+            "table_width_frac": 0.494, "table_left_x": 140, "gt_page": gt}
+
 PAGE_CONFIG = {
-    3:  {"image": "deskewed_page3.jpg",  "transkribus_image": "Hadita_3.jpeg",
-         "xml_name": "Hadita_3.xml",  "header_frac": 0.08, "table_width_frac": 0.494,
-         "table_left_x": 140, "gt_page": "3"},
-    10: {"image": "deskewed_page10.jpg", "transkribus_image": "Hadita_10.jpeg",
-         "xml_name": "Hadita_10.xml", "header_frac": 0.08, "table_width_frac": 0.494,
-         "table_left_x": 140, "gt_page": None},
-    50: {"image": "deskewed_page50.jpg", "transkribus_image": "Hadita_50.jpeg",
-         "xml_name": "Hadita_50.xml", "header_frac": 0.08, "table_width_frac": 0.494,
-         "table_left_x": 140, "gt_page": None},
+    3:  _page_cfg(3,  gt="3"),
+    4:  _page_cfg(4),
+    5:  _page_cfg(5),
+    6:  _page_cfg(6),
+    7:  _page_cfg(7),
+    8:  _page_cfg(8),
+    9:  _page_cfg(9),
+    10: _page_cfg(10),
+    50: _page_cfg(50),
 }
 
 # ── Layout / detection constants ───────────────────────────────────────────────
@@ -1299,6 +1304,7 @@ def process_page(page_num: int, args) -> None:
     """Run dewarp pipeline → save dewarped JPEG + write uniform-grid PAGE XML for both digit variants."""
     import shutil
     from dewarp import process_page as run_dewarp, W_OUT, H_META, H_HEADER, ROW_PITCH
+    from patch_baselines import patch_xml
 
     cfg = PAGE_CONFIG[page_num]
     print(f"\n{'='*60}")
@@ -1359,16 +1365,18 @@ def process_page(page_num: int, args) -> None:
         # Copy dewarped JPEG into the upload folder so XML+image stay co-located.
         shutil.copyfile(result["path"], out_dir / img_name)
         # Write uniform-grid XML targeting the dewarped JPEG.
+        xml_out = out_dir / f"Hadita_{page_num}.xml"
         write_page_xml(col_ranges, row_ranges,
                        y_offset=H_HEADER,
                        page_w=page_w, page_h=page_h,
                        image_filename=img_name,
-                       out_path=out_dir / f"Hadita_{page_num}.xml",
+                       out_path=xml_out,
                        text_rows=text_rows, bands=None, text_fn=text_fn,
                        col_tags=args.col_tags,
                        row_baseline_y=row_baseline_y,
                        top_strip=top_strip)
-        print(f"{sub:35s} → {out_dir / f'Hadita_{page_num}.xml'}")
+        patch_xml(xml_out)
+        print(f"{sub:35s} → {xml_out}")
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
