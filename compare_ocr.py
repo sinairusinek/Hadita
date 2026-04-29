@@ -659,6 +659,22 @@ def _gemini_client():
     return genai.Client(api_key=api_key)
 
 
+_QARI_MODEL = None
+_QARI_PROCESSOR = None
+
+
+def _qari_client():
+    global _QARI_MODEL, _QARI_PROCESSOR
+    if _QARI_MODEL is None:
+        from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+        MODEL_ID = "NAMAA-Space/Qari-OCR-v0.3-VL-2B-Instruct"
+        _QARI_MODEL = Qwen2VLForConditionalGeneration.from_pretrained(
+            MODEL_ID, torch_dtype="auto", device_map="auto"
+        )
+        _QARI_PROCESSOR = AutoProcessor.from_pretrained(MODEL_ID)
+    return _QARI_MODEL, _QARI_PROCESSOR
+
+
 def _gemini_ocr(client, model_id: str, prompt: str, pil_images: list,
                 max_retries: int = 3) -> str:
     from google.genai import types
@@ -1636,6 +1652,36 @@ def _kraken_recognize_cell(cell_img: Image.Image, model_path: str) -> str:
         return open(out_path).read().strip()
 
 
+def _qari_recognize_image(cell_pil: Image.Image) -> str:
+    """Recognize text in a single cell using QARI-OCR v0.3 (Qwen2-VL)."""
+    from qwen_vl_utils import process_vision_info
+    model, processor = _qari_client()
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+        cell_pil.save(f, format="JPEG", quality=92)
+        tmp_path = f.name
+
+    try:
+        messages = [{
+            "role": "user",
+            "content": [
+                {"type": "image", "image": f"file://{tmp_path}"},
+                {"type": "text", "text": "Transcribe the Arabic text in this image. Return only the transcribed text, nothing else."},
+            ],
+        }]
+        text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        image_inputs, video_inputs = process_vision_info(messages)
+        inputs = processor(text=[text], images=image_inputs, videos=video_inputs,
+                           padding=True, return_tensors="pt")
+        inputs = inputs.to(model.device)
+        generated_ids = model.generate(**inputs, max_new_tokens=64)
+        trimmed = [out[len(inp):] for inp, out in zip(inputs.input_ids, generated_ids)]
+        return processor.batch_decode(trimmed, skip_special_tokens=True,
+                                      clean_up_tokenization_spaces=False)[0].strip()
+    finally:
+        os.unlink(tmp_path)
+
+
 def _kraken_recognize_strip(strip_img: Image.Image, model_path: str) -> list[tuple]:
     """
     Recognize text in a column strip (auto-segmentation).
@@ -1796,6 +1842,55 @@ def _get_line_in_band(lines: list[tuple], y_lo: int, y_hi: int) -> str:
     return ""
 
 
+def _dewarped_cell_crops(page_num: int) -> tuple[list[list[Image.Image]], list[str]]:
+    """Return (cells[row][col], col_names) from the dewarped canvas."""
+    from dewarp import process_page as run_dewarp, H_HEADER, ROW_PITCH
+    dw = run_dewarp(page_num)
+    canvas_bgr = cv2.imread(str(dw["path"]))
+    col_ranges = dw["col_ranges"]
+    n_rows = dw["n_rows"]
+    col_names = LEFT_COLS[: len(col_ranges) - 1]
+    cells = []
+    for r in range(n_rows):
+        cy0 = H_HEADER + r * ROW_PITCH
+        cy1 = H_HEADER + (r + 1) * ROW_PITCH
+        row_cells = []
+        for c in range(len(col_names)):
+            x0, x1 = col_ranges[c], col_ranges[c + 1]
+            crop_bgr = canvas_bgr[cy0:cy1, x0:x1]
+            if crop_bgr.size == 0:
+                row_cells.append(None)
+            else:
+                row_cells.append(Image.fromarray(cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2RGB)))
+        cells.append(row_cells)
+    return cells, col_names
+
+
+def run_qari_cells(page_num: int, approach: str = "T") -> list[dict]:
+    """Approach T: QARI-OCR v0.3 on dewarped cell crops."""
+    cached = load_cache(approach, page_num)
+    if cached is not None:
+        return cached
+
+    cells, col_names = _dewarped_cell_crops(page_num)
+    rows = []
+    for r_idx, row_cells in enumerate(cells):
+        row = {c: "" for c in ALL_DATA_COLS}
+        for c_idx, col in enumerate(col_names):
+            cell_pil = row_cells[c_idx] if c_idx < len(row_cells) else None
+            if cell_pil is None:
+                continue
+            try:
+                row[col] = _qari_recognize_image(cell_pil)
+            except Exception as e:
+                log.warning("QARI cell (%d,%d) failed: %s", r_idx, c_idx, e)
+        if any(row[c] for c in LEFT_COLS):
+            rows.append(row)
+
+    save_cache(approach, page_num, rows)
+    return rows
+
+
 # ──────────────────────────────────────────────────────────
 # APPROACH DISPATCH TABLE
 # ──────────────────────────────────────────────────────────
@@ -1825,6 +1920,7 @@ def run_approach(approach: str, page_num: int) -> list[dict]:
         elif approach == "R": return run_gemini25_zoomed_fewshot(page_num)
         elif approach == "S_lite": return run_gemini25_xml_scaffold_lite(page_num)
         elif approach == "S_full": return run_gemini25_xml_scaffold_full(page_num)
+        elif approach == "T": return run_qari_cells(page_num)
         else:
             log.error("Unknown approach: %s", approach)
             return []
@@ -1971,7 +2067,7 @@ def validate_ocr_rows(rows: list[dict]) -> dict:
 # COMPARISON OUTPUT
 # ──────────────────────────────────────────────────────────
 
-ALL_APPROACHES = list("ABCDEFGHIJKLMNOPQR")
+ALL_APPROACHES = list("ABCDEFGHIJKLMNOPQRT")
 
 
 def save_comparison(results: dict[str, list[dict]], page_num: int):
@@ -2123,7 +2219,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--pages",     nargs="+", type=int, default=TEST_PAGES,
                         help="Page numbers to process (default: 3 10 50)")
-    valid_approaches = list(ALL_APPROACHES) + ["O2", "S_lite", "S_full"]
+    valid_approaches = list(ALL_APPROACHES) + ["O2", "S_lite", "S_full", "T"]
     parser.add_argument("--approaches", nargs="+", default=ALL_APPROACHES,
                         choices=valid_approaches, metavar="APPROACH",
                         help="Approaches to run: A B C D E F G H I J K L M N O O2 P Q R")
