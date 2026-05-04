@@ -237,8 +237,10 @@ def process_page(page: int, debug: bool = False, from_cache: bool = False,
                      _overlay_anchors(deskewed, wide_crop, y_offset, x_offset, frame),
                      mode=x_left_col_mode)
 
-    # 4. Tight crop to frame — defines all downstream coordinates
-    x_l = frame["x_left_frame"]
+    # 4. Tight crop to frame — defines all downstream coordinates.
+    # Always start from x=0 so the Serial_No column is never clipped when
+    # detect_table_frame misses the faint outermost left border (pages 13+).
+    x_l = 0
     x_r = frame["x_right_split"]
     hb_y = frame["header_bottom_y"]
     framed = wide_crop[:, x_l:x_r]

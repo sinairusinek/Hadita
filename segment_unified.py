@@ -789,16 +789,33 @@ def detect_rows(table_bgr: np.ndarray,
                 use_cache: bool = True,
                 method: str = "kraken",
                 skip_header_y: int = 200) -> list[dict]:
-    """Unified row detection. Tries Kraken first; falls back to morphological."""
+    """Unified row detection. Tries Kraken first; falls back to morphological.
+
+    When Kraken covers less than 70% of the image height, morph detection
+    supplements the bottom portion that Kraken missed.
+    """
     if method == "kraken":
         if not SEG_MODEL.exists():
             log.warning("Segmentation model not found at %s — using morphological fallback", SEG_MODEL)
             return detect_rows_morph(table_bgr, skip_header_y)
         try:
-            return detect_rows_kraken(table_bgr, cache_path, use_cache, skip_header_y)
+            rows = detect_rows_kraken(table_bgr, cache_path, use_cache, skip_header_y)
         except Exception as e:
             log.warning("Kraken row detection failed (%s) — using morphological fallback", e)
             return detect_rows_morph(table_bgr, skip_header_y)
+
+        # If Kraken missed the bottom of the image, supplement with morphological rows.
+        dh = table_bgr.shape[0]
+        if rows and rows[-1]["y_center"] < dh * 0.70:
+            morph_rows = detect_rows_morph(table_bgr, skip_header_y)
+            last_y = rows[-1]["y_center"]
+            extra = [r for r in morph_rows if r["y_center"] > last_y + 50]
+            if extra:
+                log.info("Kraken covered only %.0f%% of image height; "
+                         "appending %d morph rows for y > %d",
+                         last_y / dh * 100, len(extra), last_y)
+                rows = sorted(rows + extra, key=lambda r: r["y_center"])
+        return rows
     return detect_rows_morph(table_bgr, skip_header_y)
 
 
