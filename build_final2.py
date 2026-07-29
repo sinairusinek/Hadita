@@ -70,9 +70,12 @@ GT_PAGES = [3, 4, 5, 6, 9, 10]
 MAX_EXTRA_ROWS = 6   # guard: never invent a whole page of rows from noise
 NARROW_FROM = 7      # boundary index from which columns are uniformly narrow
 SPLIT_RATIO = 1.6    # gap >= this x median narrow pitch = merged columns
+ALIGN_TOL = 8        # px: boundary counts as on a printed line within this
 BAND_OUTLIER_PX = 12 # band x further than this from its neighbours is a latch-on
 FIRST_BAND_WIN = 40  # ± window for the top band, anchored on the global grid
 TRACK_WIN = 22       # ± window when following a line from the band above
+SHIFT_RANGE = 100    # px swept either way when fitting a grid onto the ruling
+AGREE_PX = 10        # a shift is only trusted if detection agrees within this
 MAX_BOW_PX = 130     # hard cap on a boundary's total drift from the global grid
 HEAD_GAP_FLAG = 1.5  # first row this far below the header line = suspicious
 
@@ -128,26 +131,12 @@ def repair_col_ranges(col_ranges: list[int]) -> tuple[list[int], int]:
     return out, inserted
 
 
-def track_bands(framed: np.ndarray, col_ranges: list[int],
-                n_bands: int = N_BANDS) -> list[dict]:
-    """Follow each printed column line down the page, band by band.
-
-    `detect_columns_banded` matches every band independently against the
-    *global* boundary within ±60px. Near the spine the bow reaches that limit
-    and the search grabs the neighbouring line instead: on pages 3 and 6 the
-    per-band deviation runs smoothly to −49px and then jumps to +57px for the
-    last three bands, which drags the bottom rows' cells a half-column off —
-    precisely the rows this rebuild exists to recover.
-
-    Tracking from the previous band's position instead keeps the window small
-    (±TRACK_WIN), so a line can bow arbitrarily far overall but can never jump
-    to its neighbour. Bands where a line isn't found carry the previous
-    position forward at the previous rate.
-    """
+def band_peaks(framed: np.ndarray,
+               n_bands: int = N_BANDS) -> tuple[list[np.ndarray], list[int]]:
+    """Vertical-line peak positions per horizontal band, and the band centers."""
     th, tw = framed.shape[:2]
     band_h = th // n_bands
-    bands: list[dict] = []
-    peaks_per_band, centers = [], []
+    peaks, centers = [], []
     for b in range(n_bands):
         y0 = b * band_h
         y1 = th if b == n_bands - 1 else (b + 1) * band_h
@@ -163,9 +152,91 @@ def track_bands(framed: np.ndarray, col_ranges: list[int],
         proj = np.sum(v_mask, axis=0).astype(float)
         pk, _ = find_peaks(proj, height=proj.mean() + 0.3 * proj.std(),
                            distance=max(20, tw // 40))
-        peaks_per_band.append(np.asarray(pk, dtype=float))
+        peaks.append(np.asarray(pk, dtype=float))
         centers.append((y0 + y1) // 2)
+    return peaks, centers
 
+
+def alignment_score(bands: list[dict], peaks: list[np.ndarray]) -> float:
+    """Fraction of (boundary × band) positions sitting on a printed line.
+
+    The direct measure of the thing that has been wrong most often — whether
+    the grid follows the ruling — so candidate column sets can be compared
+    instead of guessed between.
+    """
+    hits = total = 0
+    for b, band in enumerate(bands):
+        if b >= len(peaks) or peaks[b].size == 0:
+            continue
+        for x in band["col_x"]:
+            hits += int(np.min(np.abs(peaks[b] - x)) <= ALIGN_TOL)
+            total += 1
+    return hits / total if total else 0.0
+
+
+def best_shift(framed: np.ndarray, col_ranges: list[int],
+               peaks: tuple[list[np.ndarray], list[int]],
+               detected: list[int]) -> tuple[list[int], int, float]:
+    """Slide a cached grid sideways onto the printed lines.
+
+    The cached boundaries were computed against an older deskew, so on some
+    pages the whole grid sits tens of pixels off the ruling even though its
+    internal spacing is right (page 12 scores 0.06 as cached, 0.96 shifted).
+
+    A shift may only be accepted when it brings the grid into agreement with
+    the *independently detected* boundaries. Line-alignment alone is not
+    enough evidence: on page 77 the best-scoring offset lands the whole grid a
+    uniform 50px from where detection puts it — a higher score achieved by
+    sitting on different lines. Requiring two methods to agree rules that out.
+
+    Returns (boundaries, offset, score).
+    """
+    tw = framed.shape[1]
+
+    def apply(offset: int) -> list[int]:
+        return [int(min(max(x + offset, 0), tw - 1)) for x in col_ranges]
+
+    def score(offset: int) -> float:
+        r = apply(offset)
+        b = clamp_bands(smooth_bands(track_bands(framed, r, peaks=peaks), r), tw)
+        return alignment_score(b, peaks[0])
+
+    def agrees(offset: int) -> bool:
+        if not detected:
+            return offset == 0
+        shifted = apply(offset)[1:-1]
+        if not shifted:
+            return offset == 0
+        return float(np.median([min(abs(x - y) for y in detected)
+                                for x in shifted])) <= AGREE_PX
+
+    allowed = [o for o in range(-SHIFT_RANGE, SHIFT_RANGE + 1, 4) if agrees(o)] or [0]
+    coarse = max(allowed, key=score)
+    fine = max([o for o in range(coarse - 3, coarse + 4) if agrees(o)] or [coarse],
+               key=score)
+    return apply(fine), fine, score(fine)
+
+
+def track_bands(framed: np.ndarray, col_ranges: list[int],
+                n_bands: int = N_BANDS,
+                peaks: tuple[list[np.ndarray], list[int]] | None = None) -> list[dict]:
+    """Follow each printed column line down the page, band by band.
+
+    `detect_columns_banded` matches every band independently against the
+    *global* boundary within ±60px. Near the spine the bow reaches that limit
+    and the search grabs the neighbouring line instead: on pages 3 and 6 the
+    per-band deviation runs smoothly to −49px and then jumps to +57px for the
+    last three bands, which drags the bottom rows' cells a half-column off —
+    precisely the rows this rebuild exists to recover.
+
+    Tracking from the previous band's position instead keeps the window small
+    (±TRACK_WIN), so a line can bow arbitrarily far overall but can never jump
+    to its neighbour. Bands where a line isn't found carry the previous
+    position forward at the previous rate.
+    """
+    peaks_per_band, centers = peaks or band_peaks(framed, n_bands)
+    tw = framed.shape[1]
+    bands: list[dict] = []
     n_bounds = len(col_ranges)
     prev = [float(x) for x in col_ranges]
     vel = [0.0] * n_bounds
@@ -329,16 +400,43 @@ def page_geometry(page: int, extend_rows: bool = True,
     # Columns: prefer the cache that produced final/ over fresh detection —
     # re-detecting drifts (page 4 loses a real boundary and doubles a column).
     cols_cache = CACHE_DIR / f"dewarp_cols_page{page}.json"
-    if cols_cache.exists():
-        col_ranges = list(json.loads(cols_cache.read_text())["col_ranges_framed"])
-        col_source = "cache"
-    else:
-        col_ranges = fix_x_left_col_geometric(
-            detect_columns(framed, table_left_x=0, expected_cols=EXPECTED_COLS))
-        col_source = "detected"
-    col_ranges, n_inserted = repair_col_ranges(col_ranges)
-    bands = clamp_bands(smooth_bands(track_bands(framed, col_ranges), col_ranges),
-                        framed.shape[1])
+    cached = json.loads(cols_cache.read_text()) if cols_cache.exists() else None
+    # Neither source wins everywhere. The cache reproduces the shipped columns,
+    # but on pages 1-12 it was computed against a ~75px narrower frame, so its
+    # boundaries miss the printed rules entirely. Fresh detection tracks the
+    # current image but sometimes drops a column. So build both, measure each
+    # against the printed lines, and prefer 19 columns, then alignment.
+    peaks = band_peaks(framed)
+    detected_raw = fix_x_left_col_geometric(
+        detect_columns(framed, table_left_x=0, expected_cols=EXPECTED_COLS))
+    candidates = []
+    if cached:
+        raw_cache = list(cached["col_ranges_framed"])
+        candidates.append(("cache", raw_cache))
+        fw = cached.get("framed_w") or framed.shape[1]
+        if fw != framed.shape[1]:
+            candidates.append(("cache-scaled",
+                               [int(round(x * framed.shape[1] / fw)) for x in raw_cache]))
+    candidates.append(("detected", detected_raw))
+
+    scored = []
+    for name, raw in candidates:
+        repaired, inserted = repair_col_ranges(raw)
+        repaired, offset, _ = best_shift(framed, repaired, peaks, detected_raw)
+        if offset:
+            name = f"{name}{offset:+d}px"
+        bands_c = clamp_bands(
+            smooth_bands(track_bands(framed, repaired, peaks=peaks), repaired),
+            framed.shape[1])
+        scored.append({
+            "source": name, "col_ranges": repaired, "bands": bands_c,
+            "inserted": inserted, "n_cols": len(repaired) - 1,
+            "score": alignment_score(bands_c, peaks[0]),
+        })
+    best = max(scored, key=lambda s: (s["n_cols"] == EXPECTED_COLS, s["score"]))
+    col_ranges, bands = best["col_ranges"], best["bands"]
+    col_source, n_inserted = best["source"], best["inserted"]
+    col_score = round(best["score"], 3)
 
     # A row written across the detected header line cannot be measured (the
     # printed header sits in the same band), so report it rather than guess.
@@ -354,6 +452,7 @@ def page_geometry(page: int, extend_rows: bool = True,
         "rows_missing_top": n_above,
         "rows_recoverable_below": n_below,
         "col_source": col_source, "cols_inserted": n_inserted,
+        "col_score": col_score,
     }
 
 
@@ -440,7 +539,8 @@ def final_rows(page: int) -> int:
 
 
 COLUMNS = ["page", "n_rows", "n_cols", "final_rows", "rows_added",
-           "rows_added_top", "rows_missing_top", "page_w", "page_h", "notes"]
+           "rows_added_top", "rows_missing_top", "col_source", "col_score",
+           "page_w", "page_h", "notes"]
 
 
 def main() -> None:
@@ -498,11 +598,13 @@ def main() -> None:
                 "rows_added": geo["rows_added"],
                 "rows_added_top": geo["rows_added_top"],
                 "rows_missing_top": geo["rows_missing_top"],
+                "col_source": geo["col_source"], "col_score": geo["col_score"],
                 "page_w": geo["image"].shape[1], "page_h": geo["image"].shape[0],
                 "notes": "; ".join(notes),
             })
             print(f"[{i}/{len(pages)}] page {page:>3}  {geo['n_rows']}r × "
                   f"{len(geo['col_ranges'])-1}c  (final/: {fr}r)  "
+                  f"cols={geo['col_source']}/{geo['col_score']:.2f}  "
                   f"{'; '.join(notes) or 'ok'}")
         except Exception as exc:
             failed.append((page, str(exc).split("\n")[0]))
