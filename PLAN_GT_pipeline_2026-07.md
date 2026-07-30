@@ -233,7 +233,37 @@ Build the warp-the-coordinates variant: undamaged image + curved cell polygons.
       then 20s), 129 MB, each verified for image/XML pairing and imageFilename.
       **User uploads via the UI** to a NEW document "Hadita-final2" in
       collection 2377415 (gate decision 2026-07-29); doc 15829823 untouched.
-- [ ] Phase 2: uploaded to new Transkribus doc; Hadid02 run; transcripts fetched + scored
+- [x] Phase 2: uploaded to new Transkribus doc; Hadid02 run; transcripts fetched + scored
+      (2026-07-30, commits 9d24a36 / 86814be / 3c034a8). Doc **17829738**
+      "Hadita-final2" in collection 2377415.
+      - The upload delivered **images only** — every transcript was a 615-byte
+        `<Page/>` stub, so `push_final2_seg.py` pushed the 98 PAGE XMLs onto the
+        existing pages instead (coordinates already matched). Each image is in
+        the doc **twice** (193 pages); we push to the lowest pageNr copy, mapping
+        recorded in `push_final2_seg.tsv`. Cell text is stripped before pushing —
+        pages 3/4/5 carried proxy **GT** text that would corrupt Phase 4.
+      - **Recognition is scriptable after all** — this plan was wrong to call it
+        UI-only. `POST /pylaia/{colId}/{modelId}/recognition?id={docId}&pages=`
+        with the password-grant session returns a jobId pollable at `/jobs/{id}`
+        (`run_hadid.py`). Jobs report "using paid credits". Metagrapho is not
+        usable: account not enrolled (401 "No audience in the token").
+      - **A TextLine in every cell made PyLaia hallucinate**: page 11 came back
+        with text in 416 of 532 blank cells. `gate_textlines.py` removes the
+        TextLine (never the TableCell) where there is no ink — threshold 12px,
+        calibrated on GT pages where cell ink is bimodal (median 222px with
+        text, 0 without). Dropped 39404 of 58122 lines; re-run gave 0 invented.
+      - **hadid02 over the 6 GT pages**: 1803 cells, 45.8% perfect, 33.8% wrong,
+        1084 RA keystrokes/page. Per page: p3 66.9%, p4 58.9%, p5 53.7%,
+        p6 21.7%, p9 14.0%, p10 30.5%.
+      - **Gemini v5 LOW beats it** on pages 3/4/5 (same references):
+        70.1/65.2/56.1% perfect vs 66.9/58.9/53.7%, **720 vs 970 keystrokes per
+        page**. ⇒ Gemini stays the primary seeder; hadid02 is the second reader.
+      - Disagreements: 65% genuine misreads, 18% hadid02 text where the
+        reference is empty, 16.5% hadid02 empty where the reference has text
+        (the gating cost — smaller than the misread rate).
+      - **Not measured:** whether undamaged images improved Hadid. No prior
+        Hadid run exists on any GT page (earlier inference covered 11–13, which
+        have no reference), so there is no like-for-like before/after.
 - [ ] Phase 3: Gemini A/B done, winner adopted; (skeleton-first if needed)
 - [ ] Phase 4: agreement calibrated on GT pages (auto-accept %, MATCH-error %)
 - [ ] Phase 4: flagged seeds pushed for pages 11–20
