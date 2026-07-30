@@ -42,7 +42,7 @@ COL_ID = 2377415
 DOC_ID = 17829738
 FINAL2_DIR = ROOT / "Transkribus upload" / "final2"
 LOG_TSV = ROOT / "push_final2_seg.tsv"
-TOOL_NAME = "Hadita-final2-seg-2026-07-30"
+DEFAULT_TOOL = "Hadita-final2-seg-2026-07-30"
 STATUS = "NEW"
 PAUSE_S = 0.4
 
@@ -69,6 +69,9 @@ def main() -> None:
     ap.add_argument("--pages", type=int, nargs="+", help="only these Hadita page numbers")
     ap.add_argument("--dry-run", action="store_true",
                     help="resolve targets and report, push nothing")
+    ap.add_argument("--tool-name", default=DEFAULT_TOOL,
+                    help="toolName recorded on the pushed layer; a new name is "
+                         "needed to push a revised segmentation over an old one")
     args = ap.parse_args()
 
     client = TrpClient.from_env()
@@ -100,7 +103,7 @@ def main() -> None:
         page_nr = target["pageNr"]
 
         existing = target.get("tsList", {}).get("transcripts", [])
-        if any(t.get("toolName") == TOOL_NAME for t in existing):
+        if any(t.get("toolName") == args.tool_name for t in existing):
             skipped.append(page_no)
             print(f"[{i}/{len(xmls)}] page {page_no:>3}  pageNr={page_nr:>3}  "
                   f"already pushed, skipping")
@@ -125,7 +128,7 @@ def main() -> None:
         try:
             resp = client.push_transcript(
                 COL_ID, DOC_ID, page_nr, xml,
-                status=STATUS, tool_name=TOOL_NAME,
+                status=STATUS, tool_name=args.tool_name,
                 note="final2 coordinate-warp segmentation (no cell text)")
             ts_id = resp.get("tsId") if isinstance(resp, dict) else None
             records.append({"page": page_no, "pageNr": page_nr,
