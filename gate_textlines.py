@@ -42,6 +42,10 @@ ROOT = Path(__file__).parent
 sys.path.insert(0, str(ROOT))
 
 FINAL2_DIR = ROOT / "Transkribus upload" / "final2"
+# The gate is geometry-agnostic: it reads ink under whatever polygons the XML
+# carries. --dir lets it run against a different generation (final3) without
+# copying the file or changing the default.
+TARGET_DIR = FINAL2_DIR
 REPORT_TSV = ROOT / "gate_textlines.tsv"
 INK_MIN_PX = 12
 LUMA_OFFSET = 45
@@ -70,8 +74,8 @@ def hand_mask(img: np.ndarray) -> np.ndarray:
 
 
 def gate_page(page: int, threshold: int, dry_run: bool) -> dict | None:
-    xml_path = FINAL2_DIR / f"Hadita_{page}.xml"
-    jpeg = FINAL2_DIR / f"Hadita_{page}.jpeg"
+    xml_path = TARGET_DIR / f"Hadita_{page}.xml"
+    jpeg = TARGET_DIR / f"Hadita_{page}.jpeg"
     if not xml_path.exists() or not jpeg.exists():
         return None
     img = cv2.imread(str(jpeg))
@@ -115,10 +119,15 @@ def main() -> None:
     ap.add_argument("--pages", type=int, nargs="+")
     ap.add_argument("--threshold", type=int, default=INK_MIN_PX)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--dir", help="upload folder to gate in place (default final2)")
     args = ap.parse_args()
 
+    global TARGET_DIR
+    if args.dir:
+        TARGET_DIR = Path(args.dir) if Path(args.dir).is_absolute() else ROOT / args.dir
+
     pages = sorted(args.pages) if args.pages else sorted(
-        int(p.stem.split("_")[1]) for p in FINAL2_DIR.glob("Hadita_*.xml"))
+        int(p.stem.split("_")[1]) for p in TARGET_DIR.glob("Hadita_*.xml"))
 
     rows = []
     for i, page in enumerate(pages, 1):
