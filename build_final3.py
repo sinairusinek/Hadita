@@ -301,8 +301,13 @@ def table_bottom(framed: np.ndarray, hb_true: int,
     # printed rule at 3588 with two written rows above it). A rule found BELOW the
     # vertical end, within one pitch, is still table: extend to it.
     if peaks is not None and len(peaks):
-        below = peaks[(peaks > end) & (peaks < end + 1.3 * ROW_PITCH_FALLBACK)]
-        if below.size:
+        # Walk the rules down: the verticals can fade a row or more before the
+        # ruling stops, so extend repeatedly rather than once (p87: one hop
+        # reached 3481 while the table and its writing continue past it).
+        while True:
+            below = peaks[(peaks > end) & (peaks < end + 1.3 * ROW_PITCH_FALLBACK)]
+            if not below.size:
+                break
             end = int(below.max())
     return min(end, fh)
 
@@ -352,7 +357,11 @@ def lattice_rows(peaks: np.ndarray, kraken: np.ndarray, hb_true: int,
     while c < hb_true + 0.5 * pitch:          # first centre at least half a row down
         c += pitch
     centers, snapped = [], 0
-    while c + 0.5 * pitch <= fh:
+    # A row counts while its CENTRE is inside the table, not its whole band: the
+    # last ruled row often has its lower half clipped by the page edge or by the
+    # verticals fading (p50: 0.98 pitch of table left below the last edge, one
+    # whole written row -- serial ١٩ -- that the stricter test discarded).
+    while c + 0.15 * pitch <= fh:
         cand = kraken[np.abs(kraken - c) <= ROW_SNAP * pitch] if kraken.size else np.array([])
         if cand.size:
             c = float(cand[np.argmin(np.abs(cand - c))])
