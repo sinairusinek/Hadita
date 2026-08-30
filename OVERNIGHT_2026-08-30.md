@@ -156,3 +156,52 @@ number. The cleaner is a scoring-time fix, not baked into the runner.
 
 Kraken also fills nearly every row (34/34 on most pages) — like PyLaia it has no
 "empty" prediction, so the ink gate matters for it just as much.
+
+### The final3 regression is NOT row re-indexing (revised)
+
+I first assumed the +528 ks was an artifact of final3 changing row counts on 4
+of 6 GT pages. Digging into **p3 — where the row count is IDENTICAL (34) in both
+geometries and the loss is the largest single page (+261)** — that explanation
+does not hold.
+
+The actual mechanism is a **column-assignment shift in one column**:
+
+    Reference_to_Register_of_Changes_Volume_No, over the 6 GT pages:
+      som-g37-flash     (final2)  108 filled    8 rows with ✓ merged into Serial_No
+      som-g37-flash-rep (final2)  108 filled    8   <- identical, so not run noise
+      som-f3v2          (final3)   81 filled   26   <- the ✓ moved one column
+
+On p3, Volume_No goes 30/34 filled -> **0/34**: the ✓ that belongs in Volume_No
+lands in the next column instead, merged as `✓ ٩٠`, `✓ ٢١٦`, `✓ - -`.
+
+**And the column geometry is nearly identical between the two** — boundaries for
+cols 8/9/10 agree within 1-2px. So this is not a mis-drawn column. Both final2
+runs agree exactly with each other, so it is not sampling noise either.
+
+Whatever changed the model's behaviour is in the SoM image (mean abs diff 1.4,
+~70k pixels >30, mostly the ~55px shift of row 0 where final3's first band opens
+earlier), not in the column boundaries. A repeat run on final3 is in flight to
+confirm the effect is stable and not a single bad draw.
+
+**Read the headline number with this in mind:** most of final3's apparent 528 ks
+penalty is one column's ✓ landing one cell to the left, which is a
+prompt/reading-convention issue and probably cheap to fix — not evidence that
+the new geometry is worse.
+
+### Repeat run confirms the effect is stable, and ~half of it is the ✓ column
+
+    final2:  4087, 4148   (spread 61)
+    final3:  4615, 4689   (spread 74)
+
+Two tight clusters ~530 apart: a real, reproducible difference, not a bad draw.
+
+Reassigning the misplaced ✓ back to Volume_No (post-hoc, tag `som-f3v2x`)
+recovers **251 of the 528 ks — roughly half**:
+
+    som-g37-flash (final2)          4087 ks
+    som-f3v2x     (final3, ✓ fixed) 4364 ks
+    som-f3v2      (final3, raw)     4615 ks
+
+So the final3 penalty decomposes as ~250 ks of ✓-column misassignment (a
+reading-convention problem, fixable in the prompt) and ~280 ks of everything
+else, which remains unexplained and is the thing worth looking at next.
