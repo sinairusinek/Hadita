@@ -82,3 +82,77 @@ never scored.
 Only p67/p87 were inspected individually; the other eight are classified by the
 same signature (gap < 155px) and should be spot-checked before any claim that
 the corpus is complete.
+
+## Pipeline log
+
+- **Rebuild #1** (98 pages): audit flagged 5 pages -> found the p50 dropped-row bug.
+- **Rebuild #2** (98 pages, after fixes): audit flags 3 (p1 half page, p67/p87 cut
+  photographs). 19 cols on 98/98; edge_ink median 0.000.
+- **Committed** `e9f27ed`: all 98 XMLs + `final3_build.tsv` + `audit_final3.tsv`,
+  so the next regression can be diffed rather than reconstructed.
+- **Ink gate** (`gate_textlines.py --dir "Transkribus upload/final3"`, threshold
+  12px): 63,555 cells -> kept 19,950 TextLines, dropped 43,605 (68.6%). Matches
+  the corpus's ~32% ink-bearing figure. TableCells are untouched, so the table
+  structure and the RA's ability to type into any cell survive.
+- **Uploaded** to Transkribus: all 98 pages, jobId **30735580**, doc "Hadita-final3"
+  (collection 2377415). Geometry + ink-gated TextLines, no recognition.
+
+## Model runs
+
+Pages: the 6 GT pages (3,4,5,6,9,10) + 10 spread across the corpus
+(11,20,28,35,43,52,59,66,75,82), chosen for ordinary geometry (19 cols, 33-35
+rows) and avoiding the known-odd pages.
+
+Per your instruction **Hadid was not run**, and the queued "Hadid02 on final3"
+re-run was skipped too.
+
+### Gemini 3.7 Flash + set-of-marks (tag `som-f3v2`)
+All 16 pages, **$0.0997 total** (~$0.006/page), **0 out-of-range cells on every
+page** — the SoM row-keying holds up on the new geometry.
+
+### FINDING: final3 geometry scores WORSE than final2 on the GT pages
+
+    som-g37-flash (final2)  4087 ks   } two runs on the same
+    som-g37-flash-rep       4148 ks   } geometry: variance ~61
+    som-f3v2      (final3)  4615 ks   <- +528, far outside that
+
+Ink-aligned scoring narrows it (3629 final2 vs 3986 final3) but does not close
+it. Per page, the loss concentrates on p3 (+261) and p9 (+177).
+
+**This is at least partly a measurement artifact, not necessarily worse
+geometry.** final3 changed the grid ROW COUNT on 4 of the 6 GT pages:
+
+    page:      3    4    5    6    9   10
+    final2:   34   35   35   35   35   27
+    final3:   34   34   34   35   34   34
+
+The proxy GT was transcribed against **final2 row indices**. Scoring final3
+output against it compares two different row numberings, so some of the penalty
+is misalignment rather than misreading. p5 is the tell: it gained 48 *perfect*
+cells in final3 yet scored 64 ks worse.
+
+**Not resolved.** Deciding whether final3 is actually better needs the GT
+re-indexed onto final3 rows (or scoring restricted to pages whose row count did
+not change: p3 and p6, where final3 is +261 and -34 — still inconclusive).
+I did not want to silently re-index GT overnight; that is a judgment call.
+
+### Kraken gen2_sc_clean on final3 cells (tags `kraken-f3`, `kraken-f3c`)
+All 16 pages, local, ~13s/page. New runner `run_kraken_cells.py`
+(kraken_experiment.py could not be reused — hardwired to page 3, does its own
+segmentation).
+
+    som-g37-flash (final2 Gemini)   4087 ks
+    som-f3v2      (final3 Gemini)   4615 ks
+    kraken-f3c    (border-cleaned)  8896 ks
+    kraken-f3     (raw)            11094 ks
+
+**Kraken loses decisively** — ~2.2x Gemini's keystroke cost even after cleaning,
+with only 79 perfect cells across the 6 GT pages (Gemini: 922).
+
+One artifact worth knowing: **89% of raw Kraken cells contained pipe characters**
+(`| ١٧٨|`, `||`) read off the printed cell rules. Stripping `|<>_-` and
+collapsing whitespace is worth 2198 ks (20%), and `kraken-f3c` is the fair
+number. The cleaner is a scoring-time fix, not baked into the runner.
+
+Kraken also fills nearly every row (34/34 on most pages) — like PyLaia it has no
+"empty" prediction, so the ink gate matters for it just as much.
