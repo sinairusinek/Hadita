@@ -20,36 +20,36 @@ its right. These are the pages where the template fit is weakest.
 `align=0.494` (corpus median ~0.94), only `11/18` header rules found, and the
 fit needed a −10px nudge. **Check: are there 19 columns, and does each header
 label sit over the right column?**
-
+S: see two screenshots - the left and right end are indeed screwed.
 **2. p1 — half page, and the fit is anchored on almost nothing.**
 `fit=2/18` rules, `align=0.619`, `width_dev=0.939` (i.e. the column widths are
 nowhere near the printed form's proportions), source `template-89px`. The page
 is physically short (14 rows). **Check: is the column grid meaningful at all
 here, or should p1 be handled as a special case?**
-
+P1 is the cover, no need to analyse it. Keep it in the document but delete all layout and do not read.
 **3. p17 — the largest right-edge override in the corpus.**
 The page-split detector said the table ended at x=2467; the template fit moved it
 to 2619 (**+152px**). That is roughly one whole column's width. `align=0.9`.
 **Check: is the rightmost column (Net_Assessment_Mils) real and correctly bounded,
 or has an extra column been invented?**
-
+it is slightly extended to the right but no harm done - the column is real and the right text is inside it. 
 **4. p18 — boundaries slice handwriting more than any other page.**
 `ink_cross=0.121` — 12% of boundary path pixels cross ink, against a corpus
 median near 0.01. Known "writer anomaly" page: the scribe writes across the
 ruling. **Check: is this the scribe's fault (unfixable) or the grid's?**
-
+scribe's fault. The grid is perfect. 
 **5. p29, p27, p39, p31 — the next worst ink_cross** (0.084, 0.069, 0.055, 0.053).
 p29 and p39 also needed template nudges (+4px, −10px). **Check the same question
 as p18: scribe or grid?**
-
+grid is perfect in these pages. keep a note though - maybe if we keep information on ink crossing boundary we can hand it down to either the htr gemini prompt or to corrections down the line? keep it on the todo list for post correction.
 **6. p22 — the only page whose columns came from `cache-scaled`,** not from the
 template fit. It is the one page using a different mechanism entirely.
 **Check: do its columns line up as well as its neighbours'?**
-
+all perfect.
 **7. p95 and p94 — incomplete header fits** (`17/18` and `15/18` rules).
 **Check: which rule is missing, and did its absence shift anything?**
 
----
+no column is missing, none redundant. Looks perfect. 
 
 ## B. Rows — where the lattice was least anchored by the writing
 
@@ -60,29 +60,53 @@ look perfectly regular and still be wrong, so they need eyes.
 
 **8. p86 — snap 0.059.** Only ~2 of 34 rows anchored on real text. `text_ok=0.233`.
 **Check: do the row bands correspond to the printed rules, top to bottom?**
-
+looks fine
 **9. p38 — snap 0.088, text_ok 0.217, only 23 Kraken lines** for 34 rows.
-
+ok, just a very sparse page
 **10. p17 — snap 0.118, text_ok 0.200.** Also item 3 above: this page is
 uncertain in *both* dimensions, which makes it the single highest-value page to
 inspect. **Check rows and columns together.**
-
+all good
 **11. p96, p76, p90 — snap 0.147/0.176/0.235, text_ok all ≤0.29.** Sparse pages
 where the grid is mostly interpolated.
-
+ grid is perfect, but note that pp 76 and 90 are example for red ink being missed by the ink check.
 **12. p23 and p45 — the only two pages with 36 rows** (corpus is 34 or 35 on 92
 of 98 pages). **Check: is there genuinely an extra row, or has one band been
 split in two?**
-
+grid is good
 **13. p59 — 33 rows, snap 0.182, and flagged for ink below the last band.**
 **Check the bottom of the page specifically: is a final row missing?**
-
+its perfect.
 ---
 
 ## C. Ink test — cells where a TextLine may be wrongly absent or present
 
 Measured on the six GT pages: **234 of 1,631 GT-bearing cells (14.3%) have no
 TextLine**. Two different causes, and they need different answers.
+
+> **REVIEW RESULT, items 1-13 (user, 2026-08-30): the geometry is sound.**
+> 11 of 13 clean. Columns perfect on p18, p22, p27, p29, p31, p39, p94, p95;
+> rows perfect on p23, p38, p45, p59, p76, p86, p90, p96. p17's right edge is
+> "slightly extended but no harm done — the column is real and the right text is
+> inside it." High ink_cross on p18/p27/p29/p31/p39 is **the scribe writing
+> across the ruling, not a grid error**.
+>
+> Two actions came out of it:
+> - **p1 is the COVER.** Keep the page in the document, delete all layout, do
+>   not read it. (Supersedes items 2 and the p1 audit flag.)
+> - **p101's left and right ends are genuinely wrong** — the only real column
+>   defect found. Still to fix.
+> - TODO (post-correction): ink_cross is measured per page; consider handing
+>   "this cell's boundary crosses ink" down to the Gemini HTR prompt or to the
+>   correction UI, so a human knows which cells are unreliable by construction.
+> - p76 and p90 are named as further examples of **red ink missed by the gate**.
+
+## C. Ink test — what to check
+
+**For every cell below, the question is ONLY: is there any mark in it?**
+Black, red, pencil, a ditto `"`, a dash, a tick — anything counts. It does not
+matter whether the model read it correctly; the gate only decides whether to
+emit a TextLine at all. "Empty" means bare paper.
 
 **14. Red and reddish-brown pencil — the real bug (~91 cells, 39% of misses).**
 `hand_mask()` converts to greyscale and thresholds at `median − 45`. Coloured
@@ -91,13 +115,28 @@ writing measures 0 ink. **Check a sample of these and confirm they are real text
 p3 r4c7 `١٠٢`, p3 r4c9 `١٩٤٠`, p4 r7c9 `٠٠٠`, p5 r3c9 `٠٠٠`.
 (User-reported example: New_Serial_No on p3.)
 
-**15. But a naive redness fix is WRONG — I tested it.** Adding
-`redness = R − (B+G)/2 > 25` as an ink term would give TextLines to **~100 extra
-cells per page** (p3 +102, p9 +119, p20 +82, p50 +50) when only ~15/page are
-real. The paper itself is warm-toned, so most of that is blank page. **Open
-question: what discriminates red *pencil* from cream *paper*?** Saturation plus
-local contrast is the obvious candidate, but it must be calibrated and measured
-before shipping — the same way the 12px grey threshold was.
+**15. Colour thresholding does NOT work — tested and abandoned.**
+I proposed a "redness" term, then a saturation + local-contrast term. Both fail,
+and a 60-point threshold sweep (S 60-150 x rel 0.10-0.30 x 12-250 px) contains
+no usable operating point:
+
+    S>60  rel>0.1  >=25px :  recall 71%   false-positive rate 62%
+    S>60  rel>0.1  >=60px :  recall 49%   false-positive rate 42%
+    S>60  rel>0.3  >=250px:  recall  5%   false-positive rate  1.4%
+
+Recall and false positives move together all the way down: the statistic is not
+separating red pencil from cream paper, it is measuring how warm the paper is.
+**Do not spend more time tuning colour thresholds.** A different mechanism is
+needed — per-cell background normalisation, stroke-shape (a digit has connected
+thin strokes, paper texture does not), or a small learned classifier on cell
+crops.
+
+**15b. A trap worth recording.** My first sweep reported "11% precision" for
+every setting and I nearly called the method hopeless. In fact **only 9.8% of
+the cells the gate drops contain any text (216 of 2194)** — so a *perfect*
+detector scores ~10% precision here. Every setting was scoring at or slightly
+above the ceiling. Precision is the wrong metric against a 10:1 base rate; use
+recall against false-positive rate, as above.
 
 **16. The 12px threshold is calibrated against the OLD mask.** If the mask
 changes, that number and the "97 zero-ink GT cells" note in `gate_textlines.py`
