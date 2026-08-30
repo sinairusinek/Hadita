@@ -22,6 +22,10 @@ import torch
 
 import run_g3v6_local as base
 from run_exp2608 import FINAL2, OUT_DIR
+
+# --xml-dir points recognition at a later geometry generation (final3) without
+# copying this file; the final2 default is unchanged.
+XML_DIR = FINAL2
 from crop_cells import crop_page
 from digit_norm import LEFT_COLS
 
@@ -59,13 +63,13 @@ def read_crop(model, proc, img_path: str, max_new_tokens: int = 64) -> str:
 
 
 def run_page(page: int, tag: str, limit: int | None, max_new_tokens: int) -> None:
-    crops = crop_page(page, Path("crops"), inked_only=True, pad=6)
+    crops = crop_page(page, Path("crops"), inked_only=True, pad=6, src_dir=XML_DIR)
     if limit:
         crops = crops[:limit]
     if not crops:
         return
     model, proc = load_model()
-    xml_p = FINAL2 / f"Hadita_{page}.xml"
+    xml_p = XML_DIR / f"Hadita_{page}.xml"
     n_grid = base.xml_grid_size(xml_p.read_text(encoding="utf-8"))[0]
     grid = [{c: "" for c in LEFT_COLS} for _ in range(n_grid)]
 
@@ -100,7 +104,12 @@ def main() -> None:
     ap.add_argument("--tag", default="baseer")
     ap.add_argument("--limit", type=int, default=None, help="cap cells per page (debug)")
     ap.add_argument("--max-new-tokens", type=int, default=64)
+    ap.add_argument("--xml-dir", help="geometry folder (default final2)")
     args = ap.parse_args()
+
+    global XML_DIR
+    if args.xml_dir:
+        XML_DIR = Path(args.xml_dir)
     for p in args.pages:
         run_page(p, args.tag, args.limit, args.max_new_tokens)
 

@@ -22,6 +22,9 @@ from run_exp2608 import FINAL2, OUT_DIR, RUNS_CSV, estimate_cost
 from digit_norm import LEFT_COLS
 
 SOM_DIR = Path("som")
+# --som-dir/--xml-dir point the run at a later geometry generation (final3)
+# without copying this file; the som/ + final2 defaults are unchanged.
+XML_DIR = FINAL2
 
 COLS_DOC = """Column order, RIGHT to LEFT as printed on the page (index: name):
  0 Serial_No
@@ -98,7 +101,7 @@ SCHEMA = {
 
 def run_page(page: int, model: str, tag: str, thinking: str) -> dict | None:
     som_p = SOM_DIR / f"Hadita_{page}_som.jpg"
-    xml_p = FINAL2 / f"Hadita_{page}.xml"
+    xml_p = XML_DIR / f"Hadita_{page}.xml"
     if not som_p.exists() or not xml_p.exists():
         print(f"  ! page {page}: missing inputs (run make_som_pages.py first)")
         return None
@@ -180,7 +183,15 @@ def main() -> None:
     ap.add_argument("--model", default="gemini-3.7-flash")
     ap.add_argument("--tag", default=None)
     ap.add_argument("--thinking", default="low", choices=["none", "low", "medium", "high"])
+    ap.add_argument("--som-dir", help="folder of stamped SoM images (default som/)")
+    ap.add_argument("--xml-dir", help="geometry folder (default final2)")
     args = ap.parse_args()
+
+    global SOM_DIR, XML_DIR
+    if args.som_dir:
+        SOM_DIR = Path(args.som_dir)
+    if args.xml_dir:
+        XML_DIR = Path(args.xml_dir)
     tag = args.tag or "som-" + args.model.replace("gemini-", "g").replace("-preview", "").replace(".", "")
     total = 0.0
     for p in args.pages:

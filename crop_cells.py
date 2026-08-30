@@ -54,8 +54,10 @@ def crop_cell(img: np.ndarray, poly: np.ndarray, pad: int = 6,
 
 
 def crop_page(page: int, out_dir: Path, inked_only: bool, pad: int,
+              src_dir: Path = None,
               min_side: int = 32) -> list[dict]:
-    img_p, xml_p = FINAL2 / f"Hadita_{page}.jpeg", FINAL2 / f"Hadita_{page}.xml"
+    src = src_dir or FINAL2
+    img_p, xml_p = src / f"Hadita_{page}.jpeg", src / f"Hadita_{page}.xml"
     if not img_p.exists() or not xml_p.exists():
         print(f"  ! page {page}: missing inputs")
         return []
