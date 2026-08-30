@@ -47,8 +47,19 @@ FINAL2_DIR = ROOT / "Transkribus upload" / "final2"
 # copying the file or changing the default.
 TARGET_DIR = FINAL2_DIR
 REPORT_TSV = ROOT / "gate_textlines.tsv"
-INK_MIN_PX = 12
+INK_MIN_PX = 6       # was 12: user-labelled cells sat at 9px, just under it
 LUMA_OFFSET = 45
+
+# Coloured-pencil ink. Pink/red pencil is INVISIBLE to the greyscale test above:
+# on p76 a whole written row and the blank paper beside it have identical global
+# colour (R-B median 32 both, hue 24 both, saturation 36 both), which is why
+# redness- and saturation-threshold attempts both failed. The separation is only
+# in the tails of the GREEN channel — the pigment absorbs green, so the strokes
+# darken G relative to *nearby* paper (green p5: 181 on the written row vs 218 on
+# blank). Hence: local normalisation of G, then the same rule/blob morphology the
+# grey mask uses (without it the printed rules fire in every cell).
+CHROMA_REL = 0.07    # G below local median by this fraction = pigment
+CHROMA_MIN_PX = 30   # loosest setting with zero misses on the labelled pages
 
 # patch_baselines re-serialises with ElementTree, so Coords come back as
 # `<Coords points="…"></Coords>` rather than self-closing — accept both forms.
@@ -73,6 +84,22 @@ def hand_mask(img: np.ndarray) -> np.ndarray:
                             cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
 
 
+def chroma_mask(img: np.ndarray, rel: float = CHROMA_REL) -> np.ndarray:
+    """Coloured-pencil pixels: green channel darker than local paper, minus the
+    printed rules and large dark areas (same morphology as hand_mask)."""
+    g = img[:, :, 1]
+    bg = cv2.medianBlur(g, 51).astype(np.float32) + 1
+    ink = ((1.0 - g.astype(np.float32) / bg) > rel).astype(np.uint8)
+    h = cv2.morphologyEx(ink, cv2.MORPH_OPEN,
+                         cv2.getStructuringElement(cv2.MORPH_RECT, (61, 1)))
+    v = cv2.morphologyEx(ink, cv2.MORPH_OPEN,
+                         cv2.getStructuringElement(cv2.MORPH_RECT, (1, 61)))
+    big = cv2.morphologyEx(ink, cv2.MORPH_OPEN, np.ones((15, 15), np.uint8))
+    drop = cv2.dilate(cv2.bitwise_or(cv2.bitwise_or(h, v), big), np.ones((5, 5), np.uint8))
+    return cv2.morphologyEx(cv2.bitwise_and(ink, cv2.bitwise_not(drop)),
+                            cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+
+
 def gate_page(page: int, threshold: int, dry_run: bool) -> dict | None:
     xml_path = TARGET_DIR / f"Hadita_{page}.xml"
     jpeg = TARGET_DIR / f"Hadita_{page}.jpeg"
@@ -82,10 +109,11 @@ def gate_page(page: int, threshold: int, dry_run: bool) -> dict | None:
     if img is None:
         return None
     mask = hand_mask(img)
+    cmask = chroma_mask(img)
     xml = xml_path.read_text(encoding="utf-8")
 
     stats = {"page": page, "cells": 0, "kept": 0, "dropped": 0, "already_none": 0,
-             "dropped_with_text": 0}
+             "dropped_with_text": 0, "kept_by_chroma": 0}
 
     def repl(m: re.Match) -> str:
         stats["cells"] += 1
@@ -100,6 +128,11 @@ def gate_page(page: int, threshold: int, dry_run: bool) -> dict | None:
             return m.group(0)
         if n_ink >= threshold:
             stats["kept"] += 1
+            return m.group(0)
+        # Second chance for coloured pencil the greyscale mask cannot see.
+        if int((cmask & cell_mask).sum()) >= CHROMA_MIN_PX:
+            stats["kept"] += 1
+            stats["kept_by_chroma"] += 1
             return m.group(0)
         stats["dropped"] += 1
         if any(u.strip() for u in re.findall(r"<Unicode>(.*?)</Unicode>", rest, re.S)):
