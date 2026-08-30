@@ -205,3 +205,21 @@ recovers **251 of the 528 ks — roughly half**:
 So the final3 penalty decomposes as ~250 ks of ✓-column misassignment (a
 reading-convention problem, fixable in the prompt) and ~280 ks of everything
 else, which remains unexplained and is the thing worth looking at next.
+
+## TODO
+
+### Header strip: let Gemini read it instead of Kraken
+`recognize_top_strip()` (segment_unified.py:1046, called from build_final3.py:539)
+runs **Kraken** on the strip above the printed header — the handwritten taxpayer
+name and index. It is the one place the "geometry-only" build does recognition,
+and it carries the same pipe-character artefact as the Kraken cell run: p3 reads
+`| مد حسىن |` for the name and `| | |  | |` for the index — the printed rules
+read as characters.
+
+Note the inconsistency in what was pushed: the Kraken CELL layer was cleaned
+(`kraken-f3c`) before pushing, but the header text went up unfiltered inside the
+geometry XML, so it sits under all three model layers.
+
+**Decision (user, 2026-08-30): have Gemini read the header strip too** — it is
+expected to do better than Kraken here, as it does on the cells. Stripping the
+pipes would leave `مد حسىن` and empty the index, but that is a patch, not a fix.

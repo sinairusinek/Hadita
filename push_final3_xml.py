@@ -25,6 +25,11 @@ from transkribus.client import TrpClient  # noqa: E402
 
 COL_ID = 2377415
 FINAL3 = ROOT / "Transkribus upload" / "final3"
+# --dir/--tag let this push a RECOGNITION layer (exp2608/Hadita_{N}_{tag}.xml)
+# onto the same pages, not just the geometry XML. Each push is a new transcript
+# version, so pushing several tags in sequence stacks them: last pushed is on top.
+SRC_DIR = FINAL3
+SRC_TAG = None
 
 
 def main() -> None:
@@ -34,13 +39,23 @@ def main() -> None:
     ap.add_argument("--tool", default="Hadita-final3-geometry")
     ap.add_argument("--note", default="final3 geometry (build_final3.py), no text")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--dir", help="folder holding the XMLs (default final3/)")
+    ap.add_argument("--tag", help="recognition tag: reads Hadita_{N}_{tag}.xml")
     args = ap.parse_args()
+
+    global SRC_DIR, SRC_TAG
+    if args.dir:
+        SRC_DIR = Path(args.dir) if Path(args.dir).is_absolute() else ROOT / args.dir
+    SRC_TAG = args.tag
 
     client = TrpClient.from_env()
     fd = client.fulldoc(COL_ID, args.doc)
     by_name = {p.get("imgFileName"): p for p in fd["pageList"]["pages"]}
     for n in args.pages:
-        xml_path = FINAL3 / f"Hadita_{n}.xml"
+        xml_path = (SRC_DIR / f"Hadita_{n}_{SRC_TAG}.xml") if SRC_TAG else (SRC_DIR / f"Hadita_{n}.xml")
+        if not xml_path.exists():
+            print(f"page {n}: {xml_path.name} missing, skipped")
+            continue
         img_name = f"Hadita_{n}.jpeg"
         target = by_name.get(img_name)
         if target is None:
