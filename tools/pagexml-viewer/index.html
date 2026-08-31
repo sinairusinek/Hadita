@@ -589,6 +589,48 @@
             height: 60vh;
         }
 
+        .cer-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: .75rem 0 1.5rem;
+            font-size: .92em;
+        }
+        .cer-table th, .cer-table td {
+            text-align: left;
+            padding: .35rem .6rem;
+            border-bottom: 1px solid #eee;
+        }
+        .cer-table th {
+            font-weight: 600;
+            border-bottom: 2px solid #ddd;
+            white-space: nowrap;
+        }
+        .cer-row { cursor: pointer; }
+        .cer-row:hover { background: #f5f9ff; }
+        .cer-active { background: #eaf3ff; }
+        .cer-char {
+            font-size: 1.25em;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+        }
+        .cer-equiv { opacity: .6; }
+        .cer-equiv-tag {
+            font-size: .8em;
+            background: #eef;
+            color: #446;
+            border-radius: 3px;
+            padding: .1rem .35rem;
+            white-space: nowrap;
+        }
+        .cer-bar {
+            background: #eee;
+            border-radius: 3px;
+            height: .6rem;
+            overflow: hidden;
+        }
+        .cer-bar-fill {
+            background: #2ecc71;
+            height: 100%;
+        }
         .image-panel #leaflet-map {
             width: 100%;
             height: 100%;
@@ -913,6 +955,7 @@
         <button class="tab-button" data-tab="citation" id="citationTabButton">Citation</button>
         <button class="tab-button" data-tab="library" id="libraryTabButton">Manuscripts</button>
         <button class="tab-button" data-tab="reader" id="readerTab" style="display: none;">Reader</button>
+        <button class="tab-button" data-tab="cer" id="cerTabButton">CER</button>
         <button class="tab-button" data-tab="viewer" id="viewerTabButton" style="margin-left: auto;">Viewer</button>
     </nav>
 
@@ -938,6 +981,13 @@
     </div>
 
     <!-- Viewer Tab -->
+    <!-- CER diagnostics (CERberus report) -->
+    <div class="tab-content" id="cerTab">
+        <div class="about-content" id="cerContent">
+            <p>Loading&hellip;</p>
+        </div>
+    </div>
+
     <div class="tab-content" id="viewerTab">
         <div class="about-content" id="viewerContent">
             <p>Loading...</p>
@@ -1125,6 +1175,9 @@
             imageLayer: null,
             polygonsVisible: false,
             polygonLayers: [],
+            cerReport: null,
+            cerSelected: null,
+            cerNormalise: true,
             compareModel: '',      // key of the model XML being compared
             comparePageXml: null,  // parsed prediction doc for the current page
             compareCells: null,    // Map "row,col" -> predicted text
@@ -1322,7 +1375,10 @@
                 content.classList.remove('active');
             });
 
-            if (tabName === 'readme') {
+            if (tabName === 'cer') {
+                document.getElementById('cerTab').classList.add('active');
+                loadCerReport();
+            } else if (tabName === 'readme') {
                 document.getElementById('readmeTab').classList.add('active');
             } else if (tabName === 'guidelines') {
                 document.getElementById('guidelinesTab').classList.add('active');
@@ -2204,6 +2260,188 @@
                 ` <span style="color:${VERDICT_COLOR.spurious}">&#9632;</span> spurious ${spurious}` +
                 ` <span style="color:${VERDICT_COLOR.ditto}">&#9632;</span> ditto ${ditto}`;
             statsEl.style.display = '';
+        }
+
+
+        // ---------------------------------------------------------------
+        // CER diagnostics, from a CERberus report (run_cerberus.py).
+        // CERberus: https://github.com/WHaverals/CERberus
+        // ---------------------------------------------------------------
+
+        /**
+         * Confusion pairs that are the same character in different encodings
+         * or styles, not a misreading: ditto/quote variants, Arabic vs
+         * extended-Arabic digits, comma and dash variants. Counting these as
+         * errors inflates CER by up to ~16% on this corpus and reorders the
+         * model ranking, so they can be discounted.
+         */
+        const CER_EQUIV = (() => {
+            const pairs = [
+                ['"', '〃'], ['״', '"'], ['"', '“'], ['"', '”'],
+                ['"', '″'], ['״', '〃'],
+                ['،', ','], ['-', '–'], ['-', 'ـ'],
+                ['١', '۱'], ['٢', '۲'], ['٣', '۳'],
+                ['٤', '۴'], ['٥', '۵'], ['٦', '۶'],
+                ['٧', '۷'], ['٨', '۸'], ['٩', '۹'],
+                ['٠', '۰'],
+            ];
+            const set = new Set();
+            for (const [a, b] of pairs) { set.add(a + ' ' + b); set.add(b + ' ' + a); }
+            return set;
+        })();
+
+        function isEquivPair(a, b) { return CER_EQUIV.has(a + ' ' + b); }
+
+        /** Errors attributable purely to encoding variants, for one model. */
+        function normalisationErrors(entry) {
+            return (entry.confusionStats || [])
+                .filter(c => isEquivPair(c.correct, c.generated))
+                .reduce((n, c) => n + c.count, 0);
+        }
+
+        function totalErrors(entry) {
+            return entry.numSub + entry.numIns + entry.numDel;
+        }
+
+        /** CER with encoding-variant confusions discounted. */
+        function adjustedCer(entry) {
+            if (!entry.numCount) return null;
+            return (totalErrors(entry) - normalisationErrors(entry)) / entry.numCount * 100;
+        }
+
+        /** Printable name for a character in a confusion pair. */
+        function charLabel(c) {
+            if (c === '_') return '(none)';
+            if (c === '\n') return '\\n';
+            if (c === ' ') return '(space)';
+            return c;
+        }
+
+        async function loadCerReport() {
+            const el = document.getElementById('cerContent');
+            if (state.cerReport) { renderCerReport(); return; }
+            try {
+                const resp = await fetch(withBase('cerberus_report.json'));
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                state.cerReport = await resp.json();
+                renderCerReport();
+            } catch (e) {
+                el.innerHTML = `<p class="no-text">No CER report found.
+                    Generate one with <code>run_cerberus.py</code>.<br>
+                    <small>${escapeHtml(e.message)}</small></p>`;
+            }
+        }
+
+        function renderCerReport() {
+            const el = document.getElementById('cerContent');
+            const rep = state.cerReport;
+            const models = Object.keys(rep);
+            if (!models.length) { el.innerHTML = '<p class="no-text">Report is empty.</p>'; return; }
+
+            // Models scored on far fewer characters are partial runs; listing
+            // them beside full runs would imply a comparison that isn't valid.
+            const maxChars = Math.max(...models.map(m => rep[m].numCount));
+            const full = models.filter(m => rep[m].numCount >= maxChars * 0.7);
+            const partial = models.filter(m => !full.includes(m));
+
+            const useAdj = state.cerNormalise !== false;
+            const score = m => useAdj ? adjustedCer(rep[m]) : rep[m].CER;
+            const ranked = [...full].sort((a, b) => score(a) - score(b));
+            const sel = state.cerSelected && rep[state.cerSelected]
+                ? state.cerSelected : ranked[0];
+            const d = rep[sel];
+
+            const blocks = (d.blockStats || []).filter(b => b.count > 0);
+            const conf = (d.confusionStats || []).slice(0, 25);
+            const normErrs = normalisationErrors(d), errs = totalErrors(d);
+
+            el.innerHTML = `
+              <h2>Character Error Rate diagnostics</h2>
+              <p style="opacity:.75">
+                Computed with <a href="https://github.com/WHaverals/CERberus"
+                target="_blank" rel="noopener">CERberus</a> (Haverals) over
+                ${escapeHtml(String(full.length))} model outputs against the
+                ground-truth pages, one cell per line.
+              </p>
+              <label style="display:block;margin:1rem 0">
+                <input type="checkbox" id="cerNormToggle" ${useAdj ? 'checked' : ''}>
+                Discount encoding-variant confusions
+                <span style="opacity:.7">(ditto/quote forms, Arabic vs extended-Arabic
+                digits, comma and dash variants &mdash; same character, different codepoint)</span>
+              </label>
+
+              <h3>Ranking</h3>
+              <table class="cer-table">
+                <thead><tr><th>#</th><th>model</th><th>CER</th>
+                  <th>raw</th><th>sub</th><th>ins</th><th>del</th><th>norm.</th></tr></thead>
+                <tbody>
+                ${ranked.map((m, i) => {
+                    const e = rep[m], adj = adjustedCer(e), ne = normalisationErrors(e);
+                    return `<tr class="cer-row${m === sel ? ' cer-active' : ''}" data-model="${escapeHtml(m)}">
+                      <td>${i + 1}</td><td>${escapeHtml(m)}</td>
+                      <td><strong>${(useAdj ? adj : e.CER).toFixed(2)}%</strong></td>
+                      <td style="opacity:.6">${e.CER.toFixed(2)}%</td>
+                      <td>${e.numSub}</td><td>${e.numIns}</td><td>${e.numDel}</td>
+                      <td>${ne ? ne + ' (' + (100 * ne / totalErrors(e)).toFixed(0) + '%)' : '&mdash;'}</td>
+                    </tr>`;
+                }).join('')}
+                </tbody>
+              </table>
+              ${partial.length ? `<p style="opacity:.7;font-size:.9em">
+                Not ranked (partial runs, fewer pages scored):
+                ${partial.map(m => escapeHtml(m) + ' ' + rep[m].CER.toFixed(1) + '%').join(', ')}</p>` : ''}
+
+              <h3>${escapeHtml(sel)} &mdash; accuracy by script</h3>
+              <p style="opacity:.75">Where the errors actually fall. A model can look
+              respectable overall and still be near-useless on one column type.</p>
+              <table class="cer-table">
+                <thead><tr><th>block</th><th>chars</th><th>correct</th><th></th></tr></thead>
+                <tbody>
+                ${blocks.map(b => `<tr>
+                    <td>${escapeHtml(b.Block)}</td>
+                    <td>${b.count}</td>
+                    <td>${b.correct_ratio == null ? '&mdash;' : b.correct_ratio.toFixed(1) + '%'}</td>
+                    <td style="width:40%">
+                      <div class="cer-bar"><div class="cer-bar-fill"
+                        style="width:${b.correct_ratio || 0}%"></div></div>
+                    </td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>
+
+              <h3>${escapeHtml(sel)} &mdash; top confusions</h3>
+              <p style="opacity:.75">
+                ${errs} errors, of which ${normErrs}
+                (${errs ? (100 * normErrs / errs).toFixed(1) : '0'}%) are encoding variants.
+                Rows marked <span class="cer-equiv-tag">variant</span> are the same
+                character in a different codepoint, not a misreading.
+              </p>
+              <table class="cer-table">
+                <thead><tr><th>ground truth</th><th>model read</th><th>count</th><th></th></tr></thead>
+                <tbody>
+                ${conf.map(c => {
+                    const eq = isEquivPair(c.correct, c.generated);
+                    return `<tr${eq ? ' class="cer-equiv"' : ''}>
+                      <td class="cer-char">${escapeHtml(charLabel(c.correct))}</td>
+                      <td class="cer-char">${escapeHtml(charLabel(c.generated))}</td>
+                      <td>${c.count}</td>
+                      <td>${eq ? '<span class="cer-equiv-tag">variant</span>' : ''}</td>
+                    </tr>`;
+                }).join('')}
+                </tbody>
+              </table>`;
+
+            el.querySelectorAll('.cer-row').forEach(tr => {
+                tr.addEventListener('click', () => {
+                    state.cerSelected = tr.dataset.model;
+                    renderCerReport();
+                });
+            });
+            const t = document.getElementById('cerNormToggle');
+            if (t) t.addEventListener('change', e => {
+                state.cerNormalise = e.target.checked;
+                renderCerReport();
+            });
         }
 
         /** Re-measure the map and re-fit the page after a layout/size change. */

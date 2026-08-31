@@ -113,3 +113,29 @@ than by column:
 `ditto` is separated out because it is a normalisation artefact, not a
 recognition error; on this corpus all 31 instances fall on page 5.
 The text panel lists every differing cell with both readings.
+
+### CER tab
+
+Character Error Rate diagnostics, computed with
+[CERberus](https://github.com/WHaverals/CERberus) (Wouter Haverals,
+[DOI 10.5281/zenodo.10668052](https://doi.org/10.5281/zenodo.10668052)).
+Regenerate after adding model outputs:
+
+    git clone https://github.com/WHaverals/CERberus tools/pagexml-viewer/CERberus
+    pip install Levenshtein pandas
+    python3 tools/pagexml-viewer/run_cerberus.py
+
+GT and hypothesis are emitted one cell per line over the union of cell keys, so
+a cell the model skipped stays an empty line instead of shifting every later
+cell out of alignment. Cells empty on both sides are dropped.
+
+The tab ranks every model, breaks accuracy down by Unicode block (Arabic-Indic
+digits, Arabic letters, ditto/quotes, check marks, ...) and lists the top
+confusion pairs. Click any row to inspect that model.
+
+**Encoding variants are discounted by default.** Confusions like `"`→`〃`,
+`١`→`۱` (Arabic vs extended-Arabic digit one) or `،`→`,` are the same character
+in a different codepoint, not a misreading. They account for up to 16% of a
+model's raw errors here and reorder the mid-field ranking, so the headline CER
+column excludes them; the raw figure stays visible alongside. Untick the box to
+score them as errors.
