@@ -1003,6 +1003,11 @@
                                     <input type="checkbox" id="settingsPolygons">
                                     <label for="settingsPolygons">Show polygons</label>
                                 </div>
+                                <div class="settings-row" id="compareRow" style="display:none">
+                                    <label for="compareSelect">Compare with</label>
+                                    <select id="compareSelect"></select>
+                                </div>
+                                <div class="settings-row" id="compareStats" style="display:none"></div>
                             </div>
                         </div>
                     </div>
@@ -1120,6 +1125,9 @@
             imageLayer: null,
             polygonsVisible: false,
             polygonLayers: [],
+            compareModel: '',      // key of the model XML being compared
+            comparePageXml: null,  // parsed prediction doc for the current page
+            compareCells: null,    // Map "row,col" -> predicted text
             imageWidth: 0,
             imageHeight: 0,
             pageWidth: 0,
@@ -1539,8 +1547,10 @@
                     state.pages = jsonData.map((page, index) => ({
                         index: index + 1,
                         image: page.image,
-                        text: page.pagexml
+                        text: page.pagexml,
+                        compare: page.compare || null
                     }));
+                    populateCompareOptions();
 
                     console.log(`Loaded ${state.pages.length} pages from mets.json`);
                     return;
@@ -1747,9 +1757,9 @@
                 clearImage();
             }
 
-            // Load text
+            // Load text, after refreshing the comparison for this page.
             if (page.text) {
-                loadPageXml(page.text);
+                loadComparison().then(() => loadPageXml(page.text));
             } else {
                 clearText();
             }
@@ -1963,7 +1973,9 @@
                     }
                 });
 
-                if (regionGroups.length === 0) {
+                if (state.compareCells) {
+                    renderComparisonText(xmlDoc, textContent);
+                } else if (regionGroups.length === 0) {
                     textContent.innerHTML = '<p class="no-text">No text content found in this page</p>';
                 } else {
                     textContent.innerHTML = regionGroups.map(group => `
@@ -2005,6 +2017,194 @@
          * Return to library view
          */
 
+
+
+        /**
+         * Map a PAGE doc's table cells to "row,col" -> text.
+         * Used to diff a model's output against the ground truth page.
+         */
+        function cellTextMap(doc) {
+            const m = new Map();
+            for (const elem of doc.querySelectorAll('*')) {
+                if ((elem.localName || elem.tagName) !== 'TableCell') continue;
+                const row = elem.getAttribute('row'), col = elem.getAttribute('col');
+                if (row === null || col === null) continue;
+                let text = '';
+                for (const u of elem.querySelectorAll('*')) {
+                    if ((u.localName || u.tagName) === 'Unicode') {
+                        text = (u.textContent || '').trim();
+                        break;
+                    }
+                }
+                m.set(`${row},${col}`, text);
+            }
+            return m;
+        }
+
+        /**
+         * Fill the "Compare with" dropdown from the model keys present in
+         * mets.json, and re-render the page when the selection changes.
+         */
+        function populateCompareOptions() {
+            const row = document.getElementById('compareRow');
+            const sel = document.getElementById('compareSelect');
+            if (!row || !sel) return;
+
+            const keys = new Set();
+            for (const pg of state.pages) {
+                if (pg.compare) Object.keys(pg.compare).forEach(k => keys.add(k));
+            }
+            if (!keys.size) { row.style.display = 'none'; return; }
+
+            const sorted = [...keys].sort();
+            sel.innerHTML = '<option value="">(ground truth only)</option>'
+                + sorted.map(k => `<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join('');
+            sel.value = state.compareModel && keys.has(state.compareModel) ? state.compareModel : '';
+            row.style.display = '';
+
+            if (!sel.dataset.bound) {
+                sel.dataset.bound = '1';
+                sel.addEventListener('change', async () => {
+                    state.compareModel = sel.value;
+                    const page = state.pages[state.currentPageIndex];
+                    await loadComparison();
+                    if (page && page.text) await loadPageXml(page.text);
+                    if (state.polygonsVisible) renderPolygons();
+                });
+            }
+        }
+
+        /**
+         * Render the GT-vs-prediction table for the current page: every cell
+         * where the two disagree, in reading order, worst first.
+         */
+        function renderComparisonText(gtDoc, el) {
+            const rows = [];
+            for (const elem of gtDoc.querySelectorAll('*')) {
+                if ((elem.localName || elem.tagName) !== 'TableCell') continue;
+                const r = elem.getAttribute('row'), c = elem.getAttribute('col');
+                const gt = cellText(elem);
+                const pred = state.compareCells.get(`${r},${c}`) || '';
+                const verdict = cellVerdict(gt, pred);
+                if (verdict === 'empty' || verdict === 'match') continue;
+                rows.push({ r: parseInt(r, 10), c: parseInt(c, 10), gt, pred, verdict,
+                            id: elem.getAttribute('id') || '', label: regionLabel(elem) });
+            }
+            rows.sort((a, b) => a.r - b.r || a.c - b.c);
+
+            if (!rows.length) {
+                el.innerHTML = '<p class="no-text">Every non-empty cell matches the ground truth.</p>';
+                return;
+            }
+            el.innerHTML = `
+                <div class="text-region-heading">
+                    ${rows.length} differing cells &mdash; ground truth vs ${escapeHtml(state.compareModel)}
+                </div>
+                ${rows.map(x => `
+                    <div class="text-line" data-line-id="${escapeHtml(x.id)}">
+                        <span class="text-line-number"
+                              style="color:${VERDICT_COLOR[x.verdict]}">r${x.r} c${x.c}</span>
+                        <div class="text-line-content">
+                            <div style="opacity:.6;font-size:.85em">${escapeHtml(x.label)}</div>
+                            <div><strong>GT:</strong> ${escapeHtml(x.gt) || '<em>empty</em>'}</div>
+                            <div style="color:${VERDICT_COLOR[x.verdict]}">
+                                <strong>${escapeHtml(state.compareModel)}:</strong>
+                                ${escapeHtml(x.pred) || '<em>empty</em>'}
+                            </div>
+                        </div>
+                    </div>`).join('')}`;
+        }
+
+        /** First Unicode text inside an element, trimmed. */
+        function cellText(elem) {
+            for (const u of elem.querySelectorAll('*')) {
+                if ((u.localName || u.tagName) === 'Unicode') return (u.textContent || '').trim();
+            }
+            return '';
+        }
+
+        /** Compare key for a cell: exact string match after trimming. */
+        function sameText(a, b) { return (a || '').trim() === (b || '').trim(); }
+
+        /**
+         * Classify a GT/prediction pair for colouring:
+         * match / wrong / missed (GT had text, model gave none) /
+         * spurious (model invented text in an empty cell) / empty (both blank).
+         */
+        function cellVerdict(gt, pred) {
+            const g = (gt || '').trim(), p = (pred || '').trim();
+            if (!g && !p) return 'empty';
+            if (!g && p)  return 'spurious';
+            if (g && !p)  return 'missed';
+            if (g === p)  return 'match';
+            // A difference only in which ditto glyph was used is a normalisation
+            // artefact, not a recognition error -- flag it separately so it does
+            // not inflate the error count.
+            const DITTO = /["\u2033\u201D\u201C\u00AB\u00BB\u02BA]/;
+            const stripDitto = t => t.replace(/["\u2033\u201D\u201C\u00AB\u00BB\u02BA]/g, '');
+            if (stripDitto(g) === stripDitto(p) && (DITTO.test(g) || DITTO.test(p))) return 'ditto';
+            return 'wrong';
+        }
+
+        const VERDICT_COLOR = {
+            match:    '#2ecc71',
+            wrong:    '#e74c3c',
+            ditto:    '#3498db',
+            missed:   '#f39c12',
+            spurious: '#9b59b6',
+            empty:    '#bdc3c7',
+        };
+
+        /** Load the comparison XML for the current page, if a model is selected. */
+        async function loadComparison() {
+            state.comparePageXml = null;
+            state.compareCells = null;
+            const statsEl = document.getElementById('compareStats');
+            if (!state.compareModel) {
+                statsEl.style.display = 'none';
+                return;
+            }
+            const page = state.pages[state.currentPageIndex];
+            const manuscript = state.manuscripts.find(m => m.manuscriptFolder === state.currentManuscript);
+            if (!page || !manuscript || !page.compare || !page.compare[state.compareModel]) {
+                statsEl.style.display = 'none';
+                return;
+            }
+            try {
+                const path = buildManuscriptPath(manuscript, page.compare[state.compareModel]);
+                const resp = await fetch(withBase(path));
+                if (!resp.ok) throw new Error('not found');
+                const doc = new DOMParser().parseFromString(await resp.text(), 'application/xml');
+                if (doc.getElementsByTagName('parsererror').length) throw new Error('parse error');
+                state.comparePageXml = doc;
+                state.compareCells = cellTextMap(doc);
+            } catch (e) {
+                console.warn('Comparison load failed:', e);
+                statsEl.textContent = 'Comparison unavailable for this page';
+                statsEl.style.display = '';
+                return;
+            }
+            // Tally verdicts over cells where either side has text.
+            const gtCells = cellTextMap(state.currentPageXml);
+            let match = 0, wrong = 0, missed = 0, spurious = 0, ditto = 0;
+            for (const [k, g] of gtCells) {
+                const v = cellVerdict(g, state.compareCells.get(k));
+                if (v === 'match') match++;
+                else if (v === 'wrong') wrong++;
+                else if (v === 'missed') missed++;
+                else if (v === 'spurious') spurious++;
+                else if (v === 'ditto') ditto++;
+            }
+            const scored = match + wrong + missed + spurious + ditto;
+            const pct = scored ? (100 * match / scored).toFixed(1) : '0.0';
+            statsEl.innerHTML =
+                `<strong>${pct}% exact</strong> (${match}/${scored})` +
+                `<br><span style="color:${VERDICT_COLOR.wrong}">&#9632;</span> wrong ${wrong}` +
+                ` <span style="color:${VERDICT_COLOR.missed}">&#9632;</span> missed ${missed}` +
+                ` <span style="color:${VERDICT_COLOR.spurious}">&#9632;</span> spurious ${spurious}` +
+                ` <span style="color:${VERDICT_COLOR.ditto}">&#9632;</span> ditto ${ditto}`;
+            statsEl.style.display = '';
+        }
 
         /** Re-measure the map and re-fit the page after a layout/size change. */
         function refitMap() {
@@ -2129,15 +2329,36 @@
                 const rc = ownCoords(region);
                 if (rc) {
                     const col = parseInt(region.getAttribute('col'), 10);
-                    const color = isCell && isFinite(col)
+                    let color = isCell && isFinite(col)
                         ? COL_COLORS[col % COL_COLORS.length]
                         : '#95a5a6';
+                    let fillOpacity = 0.08;
+                    let tip = regionLabel(region);
+
+                    // When comparing against a model, colour by GT/prediction verdict
+                    // instead of by column, and put both readings in the tooltip.
+                    if (isCell && state.compareCells) {
+                        const key = `${region.getAttribute('row')},${region.getAttribute('col')}`;
+                        const gtText = cellText(region);
+                        const predText = state.compareCells.get(key) || '';
+                        const verdict = cellVerdict(gtText, predText);
+                        if (verdict === 'empty') {
+                            color = VERDICT_COLOR.empty;
+                            fillOpacity = 0;
+                        } else {
+                            color = VERDICT_COLOR[verdict];
+                            fillOpacity = 0.35;
+                        }
+                        tip = `${regionLabel(region)}<br>GT: ${escapeHtml(gtText) || '<em>empty</em>'}`
+                            + `<br>${escapeHtml(state.compareModel)}: ${escapeHtml(predText) || '<em>empty</em>'}`;
+                    }
+
                     addPoly(
                         parsePoints(rc.getAttribute('points'), state.imageHeight),
                         { color, weight: 1, opacity: 0.9, fillColor: color,
-                          fillOpacity: 0.08, className: 'region-polygon' },
+                          fillOpacity, className: 'region-polygon' },
                         regionId,
-                        regionLabel(region)
+                        tip
                     );
                 }
 

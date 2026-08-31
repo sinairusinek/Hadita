@@ -79,3 +79,37 @@ python3 -m http.server 8000
 
 
 
+
+---
+
+## Hadita fork notes
+
+Patched from upstream to work with tabular material and to serve as an
+HTR error-analysis view. Two datasets are wired up by `build_dataset.py`:
+
+    # geometry review over the whole corpus
+    python3 tools/pagexml-viewer/build_dataset.py \
+        --src "Transkribus upload/final3" --name Hadita_final3
+
+    # ground truth vs every model output (pages 3,4,5,6,9,10)
+    python3 tools/pagexml-viewer/build_dataset.py \
+        --src <gt-dir> --name Hadita_GT --compare-dir exp2608
+
+Serve with `python3 -m http.server 8777 --directory tools/pagexml-viewer`.
+
+### Comparison view
+
+Pick a model in **Compare with**. Cells are then coloured by verdict rather
+than by column:
+
+| colour | verdict  | meaning                                  |
+|--------|----------|------------------------------------------|
+| green  | match    | prediction equals ground truth           |
+| red    | wrong    | both have text, and they differ          |
+| orange | missed   | GT has text, model returned nothing      |
+| purple | spurious | GT is empty, model invented text         |
+| blue   | ditto    | differs only in which ditto glyph is used|
+
+`ditto` is separated out because it is a normalisation artefact, not a
+recognition error; on this corpus all 31 instances fall on page 5.
+The text panel lists every differing cell with both readings.

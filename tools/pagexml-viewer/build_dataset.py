@@ -30,6 +30,11 @@ def main():
     ap.add_argument("--description", default="")
     ap.add_argument("--copy", action="store_true",
                     help="copy files instead of symlinking (for deploying)")
+    ap.add_argument("--compare-dir", default=None,
+                    help="dir of model outputs named <base>_<model>.xml, exposed "
+                         "in the viewer's 'Compare with' picker")
+    ap.add_argument("--compare-glob", default="{base}_*.xml",
+                    help="pattern for model files inside --compare-dir")
     a = ap.parse_args()
 
     src = os.path.abspath(a.src)
@@ -57,7 +62,24 @@ def main():
             continue
         place(x, os.path.join(dst, "page", base + ".xml"))
         place(os.path.join(src, img), os.path.join(dst, img))
-        entries.append({"image": img, "pagexml": f"page/{base}.xml"})
+        entry = {"image": img, "pagexml": f"page/{base}.xml"}
+
+        # Attach any model outputs for this page, keyed by the model suffix.
+        if a.compare_dir:
+            models = {}
+            pat = a.compare_glob.format(base=base)
+            for m in sorted(glob.glob(os.path.join(os.path.abspath(a.compare_dir), pat))):
+                key = os.path.splitext(os.path.basename(m))[0][len(base) + 1:]
+                if not key:
+                    continue
+                rel = os.path.join("compare", f"{base}_{key}.xml")
+                target = os.path.join(dst, rel)
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                place(m, target)
+                models[key] = rel
+            if models:
+                entry["compare"] = models
+        entries.append(entry)
 
     with open(os.path.join(dst, "mets.json"), "w") as fh:
         json.dump(entries, fh, indent=1)
