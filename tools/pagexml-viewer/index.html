@@ -1,0 +1,2260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Manuscript Viewer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        /* Header */
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-left: auto;
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            background: white;
+            border-bottom: 2px solid #ddd;
+            display: flex;
+            gap: 0;
+        }
+
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .header-sidebar-toggle {
+            display: none;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .header-sidebar-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .menu-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .menu-overlay.visible {
+            display: block;
+        }
+
+        .mobile-menu {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 280px;
+            background: white;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 1001;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+        }
+
+        .mobile-menu.visible {
+            transform: translateX(0);
+        }
+
+        .mobile-menu-header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mobile-menu-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .mobile-menu-items {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .mobile-menu-item {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 1rem 1.5rem;
+            border: none;
+            background: white;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #666;
+            transition: background 0.2s;
+        }
+
+        .mobile-menu-item:hover {
+            background: #f5f5f5;
+        }
+
+        .mobile-menu-item.active {
+            background: #e3f2fd;
+            color: #2c3e50;
+            font-weight: 600;
+            border-left: 4px solid #3498db;
+        }
+
+        .tab-button {
+            background: #f5f5f5;
+            border: none;
+            padding: 1rem 2rem;
+            cursor: pointer;
+            font-size: 1rem;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            color: #666;
+        }
+
+        .tab-button:hover {
+            background: #e9ecef;
+        }
+
+        .tab-button.active {
+            background: white;
+            border-bottom-color: #3498db;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* About Tab */
+        .about-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: white;
+            min-height: calc(100vh - 200px);
+        }
+
+        .about-content h1 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
+        .about-content h2 {
+            color: #34495e;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .about-content p {
+            line-height: 1.8;
+            color: #555;
+            margin-bottom: 1rem;
+        }
+
+        .about-content ul, .about-content ol {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .about-content li {
+            line-height: 1.8;
+            color: #555;
+            margin-bottom: 0.5rem;
+        }
+
+        .about-content code {
+            background: #f5f5f5;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .about-content pre {
+            background: #f5f5f5;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+        }
+
+        .back-button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: background 0.3s;
+            margin-top: 1rem;
+        }
+
+        .back-button:hover {
+            background: #2980b9;
+        }
+
+        .back-button:disabled {
+            display: none;
+        }
+
+        /* Library View */
+        .library-view {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .manuscripts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .manuscript-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .manuscript-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            border-color: #3498db;
+        }
+
+        .manuscript-card h3 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 1.3rem;
+        }
+
+        .manuscript-card p {
+            color: #666;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .manuscript-source {
+            margin-top: 0.75rem;
+        }
+
+        .manuscript-link {
+            color: #3498db;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .manuscript-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Reader View */
+        .reader-view {
+            display: flex;
+            height: calc(100vh - 120px);
+            flex-direction: row;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: white;
+            border-right: 1px solid #ddd;
+            overflow-y: auto;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-toggle {
+            display: none;
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sidebar-toggle:hover {
+            background: #2980b9;
+        }
+
+        .sidebar-title {
+            padding: 1rem;
+            background: #f9f9f9;
+            border-bottom: 1px solid #ddd;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.95rem;
+        }
+
+        .page-list {
+            list-style: none;
+        }
+
+        .page-item {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .page-item:hover {
+            background: #f9f9f9;
+        }
+
+        .page-item.active {
+            background: #3498db;
+            color: white;
+            font-weight: 500;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Manuscript Title Bar */
+        .manuscript-header {
+            padding: 1rem 1.5rem;
+            background: white;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .manuscript-header-title {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .toggle-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .page-nav {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .nav-button {
+            background: #eef3f7;
+            border: 1px solid #d6e0ea;
+            color: #2c3e50;
+            padding: 0.5rem 0.65rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .nav-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .settings-menu {
+            position: relative;
+        }
+
+        .settings-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: #eef3f7;
+            border: 1px solid #d6e0ea;
+            color: #2c3e50;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .settings-panel {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            padding: 0.75rem 0.75rem 0.5rem;
+            min-width: 230px;
+            z-index: 1500;
+            display: none;
+        }
+
+        .settings-panel.open {
+            display: block;
+        }
+
+        .settings-group {
+            margin-bottom: 0.75rem;
+        }
+
+        .settings-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.25rem;
+            border-radius: 4px;
+        }
+
+        .settings-option:hover {
+            background: #f4f7fb;
+        }
+
+        .settings-option input {
+            cursor: pointer;
+        }
+
+        .settings-option label {
+            cursor: pointer;
+            font-size: 0.95rem;
+            color: #333;
+            user-select: none;
+        }
+
+        .settings-note {
+            font-size: 0.8rem;
+            color: #888;
+            margin-left: 1.4rem;
+        }
+
+        /* Callouts (Obsidian-style) */
+        .callout {
+            border: 1px solid #dce4ed;
+            border-left: 4px solid #6c8ebf;
+            border-radius: 6px;
+            background: #f7f9fc;
+            margin: 1rem 0;
+            padding: 0.75rem 0.9rem;
+        }
+
+        .callout-title {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 0.35rem;
+        }
+
+        .callout-icon {
+            font-size: 1rem;
+        }
+
+        .callout-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .callout-warning { border-left-color: #f39c12; background: #fff8ed; }
+        .callout-caution { border-left-color: #e67e22; background: #fff4e8; }
+        .callout-error { border-left-color: #e74c3c; background: #fff1ef; }
+        .callout-danger { border-left-color: #e74c3c; background: #fff1ef; }
+        .callout-important { border-left-color: #c0392b; background: #fff1ef; }
+        .callout-tip { border-left-color: #27ae60; background: #f1fbf5; }
+        .callout-success { border-left-color: #27ae60; background: #f1fbf5; }
+        .callout-info { border-left-color: #3498db; background: #f2f7fd; }
+        .callout-note { border-left-color: #6c8ebf; background: #f7f9fc; }
+        .callout-example { border-left-color: #8e44ad; background: #faf5ff; }
+        .callout-quote { border-left-color: #95a5a6; background: #f6f8f8; }
+
+        .desktop-only { }
+
+        /* Split Screen */
+        .split-screen {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            gap: 0;
+        }
+        .split-screen.stacked {
+            flex-direction: column;
+        }
+
+        .split-screen.image-only .text-panel {
+            display: none;
+        }
+
+        .split-screen.image-only .image-panel {
+            border-right: none;
+        }
+
+        .split-screen.text-only .image-panel {
+            display: none;
+        }
+
+        .split-screen.text-only .text-panel {
+            flex: 1;
+        }
+
+        .image-panel {
+            flex: 1;
+            background: #f0f0f0;
+            border-right: 1px solid #ddd;
+            overflow: hidden;
+            position: relative;
+        }
+        .split-screen.stacked .image-panel {
+            border-right: none;
+            border-bottom: 1px solid #ddd;
+            height: 60vh;
+        }
+
+        .image-panel #leaflet-map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .image-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            z-index: 10;
+        }
+
+        .image-error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: #ff6b6b;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            z-index: 10;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .text-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            background: white;
+        }
+        .split-screen.stacked .text-panel {
+            height: 40vh;
+        }
+
+        .text-panel-content {
+            max-width: 100%;
+        }
+
+        .text-panel-content p {
+            line-height: 1.8;
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+            color: #333;
+        }
+
+        .text-line {
+            display: flex;
+            padding: 0.5rem 0;
+            border-left: 3px solid transparent;
+            padding-left: 0.75rem;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        .text-line:hover {
+            background: #f9f9f9;
+            border-left-color: #3498db;
+        }
+
+        .text-line.highlighted {
+            background: #ffe8e8;
+            border-left-color: #e74c3c;
+        }
+
+        .text-line-number {
+            font-weight: 600;
+            color: #999;
+            min-width: 40px;
+            margin-right: 0.75rem;
+            user-select: none;
+        }
+
+        .text-line-content {
+            flex: 1;
+        }
+
+        .text-region-info {
+            font-size: 0.75rem;
+            color: #999;
+            margin-top: 0.25rem;
+            font-style: italic;
+        }
+
+        .text-region-heading {
+            font-weight: 700;
+            color: #2c3e50;
+            background: #f0f0f0;
+            padding: 0.75rem 1rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            border-left: 4px solid #3498db;
+            font-size: 0.95rem;
+        }
+
+        .text-region-heading:first-child {
+            margin-top: 0;
+        }
+
+        .text-loading {
+            color: #999;
+            font-style: italic;
+        }
+
+        .text-error {
+            color: #e74c3c;
+            padding: 1rem;
+            background: #ffeaea;
+            border-radius: 4px;
+        }
+
+        .no-text {
+            color: #999;
+            font-style: italic;
+        }
+
+        /* Footer */
+        footer {
+            background: #2c3e50;
+            color: #ecf0f1;
+            text-align: center;
+            padding: 1rem 1.5rem;
+            font-size: 0.9rem;
+            border-top: 1px solid #34495e;
+            
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 2001;
+            width: 100%;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+        }
+
+        body {
+            padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); /* ensure content not hidden behind footer */
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .tab-nav {
+                display: none;
+            }
+
+            .menu-toggle {
+                display: block;
+            }
+
+            header {
+                padding: 0.75rem 1rem;
+                gap: 0.5rem;
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            header h1 {
+                font-size: 1rem;
+                white-space: normal;
+                line-height: 1.3;
+            }
+
+            .desktop-only {
+                display: none;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+                margin-left: 0;
+                gap: 0.5rem;
+            }
+
+            .menu-toggle {
+                margin-left: auto;
+            }
+
+            /* Show pages button only on mobile when in reader tab */
+            body.reader-active .header-sidebar-toggle {
+                display: flex !important;
+            }
+
+            /* Mobile sidebar toggle */
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 1000;
+                transform: translateX(-100%);
+                width: 280px;
+                box-shadow: 2px 0 8px rgba(0,0,0,0.2);
+            }
+
+            .sidebar.visible {
+                transform: translateX(0);
+            }
+
+            .sidebar-toggle {
+                display: none !important;
+            }
+
+            .manuscript-header .sidebar-toggle {
+                display: none !important;
+            }
+
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+            }
+
+            .sidebar-overlay.visible {
+                display: block;
+            }
+
+            header {
+                padding: 0.75rem 1rem;
+            }
+
+            header h1 {
+                font-size: 1.1rem;
+            }
+
+            .split-screen {
+                flex-direction: column;
+            }
+
+            .image-panel {
+                border-right: none;
+                border-bottom: 1px solid #ddd;
+                min-height: 40%;
+            }
+
+            .sidebar {
+                width: 200px;
+            }
+
+            .manuscripts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+        }
+
+        /* Error message */
+        .error-message {
+            background: #ffe5e5;
+            color: #c92a2a;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            border: 4px solid #f0f0f0;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📚 Minimal manuscript viewer - Inspect the dataset</h1>
+        <div class="header-actions">
+            <button class="header-sidebar-toggle" id="headerSidebarToggle" style="display: none;" aria-label="Pages">
+                <span>☰</span>
+                <span>Pages</span>
+            </button>
+            <button class="menu-toggle" id="menuToggle" aria-label="Menu">
+                <span>☰</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Menu -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+    <div class="mobile-menu" id="mobileMenu">
+        <div class="mobile-menu-header">
+            <span>Menu</span>
+            <button class="mobile-menu-close" id="menuClose" aria-label="Close menu">
+                <span>✕</span>
+            </button>
+        </div>
+        <div class="mobile-menu-items" id="mobileMenuItems">
+            <button class="mobile-menu-item active" data-tab="readme">Read me</button>
+            <button class="mobile-menu-item" data-tab="guidelines">Guidelines</button>
+            <button class="mobile-menu-item" data-tab="citation">Citation</button>
+            <button class="mobile-menu-item" data-tab="library">Manuscripts</button>
+            <button class="mobile-menu-item" data-tab="reader" style="display: none;">Reader</button>
+            <button class="mobile-menu-item" data-tab="viewer">Viewer</button>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+        <button class="tab-button active" data-tab="readme" id="readmeTabButton">Read me</button>
+        <button class="tab-button" data-tab="guidelines" id="guidelinesTabButton">Guidelines</button>
+        <button class="tab-button" data-tab="citation" id="citationTabButton">Citation</button>
+        <button class="tab-button" data-tab="library" id="libraryTabButton">Manuscripts</button>
+        <button class="tab-button" data-tab="reader" id="readerTab" style="display: none;">Reader</button>
+        <button class="tab-button" data-tab="viewer" id="viewerTabButton" style="margin-left: auto;">Viewer</button>
+    </nav>
+
+    <!-- Read me Tab -->
+    <div class="tab-content active" id="readmeTab">
+        <div class="about-content" id="readmeContent">
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Guidelines Tab -->
+    <div class="tab-content" id="guidelinesTab">
+        <div class="about-content" id="guidelinesContent">
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Citation Tab -->
+    <div class="tab-content" id="citationTab">
+        <div class="about-content" id="citationContent">
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Viewer Tab -->
+    <div class="tab-content" id="viewerTab">
+        <div class="about-content" id="viewerContent">
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Library Tab -->
+    <div class="tab-content" id="libraryTab">
+        <section class="library-view">
+            <div id="manuscriptsContainer" class="manuscripts-grid">
+                <div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 1rem; color: #999;">Loading manuscripts...</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Reader Tab -->
+    <div class="tab-content" id="readerTabContent">
+        <section class="reader-view">
+            <div class="sidebar-overlay" id="sidebarOverlay"></div>
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-title">Pages</div>
+                <ul class="page-list" id="pageList"></ul>
+            </aside>
+            <div class="main-content">
+            <div class="manuscript-header">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div class="manuscript-header-title" id="manuscriptTitle">Loading...</div>
+                </div>
+                <div class="toggle-controls">
+                    <div class="page-nav">
+                        <button class="nav-button" id="prevPageButton" aria-label="Previous page" title="Previous page">&lt;</button>
+                        <button class="nav-button" id="nextPageButton" aria-label="Next page" title="Next page">&gt;</button>
+                    </div>
+                    <div class="settings-menu">
+                        <button class="settings-button" id="settingsButton" aria-label="View settings">
+                            <span aria-hidden="true">⚙</span>
+                        </button>
+                        <div class="settings-panel" id="settingsPanel">
+                            <div class="settings-group">
+                                <div class="settings-option">
+                                    <input type="radio" name="layoutMode" id="layoutImageOnly" value="image-only">
+                                    <label for="layoutImageOnly">Image only</label>
+                                </div>
+                                <div class="settings-option">
+                                    <input type="radio" name="layoutMode" id="layoutTextOnly" value="text-only">
+                                    <label for="layoutTextOnly">Text only</label>
+                                </div>
+                                <div class="settings-option desktop-only">
+                                    <input type="radio" name="layoutMode" id="layoutSideBySide" value="side-by-side">
+                                    <label for="layoutSideBySide">Image + text side by side</label>
+                                </div>
+                                <div class="settings-option">
+                                    <input type="radio" name="layoutMode" id="layoutStacked" value="stacked">
+                                    <label for="layoutStacked">Image over text</label>
+                                </div>
+                                <div class="settings-note desktop-only">Side by side is desktop only</div>
+                            </div>
+                            <div class="settings-group">
+                                <div class="settings-option">
+                                    <input type="checkbox" id="settingsPolygons">
+                                    <label for="settingsPolygons">Show polygons</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="split-screen">
+                <div class="image-panel">
+                    <div id="leaflet-map"></div>
+                </div>
+                <div class="text-panel">
+                    <div class="text-panel-content" id="textContent"></div>
+                </div>
+            </div>
+
+       
+    </section>
+     </div>
+      <footer>
+        Powered by Minimal PageXML Viewer, created with AI by Jan Odstrčilík, 2025
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+    <script>
+            // Base path helper for GitHub Pages deployments
+            const BASE_PATH = (() => {
+                const path = window.location.pathname;
+                if (path.endsWith('/')) return path;
+                return path.replace(/[^\/]*$/, '');
+            })();
+            const withBase = (p = '') => {
+                const base = BASE_PATH.endsWith('/') ? BASE_PATH.slice(0, -1) : BASE_PATH;
+                const clean = p.replace(/^\//, '');
+                return `${base}/${clean}`;
+            };
+
+            // Obsidian callout support
+            const CALLOUT_TYPES = {
+                note: { label: 'Note', icon: 'ℹ️' },
+                info: { label: 'Info', icon: 'ℹ️' },
+                tip: { label: 'Tip', icon: '💡' },
+                important: { label: 'Important', icon: '❗' },
+                warning: { label: 'Warning', icon: '⚠️' },
+                caution: { label: 'Caution', icon: '⚠️' },
+                danger: { label: 'Danger', icon: '⛔' },
+                error: { label: 'Error', icon: '⛔' },
+                success: { label: 'Success', icon: '✅' },
+                quote: { label: 'Quote', icon: '❞' },
+                example: { label: 'Example', icon: '📌' }
+            };
+
+            function renderMarkdownWithCallouts(markdown) {
+                const lines = markdown.split(/\r?\n/);
+                const out = [];
+
+                for (let i = 0; i < lines.length; ) {
+                    const line = lines[i];
+                    const match = line.match(/^>\s*\[!([^\]]+)\]\s*(.*)$/i);
+
+                    if (match) {
+                        const typeRaw = match[1].trim();
+                        const type = typeRaw.toLowerCase();
+                        const customTitle = match[2].trim();
+                        const meta = CALLOUT_TYPES[type] || { label: typeRaw, icon: 'ℹ️' };
+                        const bodyLines = [];
+                        i += 1;
+
+                        while (i < lines.length && /^>\s*/.test(lines[i])) {
+                            bodyLines.push(lines[i].replace(/^>\s?/, ''));
+                            i += 1;
+                        }
+
+                        const bodyMarkdown = bodyLines.join('\n');
+                        const bodyHtml = marked.parse(bodyMarkdown);
+                        const titleText = customTitle || meta.label;
+                        out.push(
+                            `<div class="callout callout-${type}">` +
+                                `<div class="callout-title"><span class="callout-icon">${meta.icon}</span><span>${escapeHtml(titleText)}</span></div>` +
+                                `<div class="callout-body">${bodyHtml}</div>` +
+                            `</div>`
+                        );
+                        continue;
+                    }
+
+                    out.push(line);
+                    i += 1;
+                }
+
+                return marked.parse(out.join('\n'));
+            }
+
+            /**
+             * Build a manuscript asset path from manuscriptFolder and subpath
+             */
+            const buildManuscriptPath = (manuscript, subpath = '') => {
+                const manuscriptFolder = (manuscript?.manuscriptFolder || '').trim();
+                const clean = subpath.replace(/^\//, '');
+                if (clean) {
+                    return `${manuscriptFolder}/${clean}`.replace(/\/$/, '');
+                }
+                return manuscriptFolder;
+            };
+
+        // State
+        const state = {
+            currentManuscript: null,
+            manuscripts: [],
+            metsData: null,
+            pages: [],
+            currentPageIndex: 0,
+            leafletMap: null,
+            imageLayer: null,
+            polygonsVisible: false,
+            polygonLayers: [],
+            imageWidth: 0,
+            imageHeight: 0,
+            pageWidth: 0,
+            pageHeight: 0,
+            highlightLocked: false,
+            layoutMode: null
+        };
+
+        const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+        const normalizeLayout = (mode) => {
+            if (mode === 'side-by-side' && isMobile()) return 'stacked';
+            return mode;
+        };
+
+        function applyLayoutMode(mode) {
+            const splitScreenEl = document.querySelector('.split-screen');
+            const layoutRadios = document.querySelectorAll('input[name="layoutMode"]');
+            if (!splitScreenEl) return;
+            const normalized = normalizeLayout(mode);
+            state.layoutMode = normalized;
+            localStorage.setItem('viewerLayoutMode', normalized);
+            splitScreenEl.classList.remove('stacked', 'image-only', 'text-only');
+            if (normalized === 'stacked') {
+                splitScreenEl.classList.add('stacked');
+            } else if (normalized === 'image-only') {
+                splitScreenEl.classList.add('image-only');
+            } else if (normalized === 'text-only') {
+                splitScreenEl.classList.add('text-only');
+            }
+            layoutRadios.forEach(r => r.checked = r.value === normalized);
+            if (state.leafletMap) {
+                setTimeout(() => refitMap(), 50);
+            }
+        }
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Tab switching
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    const tabName = button.dataset.tab;
+                    switchTab(tabName);
+                });
+            });
+
+            const splitScreenEl = document.querySelector('.split-screen');
+            const settingsButton = document.getElementById('settingsButton');
+            const settingsPanel = document.getElementById('settingsPanel');
+            const layoutRadios = document.querySelectorAll('input[name="layoutMode"]');
+            const polygonsCheckbox = document.getElementById('settingsPolygons');
+            const prevPageButton = document.getElementById('prevPageButton');
+            const nextPageButton = document.getElementById('nextPageButton');
+
+            const savedLayout = normalizeLayout(localStorage.getItem('viewerLayoutMode') || (isMobile() ? 'stacked' : 'side-by-side'));
+            applyLayoutMode(savedLayout);
+
+            layoutRadios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    applyLayoutMode(radio.value);
+                });
+            });
+
+            const changePage = (delta) => {
+                const nextIndex = state.currentPageIndex + delta;
+                if (nextIndex >= 0 && nextIndex < state.pages.length) {
+                    loadPage(nextIndex);
+                }
+            };
+
+            prevPageButton?.addEventListener('click', () => changePage(-1));
+            nextPageButton?.addEventListener('click', () => changePage(1));
+
+            polygonsCheckbox.addEventListener('change', (e) => togglePolygons(e.target.checked));
+
+            settingsButton.addEventListener('click', () => {
+                settingsPanel.classList.toggle('open');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!settingsPanel.contains(e.target) && !settingsButton.contains(e.target)) {
+                    settingsPanel.classList.remove('open');
+                }
+            });
+
+            // Sidebar toggle for mobile (now in header)
+            const headerSidebarToggle = document.getElementById('headerSidebarToggle');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            
+            if (headerSidebarToggle) {
+                headerSidebarToggle.addEventListener('click', () => {
+                    sidebar.classList.toggle('visible');
+                    sidebarOverlay.classList.toggle('visible');
+                });
+            }
+            
+            sidebarOverlay.addEventListener('click', () => {
+                sidebar.classList.remove('visible');
+                sidebarOverlay.classList.remove('visible');
+            });
+
+            // Mobile menu toggle
+            const menuToggle = document.getElementById('menuToggle');
+            const menuClose = document.getElementById('menuClose');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const menuOverlay = document.getElementById('menuOverlay');
+            
+            const openMobileMenu = () => {
+                mobileMenu.classList.add('visible');
+                menuOverlay.classList.add('visible');
+            };
+            
+            const closeMobileMenu = () => {
+                mobileMenu.classList.remove('visible');
+                menuOverlay.classList.remove('visible');
+            };
+            
+            menuToggle.addEventListener('click', openMobileMenu);
+            menuClose.addEventListener('click', closeMobileMenu);
+            menuOverlay.addEventListener('click', closeMobileMenu);
+            
+            // Mobile menu item clicks
+            document.querySelectorAll('.mobile-menu-item').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tab = btn.dataset.tab;
+                    
+                    // Use the switchTab function to handle all the tab switching logic
+                    switchTab(tab);
+                    
+                    // Close mobile menu
+                    closeMobileMenu();
+                });
+            });
+            
+            sidebarOverlay.addEventListener('click', () => {
+                sidebar.classList.remove('visible');
+                sidebarOverlay.classList.remove('visible');
+            });
+            
+            // Close sidebar when a page is selected on mobile
+            document.addEventListener('click', (e) => {
+                if (e.target.classList.contains('page-item')) {
+                    sidebar.classList.remove('visible');
+                    sidebarOverlay.classList.remove('visible');
+                }
+            });
+
+            // Conditionally show tabs if files exist
+            try {
+                const resp = await fetch(withBase('README.md'));
+                if (resp.ok) {
+                    loadReadme();
+                } else {
+                    document.getElementById('readmeTabButton').style.display = 'none';
+                }
+            } catch {}
+
+            try {
+                const resp = await fetch(withBase('guidelines.md'));
+                if (!resp.ok) document.getElementById('guidelinesTabButton').style.display = 'none';
+            } catch {}
+
+            try {
+                const resp = await fetch(withBase('CITATION.cff'));
+                if (!resp.ok) document.getElementById('citationTabButton').style.display = 'none';
+            } catch {}
+
+            try {
+                const resp = await fetch(withBase('viewer.md'));
+                if (!resp.ok) document.getElementById('viewerTabButton').style.display = 'none';
+            } catch {}
+
+            loadManuscripts();
+        });
+
+        /**
+         * Switch between tabs
+         */
+        function switchTab(tabName) {
+            // Update desktop tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabName);
+            });
+
+            // Update mobile menu items
+            document.querySelectorAll('.mobile-menu-item').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabName);
+            });
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            if (tabName === 'readme') {
+                document.getElementById('readmeTab').classList.add('active');
+            } else if (tabName === 'guidelines') {
+                document.getElementById('guidelinesTab').classList.add('active');
+                loadGuidelines();
+            } else if (tabName === 'citation') {
+                document.getElementById('citationTab').classList.add('active');
+                loadCitation();
+            } else if (tabName === 'library') {
+                document.getElementById('libraryTab').classList.add('active');
+            } else if (tabName === 'reader') {
+                document.getElementById('readerTabContent').classList.add('active');
+                // Add class to body to enable pages button on mobile
+                document.body.classList.add('reader-active');
+            } else if (tabName === 'viewer') {
+                document.getElementById('viewerTab').classList.add('active');
+                loadViewer();
+            }
+            
+            // Remove reader-active class for non-reader tabs
+            if (tabName !== 'reader') {
+                document.body.classList.remove('reader-active');
+            }
+        }
+
+        /**
+         * Load and display README.md
+         */
+        async function loadReadme() {
+            try {
+                const response = await fetch(withBase('README.md'));
+                const markdown = await response.text();
+                const html = renderMarkdownWithCallouts(markdown);
+                document.getElementById('readmeContent').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading README:', error);
+                document.getElementById('readmeContent').innerHTML = '<p>Error loading README.md</p>';
+            }
+        }
+
+        /**
+         * Load guidelines from guidelines.md
+         */
+        async function loadGuidelines() {
+            try {
+                const response = await fetch(withBase('guidelines.md'));
+                const markdown = await response.text();
+                const html = renderMarkdownWithCallouts(markdown);
+                document.getElementById('guidelinesContent').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading guidelines:', error);
+                document.getElementById('guidelinesContent').innerHTML = '<p>Error loading guidelines.md</p>';
+            }
+        }
+
+        /**
+         * Load citation from CITATION.cff
+         */
+        async function loadCitation() {
+            try {
+                const response = await fetch(withBase('CITATION.cff'));
+                const cff = await response.text();
+                const highlighted = hljs.highlight(cff, { language: 'yaml' }).value;
+                document.getElementById('citationContent').innerHTML = `<pre style="background: #f6f8fa; padding: 1rem; border-radius: 4px; overflow-x: auto;"><code class="hljs language-yaml">${highlighted}</code></pre>`;
+            } catch (error) {
+                console.error('Error loading citation:', error);
+                document.getElementById('citationContent').innerHTML = '<p>Error loading CITATION.cff</p>';
+            }
+        }
+
+        /**
+         * Load viewer page from viewer.md
+         */
+        async function loadViewer() {
+            try {
+                const response = await fetch(withBase('viewer.md'));
+                const markdown = await response.text();
+                const html = renderMarkdownWithCallouts(markdown);
+                document.getElementById('viewerContent').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading viewer:', error);
+                document.getElementById('viewerContent').innerHTML = '<p>Error loading viewer.md</p>';
+            }
+        }
+
+        /**
+         * Load manuscripts from JSON
+         */
+        async function loadManuscripts() {
+            try {
+                const response = await fetch(withBase('manuscripts.json'));
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch manuscripts.json (status ${response.status})`);
+                }
+                const data = await response.json();
+                if (!Array.isArray(data)) {
+                    throw new Error('manuscripts.json must be an array');
+                }
+
+                state.manuscripts = data.map(item => ({
+                    manuscriptFolder: (item.manuscriptFolder || '').trim(),
+                    title: (item.title || '').trim(),
+                    sourceUrl: (item.sourceUrl || '').trim(),
+                    description: (item.description || '').trim()
+                }));
+
+                console.log('Loaded manuscripts:', state.manuscripts);
+                renderLibrary();
+            } catch (error) {
+                console.error('Error loading manuscripts:', error);
+                const container = document.getElementById('manuscriptsContainer');
+                container.innerHTML = `<div class="error-message">Failed to load manuscripts. Please check that manuscripts.json exists and is properly formatted.</div>`;
+            }
+        }
+
+        /**
+         * Render library view
+         */
+        function renderLibrary() {
+            const container = document.getElementById('manuscriptsContainer');
+            container.innerHTML = state.manuscripts.map(ms => `
+                <div class="manuscript-card" data-folder="${ms.manuscriptFolder}">
+                    <h3>${escapeHtml(ms.title)}</h3>
+                    <p>${escapeHtml(ms.description)}</p>
+                    ${ms.sourceUrl ? `<div class="manuscript-source"><a class="manuscript-link" href="${escapeHtml(ms.sourceUrl)}" target="_blank" rel="noopener">Original source</a></div>` : ''}
+                </div>
+            `).join('');
+
+            // Add click handlers
+            document.querySelectorAll('.manuscript-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const folder = card.dataset.folder;
+                    openManuscript(folder);
+                });
+            });
+
+            // Prevent link clicks from triggering card navigation
+            document.querySelectorAll('.manuscript-link').forEach(link => {
+                link.addEventListener('click', (e) => e.stopPropagation());
+            });
+        }
+
+        /**
+         * Switch to reader view
+         */
+        async function openManuscript(folderName) {
+            state.currentManuscript = folderName;
+            
+            // Show reader tab
+            document.getElementById('readerTab').style.display = 'block';
+            switchTab('reader');
+
+            // Reset polygon toggle
+            state.polygonsVisible = false;
+            const polygonsCheckbox = document.getElementById('settingsPolygons');
+            if (polygonsCheckbox) {
+                polygonsCheckbox.checked = false;
+            }
+
+            const title = state.manuscripts.find(m => m.manuscriptFolder === folderName)?.title || folderName;
+            document.querySelector('.manuscript-header-title').textContent = title;
+
+            // Ensure layout applies when entering reader
+            const savedLayout = normalizeLayout(localStorage.getItem('viewerLayoutMode') || (isMobile() ? 'stacked' : 'side-by-side'));
+            applyLayoutMode(savedLayout);
+
+            // Load METS
+            try {
+                await loadMets(folderName);
+                renderPages();
+                loadPage(0);
+            } catch (error) {
+                console.error('Error loading manuscript:', error);
+                document.getElementById('pageList').innerHTML = `<li class="error-message">Error loading manuscript</li>`;
+            }
+        }
+
+        /**
+         * Load and parse METS.xml or fallback to mets.json
+         */
+        async function loadMets(folderName) {
+            state.currentManuscript = folderName;
+            const manuscript = state.manuscripts.find(m => m.manuscriptFolder === folderName);
+            if (!manuscript) {
+                console.error('Manuscript not found:', folderName);
+                return;
+            }
+            
+            // Try mets.xml first
+            const metsXmlPath = buildManuscriptPath(manuscript, 'mets.xml');
+            const metsXmlUrl = withBase(metsXmlPath);
+            
+            try {
+                const response = await fetch(metsXmlUrl);
+                if (response.ok) {
+                    // Successfully found mets.xml
+                    const xmlText = await response.text();
+                    const parser = new DOMParser();
+                    state.metsData = parser.parseFromString(xmlText, 'application/xml');
+
+                    if (state.metsData.getElementsByTagName('parsererror').length > 0) {
+                        throw new Error('Failed to parse METS.xml');
+                    }
+
+                    // Extract pages from METS
+                    extractPages();
+                    return;
+                }
+            } catch (error) {
+                console.log('mets.xml not found or failed to load, trying mets.json fallback...');
+            }
+            
+            // Fallback to mets.json (then mets.csv)
+            const metsJsonPath = buildManuscriptPath(manuscript, 'mets.json');
+            const metsJsonUrl = withBase(metsJsonPath);
+
+            try {
+                const response = await fetch(metsJsonUrl);
+                if (response.ok) {
+                    const jsonData = await response.json();
+
+                    // Parse JSON format: array of {image: "path", pagexml: "path"}
+                    state.pages = jsonData.map((page, index) => ({
+                        index: index + 1,
+                        image: page.image,
+                        text: page.pagexml
+                    }));
+
+                    console.log(`Loaded ${state.pages.length} pages from mets.json`);
+                    return;
+                }
+            } catch (error) {
+                console.log('mets.json not found or failed to load, trying mets.csv...', error);
+            }
+
+            // Fallback to mets.csv
+            const metsCsvPath = buildManuscriptPath(manuscript, 'mets.csv');
+            const metsCsvUrl = withBase(metsCsvPath);
+
+            try {
+                const resp = await fetch(metsCsvUrl);
+                if (!resp.ok) {
+                    throw new Error('Neither mets.xml, mets.json nor mets.csv found');
+                }
+                const csvText = await resp.text();
+                const lines = csvText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                if (lines.length === 0) throw new Error('Empty CSV');
+
+                // Parse CSV rows; support quoted fields
+                const parsed = lines.map(line => {
+                    const fields = [];
+                    let cur = '';
+                    let inQuotes = false;
+                    let quoteChar = null;
+                    for (let i = 0; i < line.length; i++) {
+                        const ch = line[i];
+                        if (!inQuotes && (ch === '"' || ch === '\'')) {
+                            inQuotes = true;
+                            quoteChar = ch;
+                            continue;
+                        }
+                        if (inQuotes && ch === quoteChar) {
+                            // peek next char: if another quote, it's an escaped quote
+                            if (line[i+1] === quoteChar) { cur += quoteChar; i++; continue; }
+                            inQuotes = false; quoteChar = null; continue;
+                        }
+                        if (!inQuotes && ch === ',') { fields.push(cur.trim()); cur = ''; continue; }
+                        cur += ch;
+                    }
+                    fields.push(cur.trim());
+                    return fields;
+                });
+
+                // Detect header row
+                let start = 0;
+                const firstRowLower = parsed[0].map(c => c.toLowerCase());
+                if (firstRowLower.includes('image') || firstRowLower.includes('page') || firstRowLower.includes('pagexml') || firstRowLower.includes('path')) {
+                    start = 1;
+                }
+
+                const pages = [];
+                for (let i = start; i < parsed.length; i++) {
+                    const r = parsed[i];
+                    if (!r || r.length === 0) continue;
+                    const image = r[0] || null;
+                    const pagexml = r[1] || null;
+                    pages.push({ index: pages.length + 1, image, text: pagexml });
+                }
+
+                if (pages.length === 0) throw new Error('No rows parsed from CSV');
+                state.pages = pages;
+                console.log(`Loaded ${state.pages.length} pages from mets.csv`);
+                return;
+            } catch (error) {
+                throw new Error(`Failed to load manuscript metadata: ${error.message}`);
+            }
+        }
+
+        /**
+         * Extract page information from METS
+         */
+        function extractPages() {
+            const mets = state.metsData;
+
+            // Build file ID to href map from fileSec
+            const fileMap = {};
+            
+            // Fallback: manually iterate through all elements to find files and FLocat elements
+            const allFiles = mets.querySelectorAll('*');
+            allFiles.forEach(elem => {
+                if (elem.getAttribute('ID') && elem.getAttribute('MIMETYPE')) {
+                    // This is a file element
+                    const fileId = elem.getAttribute('ID');
+                    const flocat = elem.querySelector('*');
+                    if (flocat) {
+                        let href = flocat.getAttribute('href') || flocat.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+                        if (!href) {
+                            // Try to get any href-like attribute
+                            for (let i = 0; i < flocat.attributes.length; i++) {
+                                const attr = flocat.attributes[i];
+                                if (attr.name.includes('href')) {
+                                    href = attr.value;
+                                    break;
+                                }
+                            }
+                        }
+                        if (href) {
+                            fileMap[fileId] = href;
+                        }
+                    }
+                }
+            });
+
+            // Extract pages from structMap
+            state.pages = [];
+            
+            // Find all page divisions
+            const pageDivs = mets.querySelectorAll('[ORDER]');
+            
+            pageDivs.forEach((pageDiv) => {
+                const order = pageDiv.getAttribute('ORDER');
+                const fileRefs = [];
+                
+                // Find all file references in this page division
+                const areas = pageDiv.querySelectorAll('[FILEID]');
+                areas.forEach(area => {
+                    const fileId = area.getAttribute('FILEID');
+                    if (fileId && fileMap[fileId]) {
+                        fileRefs.push(fileMap[fileId]);
+                    }
+                });
+                
+                // Separate image and text files
+                const pageFiles = {};
+                fileRefs.forEach(filePath => {
+                    if (filePath.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                        pageFiles.image = filePath;
+                    } else if (filePath.match(/\.xml$/i)) {
+                        pageFiles.text = filePath;
+                    }
+                });
+
+                if (pageFiles.image || pageFiles.text) {
+                    state.pages.push({
+                        index: parseInt(order) || state.pages.length + 1,
+                        image: pageFiles.image,
+                        text: pageFiles.text
+                    });
+                }
+            });
+            
+            // Sort pages by index
+            state.pages.sort((a, b) => a.index - b.index);
+        }
+
+        /**
+         * Render page list in sidebar
+         */
+        function renderPages() {
+            const pageList = document.getElementById('pageList');
+            pageList.innerHTML = state.pages.map((page, idx) => `
+                <li class="page-item ${idx === 0 ? 'active' : ''}" data-index="${idx}">
+                    Page ${page.index}
+                </li>
+            `).join('');
+
+            document.querySelectorAll('.page-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const index = parseInt(item.dataset.index);
+                    loadPage(index);
+                });
+            });
+
+            updatePageNavButtons();
+        }
+
+        function updatePageNavButtons() {
+            const prevBtn = document.getElementById('prevPageButton');
+            const nextBtn = document.getElementById('nextPageButton');
+            if (!prevBtn || !nextBtn) return;
+            prevBtn.disabled = state.currentPageIndex <= 0;
+            nextBtn.disabled = state.currentPageIndex >= state.pages.length - 1;
+        }
+
+        /**
+         * Load and display a specific page
+         */
+        async function loadPage(index) {
+            state.currentPageIndex = index;
+            const page = state.pages[index];
+
+            if (!page) return;
+
+            // Update active page in sidebar
+            document.querySelectorAll('.page-item').forEach((item, idx) => {
+                item.classList.toggle('active', idx === index);
+            });
+
+            // Clear polygons when page changes
+            clearPolygons();
+            state.polygonsVisible = false;
+            const polygonsCheckbox = document.getElementById('settingsPolygons');
+            if (polygonsCheckbox) {
+                polygonsCheckbox.checked = false;
+            }
+
+            // Load image
+            if (page.image) {
+                loadImage(page.image);
+            } else {
+                clearImage();
+            }
+
+            // Load text
+            if (page.text) {
+                loadPageXml(page.text);
+            } else {
+                clearText();
+            }
+
+            updatePageNavButtons();
+        }
+
+        /**
+         * Load image using Leaflet
+         */
+        function loadImage(imagePath) {
+            const imagePanel = document.querySelector('.image-panel');
+            
+            // Initialize or clear existing map
+            if (state.leafletMap) {
+                state.leafletMap.remove();
+            }
+
+            // Create map with SimpleCoRS for image coordinates
+            state.leafletMap = L.map('leaflet-map', {
+                crs: L.CRS.Simple,
+                minZoom: -5,
+                maxZoom: 4,
+                zoomSnap: 0.25,
+                zoomDelta: 0.25,
+                wheelPxPerZoomLevel: 120
+            });
+
+            // Create image overlay with proper bounds
+            const img = new Image();
+            img.onload = () => {
+                // Use PageXML dimensions if available, otherwise use image dimensions
+                const width = state.pageWidth || img.width;
+                const height = state.pageHeight || img.height;
+                
+                // Store dimensions for polygon rendering
+                state.imageWidth = width;
+                state.imageHeight = height;
+                
+                // For SimpleCoRS with images, we need to invert Y-axis
+                // PageXML: Y increases downward (0 at top)
+                // SimpleCoRS: Y increases upward (0 at bottom)
+                // So bounds should be [[height, 0], [0, width]] instead of [[0, 0], [height, width]]
+                const bounds = [[height, 0], [0, width]];
+                console.log(`Setting image bounds to ${JSON.stringify(bounds)} for image ${width}x${height}`);
+                
+                // Add image overlay
+                const manuscript = state.manuscripts.find(m => m.manuscriptFolder === state.currentManuscript);
+                // imagePath from METS already includes any subfolder (e.g., "p012.jpg" or "images/p012.jpg")
+                // so we build the path directly without adding ImagesSubfolder
+                const imageBasePath = buildManuscriptPath(manuscript, imagePath);
+                const imageUrl = withBase(imageBasePath);
+                const overlay = L.imageOverlay(imageUrl, bounds, {
+                    attribution: ''
+                }).addTo(state.leafletMap);
+                
+                // Fit bounds to viewport. invalidateSize() first: the panel is
+                // still settling when the image onload fires, so Leaflet would
+                // otherwise measure a short container and leave the page cropped.
+                state.leafletMap.invalidateSize(false);
+                state.leafletMap.fitBounds(bounds, { padding: [10, 10], animate: false });
+                state.fitBounds = bounds;
+                requestAnimationFrame(() => {
+                    state.leafletMap.invalidateSize(false);
+                    state.leafletMap.fitBounds(bounds, { padding: [10, 10], animate: false });
+                });
+
+                // Restore saved zoom level for this manuscript only if explicitly set
+                try {
+                    const savedZoomStr = localStorage.getItem(`zoom_${state.currentManuscript}_set`);
+                    if (savedZoomStr === 'true') {
+                        const savedZoom = parseFloat(localStorage.getItem(`zoom_${state.currentManuscript}`));
+                        if (!isNaN(savedZoom)) {
+                            state.leafletMap.setZoom(savedZoom, { animate: false });
+                        }
+                    }
+                } catch {}
+                
+                // Add click handler to map to unlock highlight
+                state.leafletMap.on('click', (e) => {
+                    // Only unlock if clicking on the map itself, not on a polygon
+                    if (!e.originalEvent.target.classList.contains('leaflet-interactive')) {
+                        state.highlightLocked = false;
+                        clearHighlight();
+                    }
+                });
+
+                // Persist zoom level per manuscript (mark as explicitly set)
+                state.leafletMap.on('zoomend', () => {
+                    try {
+                        localStorage.setItem(`zoom_${state.currentManuscript}`, String(state.leafletMap.getZoom()));
+                        localStorage.setItem(`zoom_${state.currentManuscript}_set`, 'true');
+                    } catch {}
+                });
+                
+                // If polygons were requested before image loaded, render them now
+                if (state.polygonsVisible && state.currentPageXml) {
+                    setTimeout(() => renderPolygons(), 100);
+                }
+            };
+            img.onerror = () => {
+                imagePanel.innerHTML = `<div class="image-error">Failed to load image</div>`;
+            };
+            const manuscript = state.manuscripts.find(m => m.manuscriptFolder === state.currentManuscript);
+            // imagePath from METS already includes any subfolder
+            const imgBasePath = buildManuscriptPath(manuscript, imagePath);
+            img.src = withBase(imgBasePath);
+        }
+
+        /**
+         * Clear image display
+         */
+        function clearImage() {
+            if (state.leafletMap) {
+                state.leafletMap.remove();
+                state.leafletMap = null;
+            }
+            const imagePanel = document.querySelector('.image-panel');
+            imagePanel.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #999;">No image for this page</div>';
+        }
+
+        /**
+         * Load and parse PageXML
+         */
+        async function loadPageXml(xmlPath) {
+            const textContent = document.getElementById('textContent');
+            
+            try {
+                const manuscript = state.manuscripts.find(m => m.manuscriptFolder === state.currentManuscript);
+                if (!manuscript) {
+                    throw new Error('Manuscript not found');
+                }
+                const xmlBasePath = buildManuscriptPath(manuscript, xmlPath);
+                console.log(`Loading PageXML from: ${xmlBasePath}`);
+                const response = await fetch(withBase(xmlBasePath));
+                const xmlText = await response.text();
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+
+                if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+                    throw new Error('Failed to parse PageXML');
+                }
+
+                // Store XML doc for polygon rendering
+                state.currentPageXml = xmlDoc;
+                
+                // Extract page dimensions from PageXML - handle namespaced and non-namespaced
+                let pageElement = xmlDoc.querySelector('Page');
+                if (!pageElement) {
+                    // Try finding by tag name
+                    const pages = xmlDoc.getElementsByTagName('Page');
+                    if (pages.length === 0) {
+                        // Try with any namespace
+                        for (let elem of xmlDoc.querySelectorAll('*')) {
+                            if (elem.localName === 'Page' || elem.tagName === 'Page') {
+                                pageElement = elem;
+                                break;
+                            }
+                        }
+                    } else {
+                        pageElement = pages[0];
+                    }
+                }
+                if (pageElement) {
+                    state.pageWidth = parseInt(pageElement.getAttribute('imageWidth')) || 0;
+                    state.pageHeight = parseInt(pageElement.getAttribute('imageHeight')) || 0;
+                }
+
+                // Extract text grouped by regions (TextRegion + TableCell)
+                const textRegions = collectRegions(xmlDoc);
+                const regionGroups = [];
+
+                textRegions.forEach((region) => {
+                    const regionId = region.getAttribute('id') || 'Unknown Region';
+                    const textLines = [];
+                    const lineElements = collectLines(region);
+
+                    lineElements.forEach((line, lineIdx) => {
+                        // Get Unicode element
+                        let unicodeElement = line.querySelector('Unicode');
+                        if (!unicodeElement) {
+                            // Try finding by tag name
+                            const unicodes = line.getElementsByTagName('Unicode');
+                            if (unicodes.length > 0) {
+                                unicodeElement = unicodes[0];
+                            } else {
+                                // Try with namespace
+                                for (let elem of line.querySelectorAll('*')) {
+                                    if (elem.localName === 'Unicode' || elem.tagName === 'Unicode') {
+                                        unicodeElement = elem;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        if (unicodeElement && unicodeElement.textContent?.trim()) {
+                            textLines.push({
+                                number: regionGroups.reduce((sum, g) => sum + g.textLines.length, 0) + lineIdx + 1,
+                                text: unicodeElement.textContent.trim(),
+                                id: line.getAttribute('id') || `line_${regionId}_${lineIdx}`
+                            });
+                        }
+                    });
+
+                    if (textLines.length > 0) {
+                        regionGroups.push({
+                            regionId: regionId,
+                            label: regionLabel(region),
+                            textLines: textLines
+                        });
+                    }
+                });
+
+                if (regionGroups.length === 0) {
+                    textContent.innerHTML = '<p class="no-text">No text content found in this page</p>';
+                } else {
+                    textContent.innerHTML = regionGroups.map(group => `
+                        <div class="text-region-heading">${escapeHtml(group.label || group.regionId)}</div>
+                        ${group.textLines.map(line => `
+                            <div class="text-line" data-line-id="${escapeHtml(line.id)}">
+                                <span class="text-line-number">${line.number}</span>
+                                <div class="text-line-content">
+                                    ${escapeHtml(line.text)}
+                                </div>
+                            </div>
+                        `).join('')}
+                    `).join('');
+                    
+                    // Add click handlers to text lines
+                    document.querySelectorAll('.text-line').forEach(lineElement => {
+                        lineElement.addEventListener('click', () => {
+                            const lineId = lineElement.dataset.lineId;
+                            console.log(`Text line ${lineId} clicked`);
+                            state.highlightLocked = true;
+                            highlightLineAndPolygon(lineId, true);
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading PageXML:', error);
+                textContent.innerHTML = `<div class="text-error">Error loading text: ${escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        /**
+         * Clear text display
+         */
+        function clearText() {
+            document.getElementById('textContent').innerHTML = '<p class="no-text">No text content available for this page</p>';
+        }
+
+        /**
+         * Return to library view
+         */
+
+
+        /** Re-measure the map and re-fit the page after a layout/size change. */
+        function refitMap() {
+            if (!state.leafletMap || !state.fitBounds) return;
+            state.leafletMap.invalidateSize(false);
+            state.leafletMap.fitBounds(state.fitBounds, { padding: [10, 10], animate: false });
+        }
+        window.addEventListener('resize', () => refitMap());
+
+        /**
+         * Collect region-like elements: TextRegion and TableCell (PAGE table cells
+         * are region-level containers and hold their own TextLine children).
+         * Namespace-safe: matches on localName.
+         */
+        function collectRegions(root) {
+            const out = [];
+            for (const elem of root.querySelectorAll('*')) {
+                const n = elem.localName || elem.tagName;
+                if (n === 'TextRegion' || n === 'TableCell') out.push(elem);
+            }
+            return out;
+        }
+
+        /** Human label for a region: table cells get row/col + structure type. */
+        function regionLabel(region) {
+            const n = region.localName || region.tagName;
+            const id = region.getAttribute('id') || 'unknown';
+            if (n !== 'TableCell') return `Text region - ${id}`;
+            const row = region.getAttribute('row'), col = region.getAttribute('col');
+            const m = /structure\s*\{[^}]*type:([^;}]+)/.exec(region.getAttribute('custom') || '');
+            const type = m ? m[1].trim() : '';
+            return `Cell r${row} c${col}${type ? ' - ' + type : ''}`;
+        }
+
+        /** All descendant TextLines of a region. */
+        function collectLines(region) {
+            const out = [];
+            for (const elem of region.querySelectorAll('*')) {
+                const n = elem.localName || elem.tagName;
+                if (n === 'TextLine') out.push(elem);
+            }
+            return out;
+        }
+
+        /** First Coords *child* of an element (not of its descendants). */
+        function ownCoords(elem) {
+            for (const c of elem.children) {
+                if ((c.localName || c.tagName) === 'Coords') return c;
+            }
+            return null;
+        }
+
+        /** Parse a PAGE points string into Leaflet [lat,lng] with Y inverted. */
+        function parsePoints(pointsStr, imageHeight) {
+            if (!pointsStr) return [];
+            return pointsStr.trim().split(/\s+/).map(p => {
+                const parts = p.split(',');
+                if (parts.length !== 2) return null;
+                const x = parseFloat(parts[0]), y = parseFloat(parts[1]);
+                if (!isFinite(x) || !isFinite(y)) return null;
+                return [imageHeight - y, x];
+            }).filter(Boolean);
+        }
+
+        /**
+         * Toggle polygon overlay visibility
+         */
+        function togglePolygons(checked) {
+            state.polygonsVisible = checked;
+            
+            if (state.polygonsVisible && state.currentPageXml) {
+                renderPolygons();
+            } else {
+                clearPolygons();
+            }
+        }
+
+        /**
+         * Render text region polygons from PageXML
+         */
+        function renderPolygons() {
+            clearPolygons();
+            
+            if (!state.leafletMap || !state.currentPageXml) {
+                console.warn('Cannot render polygons: map or XML missing');
+                return;
+            }
+
+            console.log(`Rendering polygons for image ${state.imageWidth}x${state.imageHeight}, PageXML says ${state.pageWidth}x${state.pageHeight}`);
+
+            const LINE_COLOR = '#85c1e9';
+            // Distinct hues so adjacent columns stay separable at a glance.
+            const COL_COLORS = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c',
+                                '#3498db','#9b59b6','#e84393','#16a085','#d35400'];
+            let polygonsCreated = 0;
+
+            const regions = collectRegions(state.currentPageXml);
+            console.log(`Found ${regions.length} regions (TextRegion + TableCell) in PageXML`);
+
+            const addPoly = (points, opts, id, tooltip) => {
+                if (points.length < 3) return;
+                try {
+                    const poly = L.polygon(points, opts).addTo(state.leafletMap);
+                    poly.lineId = id;
+                    if (tooltip) poly.bindTooltip(tooltip, { sticky: true, direction: 'top' });
+                    poly.on('mouseover', () => { if (!state.highlightLocked) highlightLineAndPolygon(id); });
+                    poly.on('mouseout', () => { if (!state.highlightLocked) clearHighlight(); });
+                    poly.on('click', () => { state.highlightLocked = true; highlightLineAndPolygon(id, false); });
+                    state.polygonLayers.push(poly);
+                    polygonsCreated++;
+                } catch (e) {
+                    console.error('Error creating polygon', id, e);
+                }
+            };
+
+            regions.forEach((region) => {
+                const isCell = (region.localName || region.tagName) === 'TableCell';
+                const regionId = region.getAttribute('id') || 'region';
+
+                // Draw the cell/region outline itself. This is the key change for
+                // tabular material: cells are geometry even when they hold no text.
+                const rc = ownCoords(region);
+                if (rc) {
+                    const col = parseInt(region.getAttribute('col'), 10);
+                    const color = isCell && isFinite(col)
+                        ? COL_COLORS[col % COL_COLORS.length]
+                        : '#95a5a6';
+                    addPoly(
+                        parsePoints(rc.getAttribute('points'), state.imageHeight),
+                        { color, weight: 1, opacity: 0.9, fillColor: color,
+                          fillOpacity: 0.08, className: 'region-polygon' },
+                        regionId,
+                        regionLabel(region)
+                    );
+                }
+
+                // Draw TextLine polygons on top, as before.
+                collectLines(region).forEach((line, lineIdx) => {
+                    const lineId = line.getAttribute('id') || `line_${regionId}_${lineIdx}`;
+                    const lc = ownCoords(line);
+                    if (!lc) return;
+                    addPoly(
+                        parsePoints(lc.getAttribute('points'), state.imageHeight),
+                        { color: LINE_COLOR, weight: 2, opacity: 1, fillColor: LINE_COLOR,
+                          fillOpacity: 0.2, className: 'text-line-polygon' },
+                        lineId,
+                        regionLabel(region)
+                    );
+                });
+            });
+
+            console.log(`Successfully rendered ${polygonsCreated} polygons`);
+        }
+
+        /**
+         * Highlight a transcription line and its corresponding polygon
+         */
+        function highlightLineAndPolygon(lineId, shouldPan = false) {
+            console.log(`highlightLineAndPolygon called with lineId: ${lineId}, shouldPan: ${shouldPan}`);
+            
+            // Highlight the text line in transcription
+            document.querySelectorAll('.text-line').forEach(elem => {
+                const matches = elem.dataset.lineId === lineId;
+                if (matches) {
+                    console.log(`  ✓ MATCH! Highlighting text-line with data-line-id="${lineId}"`);
+                }
+                elem.classList.toggle('highlighted', matches);
+            });
+            
+            // Scroll to the highlighted line in the text content area (only when panning)
+            if (shouldPan) {
+                const highlightedLine = document.querySelector(`.text-line[data-line-id="${lineId}"]`);
+                if (highlightedLine) {
+                    highlightedLine.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }
+            
+            // Highlight the polygon on the map and pan to it if found
+            let targetPolygon = null;
+            state.polygonLayers.forEach(polygon => {
+                if (polygon.lineId === lineId) {
+                    console.log(`    ✓ MATCH! Highlighting polygon with lineId="${lineId}"`);
+                    targetPolygon = polygon;
+                    polygon.setStyle({
+                        color: '#f39c12',
+                        weight: 3,
+                        opacity: 1,
+                        fillColor: '#f39c12',
+                        fillOpacity: 0.4
+                    });
+                } else {
+                    polygon.setStyle({
+                        color: '#85c1e9',
+                        weight: 2,
+                        opacity: 1,
+                        fillColor: '#85c1e9',
+                        fillOpacity: 0.2
+                    });
+                }
+            });
+            
+            // Pan map to show the highlighted polygon (only when requested)
+            if (shouldPan && targetPolygon && state.leafletMap) {
+                const bounds = targetPolygon.getBounds();
+                state.leafletMap.panTo(bounds.getCenter(), { animate: true, duration: 0.5 });
+            }
+        }
+
+        /**
+         * Clear all highlighting
+         */
+        function clearHighlight() {
+            // Remove highlight from all text lines
+            document.querySelectorAll('.text-line').forEach(elem => {
+                elem.classList.remove('highlighted');
+            });
+            
+            // Reset all polygons to default style
+            state.polygonLayers.forEach(polygon => {
+                polygon.setStyle({
+                    color: '#85c1e9',
+                    weight: 2,
+                    opacity: 1,
+                    fillColor: '#85c1e9',
+                    fillOpacity: 0.2
+                });
+            });
+        }
+
+        /**
+         * Clear all polygon layers
+         */
+        function clearPolygons() {
+            state.polygonLayers.forEach(layer => {
+                if (state.leafletMap) {
+                    state.leafletMap.removeLayer(layer);
+                }
+            });
+            state.polygonLayers = [];
+        }
+
+        /**
+         * Escape HTML special characters
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+   
+</body>
+</html>

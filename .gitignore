@@ -3,6 +3,8 @@
 !images/*.jpg
 !000nvrj-432316TAX 1-85_page-0010.jpg
 !000nvrj-432316TAX 1-85_page-0050.jpg
+# Talk figures are the published site's content, so they must be tracked.
+!talk-vienna-2026/img/*.jpg
 
 # ML models
 *.mlmodel
@@ -24,3 +26,6 @@ __pycache__/
 *.html
 *.bak
 kraken_*.csv
+
+# Generated viewer datasets (symlinks into the corpus)
+tools/pagexml-viewer/*/
