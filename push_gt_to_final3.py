@@ -11,6 +11,7 @@ the row count on 5 of the 6 GT pages, so rows are aligned by CONTENT
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -31,33 +32,47 @@ def sig(row: dict) -> str:
     return " ".join(str(row.get(c, "")).strip() for c in LEFT_COLS).strip()
 
 
-def align(gt: list[dict], n_grid: int) -> list[dict]:
-    """Needleman-Wunsch align GT rows onto n_grid slots by row signature."""
-    grid_sigs = [""] * n_grid
-    gs = [sig(r) for r in gt]
-    n, m = len(gs), n_grid
-    # score: reward placing a non-empty GT row; gaps cost 1
-    D = [[0.0] * (m + 1) for _ in range(n + 1)]
-    for i in range(1, n + 1):
-        D[i][0] = D[i - 1][0] - 1
-    for j in range(1, m + 1):
-        D[0][j] = D[0][j - 1] - 1
-    for i in range(1, n + 1):
-        for j in range(1, m + 1):
-            match = D[i - 1][j - 1] + (1.0 if gs[i - 1] else 0.2)
-            D[i][j] = max(match, D[i - 1][j] - 1, D[i][j - 1] - 1)
+def align(gt: list[dict], n_grid: int, offset: int = None) -> list[dict]:
+    """Place GT rows onto n_grid slots, anchored at the TOP.
+
+    The GT was transcribed against final2 rows and final3 changed the row count
+    on 5 of the 6 GT pages, so the two are not index-identical. But an earlier
+    Needleman-Wunsch pass over row *signatures* was worse than useless: with
+    nothing to match on it drifted the whole page down (p9 started at row 9,
+    p10 at row 7), which then looked like a catastrophic ink-gate failure
+    (a bogus 88%/74% miss rate) when it was purely my alignment.
+
+    Both grids start at the same printed header line, so row 0 is row 0. Extra
+    grid slots belong at the BOTTOM, where final3 recovered rows. Index-align
+    from the top and stop; do not try to be clever without evidence to align on.
+    """
     out = [{c: "" for c in LEFT_COLS} for _ in range(n_grid)]
-    i, j = n, m
-    while i > 0 and j > 0:
-        if D[i][j] == D[i - 1][j - 1] + (1.0 if gs[i - 1] else 0.2):
-            out[j - 1] = {c: str(gt[i - 1].get(c, "") or "") for c in LEFT_COLS}
-            i -= 1
-            j -= 1
-        elif D[i][j] == D[i - 1][j] - 1:
-            i -= 1
-        else:
-            j -= 1
+    off = offset if offset is not None else 0
+    for i, row in enumerate(gt):
+        j = i + off
+        if 0 <= j < n_grid:
+            out[j] = {c: str(row.get(c, "") or "") for c in LEFT_COLS}
     return out
+
+
+def best_offset(gt: list[dict], serial_rows: set[int]) -> int:
+    """Align on Serial_No, which is unique per row and present on every entry.
+
+    Index alignment alone is wrong where the GT carries a CONTINUATION row at
+    the top -- the tail of an entry begun on the previous page, holding only
+    money-column values with no serial or date (p4, p5). The grid starts at the
+    first *written* line, so the GT sits one row lower. Serial numbers give an
+    unambiguous anchor: p4 matches 34/34 at -1, p5 29/29 at -1, the rest 0.
+    """
+    gt_ser = [i for i, r in enumerate(gt) if str(r.get("Serial_No", "") or "").strip()]
+    if not gt_ser or not serial_rows:
+        return 0
+    best, hits = 0, -1
+    for off in range(-3, 4):
+        h = sum(1 for i in gt_ser if (i + off) in serial_rows)
+        if h > hits:
+            best, hits = off, h
+    return best
 
 
 def main() -> None:
@@ -70,11 +85,13 @@ def main() -> None:
         gt = load_trx_xml(GT_FMT.format(n=p))
         xml = (FINAL3 / f"Hadita_{p}.xml").read_text(encoding="utf-8")
         n_grid = base.xml_grid_size(xml)[0]
-        grid = align(gt, n_grid)
+        ser = {int(m.group(1)) for m in re.finditer(r'id="line_cell_r(\d+)_c0"', xml)}
+        off = best_offset(gt, ser)
+        grid = align(gt, n_grid, off)
         placed = sum(1 for r in grid if any(v.strip() for v in r.values()))
         patched, _, _ = base.patch_xml(xml, grid, LEFT_COLS)
         (OUT / f"Hadita_{p}_{args.tag}.xml").write_text(patched, encoding="utf-8")
-        print(f"page {p}: {len(gt)} GT rows -> {n_grid} grid slots, {placed} placed")
+        print(f"page {p}: {len(gt)} GT rows -> {n_grid} grid slots, {placed} placed (offset {off:+d})")
 
 
 if __name__ == "__main__":
