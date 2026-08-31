@@ -177,6 +177,31 @@ def run_page(page: int, model: str, tag: str, thinking: str) -> dict | None:
     return rec
 
 
+# E14. Measured on the 4 proxy-GT pages: when this model reads ٢ it is wrong 51%
+# of the time, against 5-10% for every other digit; 126 of those are a true ٣.
+# The two glyphs ARE distinct in this hand (contact sheets of confirmed cells):
+# ٢ is a smooth hook, ٣ carries a pointed apex. The base prompt said nothing
+# about letterforms at all, so this describes the distinction rather than
+# post-processing the output (no asymmetric postprocess).
+DIGIT_HINT = """
+
+CRITICAL — the digits ٢ and ٣ in this hand. These are the scribe's most confusable
+pair and the single largest source of transcription error. They are written as two
+genuinely different shapes:
+  * ٢ is a SMOOTH OPEN CURVE — one continuous arc, like a hook or a rotated "C".
+    There is no corner anywhere along the stroke.
+  * ٣ has a POINTED APEX — two strokes meeting at a visible sharp vertex, forming
+    a small peak. When written hurriedly the peak flattens, but the corner remains.
+Decide between them by the presence or absence of that apex, not by size or slant.
+A flattened ٣ still has a corner; a ٢ never does. Look carefully at every such digit,
+including ones inside longer numbers, where crowding makes the apex easy to miss."""
+
+# Tested separately: justified by the 126-vs-61 imbalance, but a thumb on the scale
+# risks the same over-correction that sank the blind ٢->٣ replacement rule.
+DIGIT_BIAS = """
+When you genuinely cannot tell which of the two it is, prefer ٣."""
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("pages", nargs="+", type=int)
@@ -185,13 +210,20 @@ def main() -> None:
     ap.add_argument("--thinking", default="low", choices=["none", "low", "medium", "high"])
     ap.add_argument("--som-dir", help="folder of stamped SoM images (default som/)")
     ap.add_argument("--xml-dir", help="geometry folder (default final2)")
+    ap.add_argument("--digit-hint", default="off", choices=["off", "shape", "shape+bias"],
+                    help="append the 2/3 letterform paragraph (E14). 'shape' describes "
+                         "the apex; 'shape+bias' also says to prefer 3 when unsure.")
     args = ap.parse_args()
 
-    global SOM_DIR, XML_DIR
+    global SOM_DIR, XML_DIR, PROMPT
     if args.som_dir:
         SOM_DIR = Path(args.som_dir)
     if args.xml_dir:
         XML_DIR = Path(args.xml_dir)
+    if args.digit_hint != "off":
+        PROMPT = PROMPT + DIGIT_HINT
+        if args.digit_hint == "shape+bias":
+            PROMPT = PROMPT + DIGIT_BIAS
     tag = args.tag or "som-" + args.model.replace("gemini-", "g").replace("-preview", "").replace(".", "")
     total = 0.0
     for p in args.pages:

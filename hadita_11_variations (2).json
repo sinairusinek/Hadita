@@ -1,0 +1,1518 @@
+{
+  "config": {
+    "models": [
+      "gemini-3-flash-preview",
+      "gemini-3.5-flash"
+    ],
+    "thinking_levels": [
+      "minimal",
+      "low",
+      "medium",
+      "high"
+    ],
+    "smoke_test": true,
+    "smoke_model": "gemini-3.5-flash",
+    "smoke_thinking": "medium",
+    "top_frac": 1.0,
+    "resolution": "ultra_high",
+    "use_one_shot": false,
+    "example_resolution": null,
+    "deskew": true,
+    "max_output_tokens": 24576,
+    "image_path": "Hadita_10.jpeg",
+    "crop_path": "page_top.jpeg",
+    "pricing": {
+      "gemini-3-flash-preview": {
+        "input": 0.5,
+        "output": 3.0,
+        "cached": 0.05
+      },
+      "gemini-3.5-flash": {
+        "input": 1.5,
+        "output": 9.0,
+        "cached": 0.15
+      }
+    }
+  },
+  "variations": {
+    "gemini-3.5-flash__medium": {
+      "model": "gemini-3.5-flash",
+      "thinking": "medium",
+      "interaction_id": "v1_ChdENWNZYXN5Tko1WGd6N0lQa3JLZnNRcxIXRDVjWWFzeU5KNVhnejdJUGtyS2ZzUXM",
+      "elapsed_s": 213.72,
+      "trace": [
+        {
+          "step": 0,
+          "type": "thought",
+          "text": "Okay, here's my summary, considering myself as an expert in this task:\n\n**Transcribing the Tax Register Image**\n\nRight, let's get down to brass tacks. We've got an image here that's effectively a tax register, and the immediate need is to get those rows transcribed accurately. The initial thought is Python. It's the most practical route to isolate the rows effectively and optimize the image data for transcription. It's about writing some solid code for high-quality row cropping.\n\nFirst things first, I need to orient myself. We're looking at Folio No. 8, located top right, with the Tax-Payer's name \"امنه ياسين محمد عبيد\" (Amneh Yaseen Muhammad Obeid) and the village is Hadita. With this basic context established, my next step will be to thoroughly inspect the rows within the image. This visual analysis will inform the coding strategy for accurate cropping and prepare me for the transcription process.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 1,
+          "type": "code_execution_call",
+          "round": 1,
+          "code": "import cv2\nimport matplotlib.pyplot as plt\n\n# Load image\nimg = cv2.imread('input_file_0.jpeg')\nh, w, c = img.shape\nprint(f\"Height: {h}, Width: {w}\")\n\n# Let's crop the first few rows to understand the structure\n# Rows are on the left page and extend to the right page\n# We can crop the left part first\nplt.figure(figsize=(12, 8))\nplt.imshow(cv2.cvtColor(img[:1200, :w//2], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('left_top.png')\n"
+        },
+        {
+          "step": 2,
+          "type": "code_execution_result",
+          "result": "Height: 3956, Width: 5034\n",
+          "is_error": false
+        },
+        {
+          "step": 3,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step03_img00.png"
+          ]
+        },
+        {
+          "step": 4,
+          "type": "thought",
+          "text": "Okay, let's dive into this. Here's how I'm thinking about it:\n\n**Focusing on the Row Data**\n\nRight, time to get granular. I need to zero in on these rows, so I'm going to crop the image or data source further, just to isolate them. The goal is to maximize clarity and minimize distraction. Now, let's systematically examine each row. I see those serial numbers on the left: ١, ٢, ٣, ٤, ٥, ٦. This suggests a structured dataset, and the numbers are a key starting point. My next step is to analyze what information is contained within each row, considering that those serial numbers act as identifiers for each entry. What are the associated pieces of data? Let's get to the important part.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 5,
+          "type": "code_execution_call",
+          "round": 2,
+          "code": "# Let's crop from y=1000 to y=3000, x=0 to x=2500\nplt.figure(figsize=(12, 10))\nplt.imshow(cv2.cvtColor(img[1000:3000, :2500], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('left_middle.png')\n"
+        },
+        {
+          "step": 6,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 7,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step07_img00.png"
+          ]
+        },
+        {
+          "step": 8,
+          "type": "thought",
+          "text": "**Analyzing the Data: Initial Observations and Detailed Breakdown**\n\nOkay, let's break this down. First, I see a set of serial numbers: ١ through ٦. Then, an unnumbered row with the date ٩٣٩. Interesting. Let's delve deeper into the first block, focusing on Row 1:\n\n*   **Serial Number:** ١\n*   **Date:** ٩٣٨ (1938), which I'll keep in the standard format.\n*   **Block Number:** ٤١٢٩ (4129)\n*   **Parcel Number:** ٥١ (51)\n*   **Category Number:** ١٢ (12)\n*   **Area:** ٢,٢٧٩ (2,279).\n\nNow, the \"nature\\_of\\_entry\" field: \"تح.\" This could be an abbreviation. I immediately think of \"تحويل\" (transfer), but let me double-check the Arabic gloss if available and consider the typical values in this context. For now, I'll translate \"تح\" as \"transfer\".\n\nHang on... I've got a potential multi-category parcel here! Under the parcel number ٥١, there's cat\\_no ١٢ with an area of ٢,٢٧٩. There's a second row with a second category, ١٦, and an area of ٢,٠٦٩. Now, what's the serial number for that second row? Initially, it looks null, but I need to make sure I get the second row, second column to get the serial number 2. The alignment of the numbers is key, and I need to crop the images to ensure that is clear.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 9,
+          "type": "code_execution_call",
+          "round": 3,
+          "code": "# Zooming into the left part for rows 1 to 8\nplt.figure(figsize=(10, 8))\nplt.imshow(cv2.cvtColor(img[300:1500, :1200], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('left_top_zoom.png')\n"
+        },
+        {
+          "step": 10,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 11,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step11_img00.png"
+          ]
+        },
+        {
+          "step": 12,
+          "type": "thought",
+          "text": "**Analyzing the Data Structure**\n\nOkay, let's break this down. First, I see a block of data with rows, and I'm immediately drawn to the `serial_no` column. Row 1 looks straightforward: serial number `١`, date `٩٣٨`, block number `٤١٢٩`, parcel number `٥١`, category number `١٢`, area `٢,٢٧٩`, and nature of entry `تح`.\n\nThen, row 2 throws a curveball. The serial number is `٢`, which confirms that the column is intact, but the curly bracket connecting `cat_no` `١٢` and `١٦`, along with `area` `٢,٢٧٩` and `٢,٠٦٩`, is interesting. It indicates a multi-category parcel, suggesting that `٢` doesn't have its own block or parcel number, and the date column is also blank. It belongs to the same parcel, `٥١`, as row 1. I'm going to have to make note of this relationship for any calculations.\n\nMoving on to row 3: serial number `٣`, date is a ditto mark, block number `٤١٤٦`, parcel number `٨٩`, category number `١٢`, area `٨٤٢`, and a ditto mark for the nature of entry. That confirms that the `\"` is a ditto. It looks like it's a comma-like ditto, let's keep an eye on how it appears across the data.\n\nNow, row 4 presents a potential issue: serial number `٤`, date (ditto mark), block number (ditto mark), parcel number `٩٢`, category number `١٢`, area `٢٢١`, and another ditto mark for the nature of entry. There might be some ambiguity around the parcel number. Let me double-check the values.\n\nLooking at rows 3, 4, 5, and 6, the block numbers are being dittoed or there's a tick (looks like a vertical tick/comma). The parcel numbers are `٨٩`, `٩٥`, `٩٢`, and `٩٤` respectively.\n\nAnd finally, I'll review the areas of rows 3, 4, 5, 6, to check for any inconsistencies and confirm the values, so that I don't confuse `٨٤٢` and `١,٨٤٢`. I can also use Python to check for decimal inconsistencies. I'll need to write some code to handle this, as well as to crop the right-hand page to check the taxes, so I can verify the readings and calculate properly.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 13,
+          "type": "code_execution_call",
+          "round": 4,
+          "code": "# Let's crop the columns for Tax and Net Assessment to calculate/verify the digits\nplt.figure(figsize=(15, 8))\nplt.imshow(cv2.cvtColor(img[:1800, 1000:2500], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('taxes_top.png')\n"
+        },
+        {
+          "step": 14,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 15,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step15_img00.png"
+          ]
+        },
+        {
+          "step": 16,
+          "type": "thought",
+          "text": "**Analyzing Tax Data and Identifying Discrepancies**\n\nOkay, here's what I'm seeing. I'm focusing on this \"Tax\" section, specifically the \"Tax Distribution List\" or \"Valuation List.\" Let's break this down systematically.\n\nFirst, I see in Row 1, that \"Tax LP\" is listed as null and \"Tax Mils\" is `.١٩` – which I need to quickly clarify if it's interpreted as `019` or `.19`. *Hmm, that doesn't seem right.* The net assessment in Row 1 is listed as `.٢٢`. *Wait, no, is it? Or is it `.٢٢` / `.٢٥`? I think it's `.٢٢` – but I'm going to double-check.* Okay, back to Row 1: Tax LP is null, and Tax Mils is still `.١٩`. *Hold on, let me focus!* Under the \"Reference to Register of Changes,\" things seem a little clearer. Volume No. has a checkmark `✓`. Serial No: is `.٢٤` – that seems to be confirmed. *Wait... In Row 1, the volume number also has a checkmark. Under serial number, its either .24, 024, or 24. It may be interpreted as .24. Seems consistent.*\n\nI'm starting to spot some potential inconsistencies here, which I need to get to the bottom of with certainty. I think the best approach now is to write a quick Python script. I'll use it to meticulously crop those columns and zoom in precisely on each row. This will make it easier to interpret those numbers and hopefully, pinpoint any ambiguities or errors in the data.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 17,
+          "type": "code_execution_call",
+          "round": 5,
+          "code": "# Zoom in on Row 1 to Row 6 columns: serial, date, block, parcel, cat, area, nature of entry, new serial, ref changes, tax, total tax, net assessment\n# Let's crop the columns individually to read them clearly.\ncols = {\n    'serial_date_block_parcel': img[350:1250, 40:800],\n    'cat_area_nature': img[350:1250, 800:1200],\n    'ref_changes': img[350:1250, 1200:1500],\n    'tax_cols': img[350:1250, 1500:2100],\n    'net_assessment': img[350:1250, 2100:2500]\n}\n\nfor name, crop in cols.items():\n    cv2.imwrite(f'{name}.png', crop)\n"
+        },
+        {
+          "step": 18,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 19,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step19_img00.png"
+          ]
+        },
+        {
+          "step": 20,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step20_img00.png"
+          ]
+        },
+        {
+          "step": 21,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step21_img00.png"
+          ]
+        },
+        {
+          "step": 22,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step22_img00.png"
+          ]
+        },
+        {
+          "step": 23,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step23_img00.png"
+          ]
+        },
+        {
+          "step": 24,
+          "type": "thought",
+          "text": "**Detailed Data Analysis and Transcription**\n\nOkay, this is some fascinating detail, let's break this down systematically. I see three distinct sections of information here, seemingly relating to parcels and their associated records. Let's start with the first set of columns: `serial_date_block_parcel`.\n\n*   **Column `serial_date_block_parcel`:** The first row in this block looks like a straightforward record, with `serial_no` of '1' represented as `١`, a `date` of `٩٣٨`, a `Block No.` of `٤١٢٩`, and a `Parcel No.` of `٥١`. The subsequent rows seem to follow a pattern. Row 2 has null values for `date`, `Block No.`, and `Parcel No.` which indicates that the data are likely not available or relevant to this entry. Row 3, `serial_no` '3' (`٣`), and the others, repeats or uses a \"ditto\" symbol (written as `\"` ) for the `date` of `٩٣٨` and the remaining information for the `Block No.` and `Parcel No.` are `٤١٤٦` and `٨٩`. Row 4 and the others seem to have a similar \"ditto\" approach, and each is different by the Parcel Number.\n\n*   **Column `cat_area_nature`:** Moving on, this section is interesting, and it looks like it provides categorical information. Row 1 has a `Cat No.` of `١٢`, an `Area` of `٢,٢٧٩`, and a `Nature of Entry` of `تح` (transfer). Row 2 presents the same parcel number `٥١` as Row 1, though with a different `Cat No.` (`١٦`) and `Area` (`٢,٠٦٩`). However, the `Nature of Entry` is blank (null). Going on, Row 3 has a `Cat No.` of `١٢`, an `Area` of `٨٤٢`, and a `Nature of Entry` using a \"ditto\" symbol again (which I'll represent as `\"`, similar to the prior column). I see no commas in the `Area` data, and I'll need to interpret them as numbers. Rows 4, 5, and 6 continue with similar data entries. It appears the \"ditto\" mark is used to represent the value from the row above.\n\n*   **`ref_changes` and `tax_cols`:** Now, this gets a little more complex. I need to closely examine how these entries relate. First, let's consider the `ref_changes` information. In Row 1, I see `Volume No.` is a checkmark (`✓`) and `Serial No.` is `.٢٤`. Now, the issue is that it's written with a preceding dot `.`, so it might be `٠٢٤` (024) or `.٢٤`. The schema says that it can be Arabic digits, a checkmark (`✓`), or some English abbreviation or null. I'll need to remember this when transcribing. So, I will write the `Serial No.` as `٠٢٤` in this summary. Subsequent rows in the `Volume No.` column have a checkmark as well. The other `Serial No.` data can be `..٨` (two dots and then the digit ٨).\n\n    Now, let's go on to the `tax_cols`. Here, I have a column labeled \"Tax (Tax Distribution List or Valuation List)\". I have entries for `LP` and `Mils`. In row 1, `LP` is null (empty) and `Mils` is `.١٩`. In row 2, `LP` has a `-` value, and `Mils` is also `-`. But wait! Starting with row 3, under `LP`, there are some symbols. There is a `✓` and then a `-`? Wait! Or are these checkmarks or curly braces? They are marks under the `LP` column (there is no information for `LP` in row 1, but there is in row 2). But what are these? Are they curly braces? And what does the `-` signify? I need more context to understand the intent. The `Mils` values are written as `..٧`, `..٢`, `..٢`, and `. .١`. I am unsure of the significance of the spacing.\n\n    Now, under the \"Total Tax\" column, Row 6 has `.٢٢` (or `.٢٥`?). It's not clear what those values refer to.\n\n    I need to carefully look at these visual cues and potential relationships! A python script should help to get the values properly.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 25,
+          "type": "code_execution_call",
+          "round": 6,
+          "code": "# Crop middle part of taxes to see sums\nplt.figure(figsize=(15, 8))\nplt.imshow(cv2.cvtColor(img[1100:2100, 1500:2500], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('taxes_middle.png')\n"
+        },
+        {
+          "step": 26,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 27,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step27_img00.png"
+          ]
+        },
+        {
+          "step": 28,
+          "type": "thought",
+          "text": "**Analyzing Tax Data: A Deep Dive into Mils and Assessments**\n\nOkay, let's dive into this `taxes_middle.png` image. The initial observation is the first row's end, and I see some interesting tax data. Row 6 has something in Tax Mils that reads as `. .١`, but under Total Tax Mils, it's `.٢٢` or is it `.٢٥`? The digit's ambiguity is immediately triggering my expert eye. I need to be precise.\n\nLet's sum the Tax Mils values in this first block. Row 1: `.١٩`, Row 2: `-`, Row 3: `..٧`, Row 4: `..٢`, Row 5: `..٢`, Row 6: `..١`. Calculating, I get 19 + 0 + 7 + 2 + 2 + 1 = 31 mils. Yet, the Total Tax Mils says `.٢٢`. This discrepancy needs immediate attention. Why does the sum not match?\n\nWait a moment, I'm going to look at the Net Assessment of Row 1 (parcel ٥١). Ah! It's `.٢٢`? Now, let's look at the first row of Net Assessment in `taxes_middle.png` (or `taxes_top.png`) to compare. It’s also `.٢٢`. Is it really `٢٢` or `٢٢`? The handwriting is a little unclear.\n\nMoving to Row 7 (date ٩٣٩), the Net Assessment is `.٢٢`, and Total tax is `.٢٢`. I'm seeing `.٢٢` (with that loop... oh, it's a `٢` and a `٢`? No, it's `٢٢` or is it `٢٢`?). Row 8 (date ٩٤٠) shows Net Assessment as `.١٢٢` and Total tax as `.١٢٢`. Row 9 (date ٩٤١) has the same pattern: Net Assessment is `.٢٢`, Total tax is `.٢٢`.\n\nI need a clearer perspective on these digits. Examining the first row of `taxes_middle.png`: `. .١` (under Tax Mils), and under Total Tax Mils it’s `.٢٢`. It looks like it is `.٢٢`. I need absolute clarity. Is the digit after the first `٢` actually `٢` or is it something else? Let's check with more examples. Looking at the next row `.٢٢`, does that confirm my visual interpretation? No, it's `٢` with a line? No, it's `٢` and `٢`? Let's look at `.٢٢` on the next row. It has a `٢` and a `٢`? Wait, let's look at `.١٢٢`: `.١٢٢`? No, it's `.١٢٢` or `.١٢٢`?\n\nGiven the inherent ambiguity in the handwriting, I’m going to create a script to analyze individual digit shapes and compare them to known values (2, 3, 5, etc.) This is where the manual inspection becomes insufficient. I need an automated solution to handle this handwriting variability.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 29,
+          "type": "code_execution_call",
+          "round": 7,
+          "code": "# Let's crop the date column and the numbers below row 6 to see the full rows\nplt.figure(figsize=(15, 12))\nimg_mid_left = img[1000:2300, :1500]\nplt.imshow(cv2.cvtColor(img_mid_left, cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('mid_left.png')\n"
+        },
+        {
+          "step": 30,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 31,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step31_img00.png"
+          ]
+        },
+        {
+          "step": 32,
+          "type": "thought",
+          "text": "**Analyzing the Data in `mid_left.png`**\n\nOkay, let's dive into this `mid_left.png` file to extract the relevant dates and values. Starting with the data after row 6, which appears to be the last of the numbered rows associated with date `٩٣٨`. Now we're into the unnumbered rows - let's see what's what.\n\nThe first unnumbered row has date `٩٣٩` (939), which appears in the Date column. The block_no, parcel_no, cat_no, area, and nature_of_entry columns on the left are null. The next row has date `٩٤٠` (940), and the next has `٩٤١` (941).\n\nHere's where it gets interesting: the row after that shows `٩٤٢` (942). But wait... that number is crossed out and there's another value written in its place. Is it `٩٤٠`? Or perhaps `٩٤٥`? I need to clarify that. Let's see... a closer look at `mid_left.png` seems to indicate that the image is `٩٤٢` with a slash and then `٩٤٥`? I need to be more careful. Wait, no, there is `٩٤٢` in blue and then there is `٩٤٤` written below it. Time to zoom in and examine the date column very carefully. From approximately y=1000 to y=2300, let's take a closer look... I need to get this right.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 33,
+          "type": "code_execution_call",
+          "round": 8,
+          "code": "# Zoom into the Date column below row 6\nplt.figure(figsize=(6, 10))\nplt.imshow(cv2.cvtColor(img_mid_left[:, 200:500], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('date_col_zoom.png')\n"
+        },
+        {
+          "step": 34,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 35,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step35_img00.png"
+          ]
+        },
+        {
+          "step": 36,
+          "type": "thought",
+          "text": "**Initial Assessment and Date Analysis**\n\nOkay, this is exceptionally clear. Let's break down these dates methodically. First, we have: `٩٣٩`, `٩٤٠`, and `٩٤١`. Then, a potentially ambiguous one. It's written as `٤٢ / ٩٤٠` with a slash. At first I wasn't sure if it was `٩٤٢ / ٩٤٠` but I can see it is `٤٢ / ٩٤٠`. So, the context would suggest a period from 940 to 942, but the slash throws me off a bit. Let's make a note of the format: `٤٢ / ٩٤٠`.\n\nNext, we move on to the next date, and it looks like it's in purple ink. It seems to be `٩٤٢ / ٩٤٤`. Just to be sure, I'll write it down: `٩٤٢ / ٩٤٤`.\n\nNow, before I proceed, I need to make sure I haven't missed anything at the bottom. To be absolutely thorough, I'll crop the image from y=2000 down using Python and check. I don't want to overlook any crucial dates!\n\n\n",
+          "images": []
+        },
+        {
+          "step": 37,
+          "type": "code_execution_call",
+          "round": 9,
+          "code": "# Crop from y=2000 to y=3900, x=0 to x=2500\nplt.figure(figsize=(15, 12))\nimg_bottom_left = img[2000:3900, :2500]\nplt.imshow(cv2.cvtColor(img_bottom_left, cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('bottom_left.png')\n"
+        },
+        {
+          "step": 38,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 39,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step39_img00.png"
+          ]
+        },
+        {
+          "step": 40,
+          "type": "thought",
+          "text": "**Decoding the Document: A Deep Dive**\n\nOkay, here's what I'm seeing. My mind immediately latched onto the discrepancy around the numbers. Underneath `٩٤٢ / ٩٤٤`, there's a date: `٩٤٢ / ٩٤٥`, a blue line, and then a handwritten `٧` in red. Initially, I thought that was a serial number, or perhaps that's what's been written in the serial number column.\n\nI need to confirm by checking the column headers. Aha, the red `٧` is indeed in the \"Serial No.\" column, just as suspected. Next to that, the \"Date\" column confirms the `٩٤٢ / ٩٤٥` date, written in blue.\n\nMoving down, under \"Property recorded under,\" the \"Block No.\" is `٤١٤٦`, but the ink color is a bit uncertain. Initially, I saw red ink, but a closer look reveals it's likely purple or brown. The \"Parcel No.\" is `٨٩`, definitely red/purple. And the \"Parcel\" section has a \"Cat No.\" of `١٢`, also in red/purple, and an \"Area\" of `٨٤٢`, also red/purple. Now, there's faint pencil writing here. I recognize the characters as Arabic for \"war tax\" (ضريبة حرب), which is under the parcel number / cat number columns.\n\nSwitching focus, let's examine the \"Nature of Entry.\" The red ink says \"بيع\" (sale). Then, underneath, in pencil, we have that same \"war tax\" (ضريبة حرب).\n\nNow for \"New Serial No.\" It's `٤٢١` in red ink. And beside it, written in red: \"عقد ٤٥/٣/١٥\" (Contract 15/3/45).\n\nLet's circle back to \"ref_changes\" and the columns for this row. Under \"Volume No,\" there is something, `٨` I think. And the ink color is red/purple. Initially, I thought it was a check mark symbol (✓), but it's clearly `٨`. Wait, let's zoom in on this particular row!\n\n\n",
+          "images": []
+        },
+        {
+          "step": 41,
+          "type": "code_execution_call",
+          "round": 10,
+          "code": "# Zoom in on the row with red serial no ٧\nplt.figure(figsize=(15, 6))\nplt.imshow(cv2.cvtColor(img_bottom_left[100:600, :1500], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('red_row_zoom.png')\n"
+        },
+        {
+          "step": 42,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 43,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step43_img00.png"
+          ]
+        },
+        {
+          "step": 44,
+          "type": "thought",
+          "text": "**Analyzing the Ledger Entry**\n\nOkay, here we go. Let's break down this entry: serial number seven, check. And it's written in red ink, just like the others I've seen. Now, the date... Ah, interesting. Looks like we have a date field with the notation \"942 / 945\" in blue ink, with the '942' written above the '945'. Got it.\n\nNext, the block number is '4146', also in red. Parcel number '89' is red as well, followed by category number '12', in red. The area is listed as '842', yep, in red.\n\nNow, here's the core of the entry: the nature of the entry. It says \"بيع\" (sale) in red ink. But what's this underneath in pencil? \"ضريبة حرب.\" (War Tax). Is that a separate line item, or is it directly connected to the 'sale' entry? The pencil writing seems to span across columns, so it looks like it's a note related to the '89' parcel entry. I need to be precise here. Probably the notes section, but I'll make a note of this.\n\nNow, let's look at the subsequent rows to understand if this tax is a separate entry. The date in the row below is '946' written in blue or pencil. It's written as '946' with some numbers in the lower section, probably '47' from the look of it. I need to zoom in on the section below to be sure about this.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 45,
+          "type": "code_execution_call",
+          "round": 11,
+          "code": "# Zoom in on the lower date column\nplt.figure(figsize=(6, 10))\nplt.imshow(cv2.cvtColor(img_bottom_left[200:800, :400], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('lower_date_zoom.png')\n"
+        },
+        {
+          "step": 46,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 47,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step47_img00.png"
+          ]
+        },
+        {
+          "step": 48,
+          "type": "thought",
+          "text": "**Analyzing the Data Anomalies**\n\nOkay, hold on a second. This is odd. The region to the left of the `serial_no` column seems strangely empty, except for that red `٧`. That's a red flag! Let's shift our focus to the image on the left, let's look at the serial number column adjacent to `bottom_left.png`.\n\nAlright, the first column is definitely `Serial No` and the next column must be `Date`. Now, let's investigate the row containing the red `٧`. The corresponding Serial No. is indeed `٧`. The value in the next column is `٩٤٢ / ٩٤٥` written in blue.\n\nOkay, let's look to the next row after the one with `٧`. Does that row start with `٩٤٦`? Hmmm... let's check `bottom_left.png` at roughly y=700.\n\nWait a minute, in that second column (Date), are we looking at `٩٤٦ / ٤٧`? No, that's not right! Something doesn't jive here. Let's zoom in on that section. I'll focus on the region around `img_bottom_left[400:1500, :400]` to get a closer look. Something is amiss and needs to be clarified.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 49,
+          "type": "code_execution_call",
+          "round": 12,
+          "code": "# Zoom into the bottom left of the date column\nplt.figure(figsize=(6, 12))\nplt.imshow(cv2.cvtColor(img_bottom_left[350:1500, :400], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('bottom_left_date_column.png')\n"
+        },
+        {
+          "step": 50,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 51,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step51_img00.png"
+          ]
+        },
+        {
+          "step": 52,
+          "type": "thought",
+          "text": "**My Immediate Deductions**\n\nOkay, the initial view is useless, completely blank! Right, the clue, that blue writing, `٩٤٦` / `٤٧`, it's on the right-hand page. Let's refocus. Let me revisit that `bottom_left.png` image. Ah, yes! I remember now, the `٩٤٦` is within those columns on the right-hand page. Let's identify the specific columns. Time to do a little detective work here. In that `bottom_left.png` image, under those tax and assessment columns, I see numbers on the right side. I need to trace back which specific row they correspond to. Ah, wait, before I get carried away with individual rows, to align things perfectly, let me crop the whole right-hand page, from top to bottom, that should help me get a clearer overall picture of the relationships here.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 53,
+          "type": "code_execution_call",
+          "round": 13,
+          "code": "# Crop right page from y=300 to y=3900, x=2400 to x=5000\nplt.figure(figsize=(15, 20))\nimg_right = img[300:3900, 2400:5000]\nplt.imshow(cv2.cvtColor(img_right, cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('right_page.png')\n"
+        },
+        {
+          "step": 54,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 55,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step55_img00.png"
+          ]
+        },
+        {
+          "step": 56,
+          "type": "thought",
+          "text": "**Okay, here's the breakdown of my thought process as I'm going through this data transcription. It's crucial to be meticulous, and every detail matters.**\n\nFirst, I'm setting up the framework. I'm taking the time to confirm the column headers: Serial No, Date, Property details (Block No, Parcel No, Cat No, Area), Entry Nature, New Serial No, Register References (Volume & Serial), Tax (LP, Mils), Total Tax (LP, Mils), Exemptions (Entry No, Amount - LP, Mils), and Net Assessment (LP, Mils).\n\nNow, it's time to dive into Row 1, and I immediately start questioning the values. The date is straightforward. Then I have to think: is the tax `.19` or `019`? Gotta double-check the image, and the schema confirms Eastern Arabic digits with leading zeros. So, it's `019`. I pause to confirm.\n\nWhen I get to Net Assessment, I get the same issue: Is it `.22` or `.25`? And I start flipping between the image and my notes. Wait! It looks like `.22` in `taxes_middle.png`. Wait! It also seems like `.25` in `taxes_top.png` but I think it looks more `.22`. No, wait! I also see a dot! So it's `022`. And what about the sum? I start summing the numbers, but I am not certain if they add up. Then I look at the area and category numbers, which are critical to link all the related information. The first time, I think the tax amount might be wrong. So I pause and link `Parcel 51` with the different category and area! I look at the totals. I start linking the row tax amount with the `total_tax_mils`. Wait! Why is the tax for category 16 nil? I have to think! Is it exempted? Yes, usually woodland or something like this. I can see that. Total tax amount and numbers are very important. I start double-checking the information.\n\nNow I am going through the next rows.\n\nI continue: I start going through the next rows and the pattern, but the data is not written every time! And I write down the information. I look carefully in the `.png` files, and I start asking myself: Is the number a dot or a digit? I write down what I see: `..8`, `..2`, `..7`. I always make sure.\n\nWhen I get to Row 6, it looks the same. I start looking at the Total Tax and Net Assessment, and the numbers are connected.\n\nFor the unnumbered rows (7, 8), I look at the information and I transcribe it.\n\nIn Row 8, I get confused with the number `١٢٢` and I check it again.\n\nUltimately, I transcribe the data exactly as it appears. It's a meticulous process, but accuracy is paramount.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 57,
+          "type": "code_execution_call",
+          "round": 14,
+          "code": "# Zoom into the tax columns of row 7, 8, 9 (dates ٩٣٩, ٩٤٠, ٩٤١)\nplt.figure(figsize=(12, 6))\nplt.imshow(cv2.cvtColor(img[1100:1650, 1400:2500], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('taxes_unnum_1.png')\n"
+        },
+        {
+          "step": 58,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 59,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step59_img00.png"
+          ]
+        },
+        {
+          "step": 60,
+          "type": "thought",
+          "text": "**Deciphering the Tax Data: A Detailed Analysis**\n\nOkay, this is fantastic! I've got a handle on the data, and it's coming into focus. Let's dig into `taxes_unnum_1.png` and break down this initial block of data.\n\nMy first observation is in row 6 (the first data row), under \"Tax Mils\": it initially appears as `. . ١`. But wait, the \"Total Tax Mils\" entry is `.٢٢`! I need to be sure. Is it definitely `.٢٢`? The digits are `٢` and `٢` - let's verify.  The first digit has an angle, definitely a `٢`, and so does the second.  It *seems* to be `.٢٢`, but is it possible it could be `.٢٥`?\n\nThen I notice row 7 (date ٩٣٩). Looking closer, I can see a faint `.٢٢` written under \"Tax Mils\" – it looks like pencil.  The \"Total Tax Mils\" and \"Net Assessment Mils\" also contain `.٢٢`, but in black ink, confirming it.\n\nI'm focusing in now on the `٢` and `٢`. Is it twenty-two or twenty-five? The second digit has a curved head and a stem, it's `٢`. The first one as well! Then in row 8 (date ٩٤٠) the \"Total Tax LP\" field is empty (that's the dot, or zero).  Under \"Total Tax Mils\" in row 3 it is `٠٢٢`!  Ah! And the \"Net Assessment Mils\" is also `٠٢٢` in row 8!\n\nLooking at row 9 (date ٩٤١), I see \"Total Tax Mils\" as `.٢٢` and \"Net Assessment Mils\" as `.٢٢` again. It's consistently `٢٢` mils for these years. I think I'll write them as `٠٢٢` now (or `.٢٢`, it's the same, really). Let's transcribe them.\n\nFor row 7 (٩٣٩):\n\n*   Tax Mils: `٠٢٢`\n*   Total Tax Mils: `٠٢٢`\n*   Net Assessment Mils: `٠٢٢`\n\nFor row 8 (٩٤٠):\n\n*   Tax Mils: null\n*   Total Tax Mils: `٠٢٢`\n*   Net Assessment Mils: `٠٢٢`\n\nFor row 9 (٩٤١):\n\n*   Tax Mils: null\n*   Total Tax Mils: `٠٢٢`\n*   Net Assessment Mils: `٠٢٢`\n\nPerfect! It's so clear now. Moving on, I will zoom on the next unnumbered rows and crop the area for the tax columns, from y=1600 to y=2300!\n\n\n",
+          "images": []
+        },
+        {
+          "step": 61,
+          "type": "code_execution_call",
+          "round": 15,
+          "code": "# Zoom into the tax columns of the next unnumbered rows (below date ٩٤١)\nplt.figure(figsize=(12, 6))\nplt.imshow(cv2.cvtColor(img[1600:2300, 1400:2500], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('taxes_unnum_2.png')\n"
+        },
+        {
+          "step": 62,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 63,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step63_img00.png"
+          ]
+        },
+        {
+          "step": 64,
+          "type": "thought",
+          "text": "**Analyzing the Tax Data**\n\nOkay, this is exciting! Let's dive into `taxes_unnum_2.png`. The goal is to figure out what's going on, especially in the context of dates. First, I see a date below `٩٤١`. Then I jump to row 10, which appears to have the date `٤٢/٩٤٠` with a line through it, or is it just `٤٢ / ٩٤٠`? I'll need to confirm that with the `date_col_zoom.png` image for certainty.\n\nNext, I'm examining row 1 and focusing on the \"Total Tax Mils\" entry. There it is, is it `.٥٦`? I see what might be a dot followed by a `٥` and a `٦`? Hold on, wait a second! Is it just `٥٦`? I need to clarify the writing, especially the difference between `٥`, `٦` and `٠` in Arabic numerals. Ah, the second digit has a loop that makes it a `٦`, meaning the entry is simply `٥٦`. That will be useful for later!\n\nLooking at the next row (under the purple line) I see the date `٩٤٢ / ٩٤٤`. \"Total Tax Mils\" is `١١٢` (in purple ink), and \"Net Assessment Mils\" is also `١١٢` (again in purple).\n\nNow, there's another row. It doesn't have a date on the left, which is weird, I'll need to check the image at `bottom_left.png` at y=100. Ah, but wait, on the right, under \"Total Tax Mils\" there's what appears to be `.٥٦` (or maybe `.٥٦`?) in pencil/faint ink. The same entry shows under \"Net Assessment Mils\".\n\nHmm, then below that, there's `١٦٨` over `٢٢٤`. Now, the relationship is apparent, a fraction `١٦٨ / ٢٢٤`! Wait a minute, what does that fraction mean? It seems to represent a relationship between those tax values.\n\nI need to confirm by inspecting the last row, with serial `٧` and compare those values with others.\n\nI have a plan! I'll write some Python code to crop the images from y=2200 to y=3800, focusing on the tax columns. That should help me see the bottom rows and their tax information more clearly. Then I can continue analysis!\n\n\n",
+          "images": []
+        },
+        {
+          "step": 65,
+          "type": "code_execution_call",
+          "round": 16,
+          "code": "# Zoom into the tax columns of the bottom rows\nplt.figure(figsize=(12, 10))\nplt.imshow(cv2.cvtColor(img[2200:3800, 1400:2500], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('taxes_bottom.png')\n"
+        },
+        {
+          "step": 66,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 67,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step67_img00.png"
+          ]
+        },
+        {
+          "step": 68,
+          "type": "thought",
+          "text": "**Analyzing Tax Data and Identifying Date Discrepancies**\n\nOkay, this is intriguing! My initial focus is on aligning the data in `taxes_bottom.png` with the corresponding rows. Let's start with Serial No. 7, which I see references a date of 942/945. Immediately, I notice the `.48` value under both \"Tax Mils\" and \"Net Assessment Mils,\" which are neatly written in blue ink. Below that, I find the numbers 144 and 192 (written in blue pencil).\n\nNow, let's correlate these with the image `taxes_bottom.png`, row 1. I see the same `.48` in both \"Tax Mils\" and \"Net Assessment,\" and, below that, the consistent 144 and 192 in blue pencil. This pattern repeats in subsequent blocks on that image. My immediate thought is, \"Why 144 and 192? What is their significance?\"\n\nTo address that, I'm going to align these with their left-page counterparts in `bottom_left.png`. Checking the data in the Date column, I find that Serial No. 7 has the date 942/945. The Block No. is 4146, Parcel No. is 89, Cat is 12, Area is 842. The entry is a Sale, and the new serial number is 421. More importantly, the Tax Mils and Net Assessment Mils also share the consistent .48 value and are accompanied by those numbers.\n\nNow, my attention is drawn to the dates at the bottom of the left page. Here's where it gets interesting. I see a date that reads 946 and then a number below it. It is difficult to read. I suspect it's 47, but this is uncertain. Below that, the next date reads 948 with a number written below it. I need to zoom in on these dates closely to confirm this 947 or 948. I need to resolve any potential discrepancies in the dates, and then I can gain a clearer understanding of the data in the images.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 69,
+          "type": "code_execution_call",
+          "round": 17,
+          "code": "# Zoom in on the very bottom portion of the Date column\nplt.figure(figsize=(6, 10))\nplt.imshow(cv2.cvtColor(img_bottom_left[500:1500, :400], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('bottom_dates.png')\n"
+        },
+        {
+          "step": 70,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 71,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step71_img00.png"
+          ]
+        },
+        {
+          "step": 72,
+          "type": "thought",
+          "text": "**Decoding the Date Locations**\n\nOkay, the document is blank. First things first: I need to pinpoint where the dates are located. Let's start with `bottom_left.png`. Ah, there we go, on the *left* edge! Always a sneaky spot.\n\nI'm seeing something at y=100: `٩٤٢ / ٩٤٥`. Blue, slanted, typical. Then, lower down at y=400, I initially thought it was just `٩٤٦` with `٤٧` underneath, but hold on, my eyes are deceiving me. It's actually `٩٤٦ / ٤٧`. Still slanted and blue. Now, *is* that a date? It seems to be on the left edge of the page. It's even to the left of the \"Serial No\" column, so is it a related piece of data?\n\nRight, let's zoom in on that left edge, from top to bottom. Time to get granular and make sure I don't miss anything. Need to confirm the column it's in.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 73,
+          "type": "code_execution_call",
+          "round": 18,
+          "code": "# Zoom into the left edge of the bottom page\nplt.figure(figsize=(6, 12))\nplt.imshow(cv2.cvtColor(img_bottom_left[:, :300], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('left_edge_bottom.png')\n"
+        },
+        {
+          "step": 74,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 75,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step75_img00.png"
+          ]
+        },
+        {
+          "step": 76,
+          "type": "thought",
+          "text": "**Analysis of Tax Register Entries**\n\nOkay, let's break this down systematically. I'm focusing on identifying and understanding the structure of these tax register entries, particularly the unnumbered rows that appear in the register. My immediate task is to correlate information between various images to create a comprehensive view of the entries.\n\nFirst, I've noticed the positioning of date information within the image and how it corresponds to the serial number. In `bottom_left.png`, I can see that the date `٩٤٢/٩٤٥` aligns with Serial No. `٧`, suggesting a key link between numbered and unnumbered entries. The presence of the blue writing, particularly the dates, appears to be significant, as does the data in the white margins, which will need further examination in relation to the main entry layout.\n\nI've got a grasp of the data format: The register contains entries that are not numbered, but correspond to dates and have no assigned serial number. These unnumbered entries are not empty. I am attempting to align them with the information on the right side of the register, specifically the Tax and Net Assessment columns. I am carefully tracing the layout of each column to understand their structure.\n\nA notable observation is the presence of repeating values in the Tax Mils and Net Assessment Mils columns, which are consistently showing `.٤٨`. I've also identified related data like `.٤٨` and cumulative or arrears data such as `١٤٤` and `١٩٢`. I will need to understand what these figures represent.\n\nLet's dive deeper into the structure of these entries. I am tracing the connection between the entries in the left and right pages to confirm their alignment. I'm observing a distinction between the numbered and unnumbered rows and I am tracing these different rows to understand where they are placed relative to each other.\n\nThere's a consistent pattern of unnumbered rows between the numbered rows with the following structure:\n*   Unnumbered row for Date: `٩٣٩`. Total Tax Mils: `.٢٢`. Net Assessment Mils: `.٢٢`.\n*   Unnumbered row for Date: `٩٤٠`. Total Tax Mils: `٠٢٢`. Net Assessment Mils: `٠٢٢`.\n*   Unnumbered row for Date: `٩٤١`. Total Tax Mils: `.٢٢`. Net Assessment Mils: `.٢٢`.\n*   Unnumbered row for Date: `٤٢/٩٤٠`. Total Tax Mils: `.٥٦`. Net Assessment Mils: `.٥٦`.\n*   Unnumbered row for Date: `٩٤٢/٩٤٤`. Total Tax Mils: `١١٢`. Net Assessment Mils: `١١٢`.\n*   And finally, the `٩٤٢/٩٤٥` row for Serial No. `٧`. Total Tax Mils: `.٥٦`. Net Assessment Mils: `.٥٦`.\n\nThe alignment of the `٩٤٢/٩٤٥` row as both a numbered and unnumbered entry is a key insight. There are rows with distinct Tax and Net Assessment values to these rows. There appears to be a pattern here, and I need to identify it. This consistency is critical for relating the numbered and unnumbered entries.\n\nTo summarize, I'm working to connect the dots between images to connect:\n*   Serial Numbers and Dates.\n*   The Left and Right Page Entries,\n*   Numbered vs. Unnumbered Rows.\n*   Tax Mils, Net Assessment and any related cumulative amounts.\n\nI need to confirm if these unnumbered rows are simply additional entries for the same property or reflect some other type of tax information. I can use the existing rows and these unnumbered rows to analyze data from the entries, extract relevant features and understand the nature of the tax register data.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 77,
+          "type": "code_execution_call",
+          "round": 19,
+          "code": "# Let's crop horizontally across both pages from y=1800 to y=2800 to see the transition\nplt.figure(figsize=(20, 10))\nimg_transition = img[1800:2800, :]\nplt.imshow(cv2.cvtColor(img_transition, cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('transition_horizontal.png')\n"
+        },
+        {
+          "step": 78,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 79,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step79_img00.png"
+          ]
+        },
+        {
+          "step": 80,
+          "type": "thought",
+          "text": "**Ledger Analysis: A Detailed Breakdown**\n\nOkay, here's the breakdown as I see it. This is fascinating! We're dealing with a clear horizontal ledger, and the key is deciphering the relationships between the data entries.\n\nFirst, let's establish the key players: we have a date column, total tax/net assessment mils, and what appears to be a serial number. The colors are important, too; purple seems to signify a base year/rate, while blue marks a change or adjustment.\n\n1.  **Initial Period:** We start with dates like `٩٤٢ / ٩٤٤`, which in the initial analysis yields a total tax and net assessment of `١١٢` mils.\n\n2.  **The Unnumbered Row:** Then, we have an unnumbered row that is absolutely crucial: `.٥٦` mils, with a value of `١٦٨` over `٢٢٤` beneath it. The significant part is that this row has no explicit date on the left. Based on the analysis of dates, and the row with a red serial number `٧`, it looks like this may pertain to the period prior to `٩٤٢ / ٩٤٥`. This is a calculated rate for this set of tax year, not the actual amount of tax for the year. This annual rate is `.٥٦` which is calculated to be equivalent to the annual tax of 3 years and 4 years.\n\n3.  **The Red Serial `٧` Row:** The red serial `٧` next has the date `٩٤٢ / ٩٤٥` (written in blue). This row signifies a major change. We see a tax of `.٤٨` mils. This is interesting as this is a change from what has been computed in the prior entry, this must be a sale! The contract (`عقد ٤٥/٣/١٥`) and the sale (`بيع`) with serial `٤٢١` has the corresponding sale of the plot with area of `٨٤٢`. This means that the `.٤٨` represents the new tax rate for that parcel! The math confirms this as this plot has a rate of 48 mils/year (3 years and 4 years tax are 144 and 192, respectively).\n\n4.  **Tax Rate Dynamics:** Let's look at the earlier rate. In the first block we see that tax value changes from `.٢٢` to `.٥٦` and then `.١١٢`. The annual rate starts at `.٢٢` and goes to `.٥٦` when the rates for 2 years are presented at the same time and then `١١٢` which is double of `.٥٦` and `.٥٦` over `١`. `١١٢` could have been calculated for two years when the first rate of `٠٥٦` was assessed. This is how the rate change is being tracked!\n\n5.  **Reconciling Visual Rows:** It's absolutely critical to make sure the data rows are correct. I need to list the rows in the visual representation and then go through the associated entries on the right.\n\nSo, it seems we have a ledger that cleanly shows the annual tax rate, then tracks a change with a sale/split of a plot of land and a subsequent rate reduction.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 81,
+          "type": "code_execution_call",
+          "round": 20,
+          "code": "# Let's count rows by looking at the Date column from top to bottom\n# We will crop the Date column from y=300 to y=3900\nplt.figure(figsize=(5, 20))\nplt.imshow(cv2.cvtColor(img[300:3900, 200:450], cv2.COLOR_BGR2RGB))\nplt.axis('off')\nplt.savefig('full_date_column.png')\n"
+        },
+        {
+          "step": 82,
+          "type": "code_execution_result",
+          "result": "",
+          "is_error": false
+        },
+        {
+          "step": 83,
+          "type": "model_output",
+          "texts": [],
+          "images": [
+            "variations_out/gemini-3.5-flash__medium/model_step83_img00.png"
+          ]
+        },
+        {
+          "step": 84,
+          "type": "thought",
+          "text": "**Detailed Analysis of Ledger Data**\n\nOkay, let's break this down systematically. I'm looking at this date column image and tracing its lines, meticulously going through each entry. I have to make sure every single piece of information is recorded correctly, and its relationship to the surrounding context is understood.\n\nLine by line, I'm noting the correspondence between the \"Serial No\" and \"Date\" columns, including blank cells, because that could indicate data gaps or relationships between rows. It's key to identify all the nuances in this data. I'm noting `٩٣٨` under the `Date` for the first entry, then any missing `Date` cells, and also noting the numbers that repeat on the `Date` column. Now, it's clear what's happening.\n\nI'm realizing that some lines have a full data set (like line 1, where the fields are all populated) and others don't, which is normal for ledgers. When I encounter a blank line, it's crucial to confirm whether it has data in other columns, so I don't miss anything. For example, there's a blank row in the \"Date\" column on line 12. But I see that the other columns, like \"Tax Mils\" and \"Net Assessment Mils,\" have pencil notes, with different sums, that must be taken into account. I need to figure out what that entry is for, and make sure it is added as a separate row to be output. I suspect it's a tax calculation related to previous periods.\n\nI'm making a row-by-row mapping, and adding each field (serial_no, date, block_no, parcel_no, cat_no, area, nature_of_entry, new_serial_no, ref_volume_no, ref_serial_no, tax_lp, tax_mils, total_tax_lp, total_tax_mils, exemption_entry_no, exemption_amount_lp, exemption_amount_mils, net_assessment_lp, net_assessment_mils, notes, confidence) for each row. The \"notes\" field is critical.\n\nI am meticulously transferring the numbers, Arabic characters, and any other indicators, and if I notice the use of ditto marks (\"`), I am using it in the \"nature_of_entry\" field.\n\nFor this data set, I am making a thorough audit of the numbers, and comparing with the image, and then adding them to the JSON output. I will write a high confidence flag for the result.\n\n\n",
+          "images": []
+        },
+        {
+          "step": 85,
+          "type": "model_output",
+          "texts": [
+            "{\n  \"rows\": [\n    {\n      \"serial_no\": \"١\",\n      \"date\": \"٩٣٨\",\n      \"block_no\": \"٤١٢٩\",\n      \"parcel_no\": \"٥١\",\n      \"cat_no\": \"١٢\",\n      \"area\": \"٢,٢٧٩\",\n      \"nature_of_entry\": {\n        \"arabic\": \"تح\",\n        \"english\": \"transfer\"\n      },\n      \"new_serial_no\": null,\n      \"ref_volume_no\": \"✓\",\n      \"ref_serial_no\": \"٠٢٤\",\n      \"tax_lp\": null,\n      \"tax_mils\": \"٠١٩\",\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": null,\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": \"٠٢٢\",\n      \"notes\": null,\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": \"٢\",\n      \"date\": null,\n      \"block_no\": null,\n      \"parcel_no\": null,\n      \"cat_no\": \"١٦\",\n      \"area\": \"٢,٠٦٩\",\n      \"nature_of_entry\": null,\n      \"new_serial_no\": null,\n      \"ref_volume_no\": \"✓\",\n      \"ref_serial_no\": null,\n      \"tax_lp\": \"–\",\n      \"tax_mils\": \"–\",\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": null,\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": null,\n      \"notes\": null,\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": \"٣\",\n      \"date\": \"\\\"\",\n      \"block_no\": \"٤١٤٦\",\n      \"parcel_no\": \"٨٩\",\n      \"cat_no\": \"١٢\",\n      \"area\": \"٨٤٢\",\n      \"nature_of_entry\": {\n        \"arabic\": \"\\\"\",\n        \"english\": \"ditto\"\n      },\n      \"new_serial_no\": null,\n      \"ref_volume_no\": \"✓\",\n      \"ref_serial_no\": \"..٨\",\n      \"tax_lp\": \"–\",\n      \"tax_mils\": \"..٧\",\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": null,\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": null,\n      \"notes\": null,\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": \"٤\",\n      \"date\": \"\\\"\",\n      \"block_no\": \"\\\"\",\n      \"parcel_no\": \"٩٥\",\n      \"cat_no\": \"١٢\",\n      \"area\": \"٢٢١\",\n      \"nature_of_entry\": {\n        \"arabic\": \"\\\"\",\n        \"english\": \"ditto\"\n      },\n      \"new_serial_no\": null,\n      \"ref_volume_no\": \"✓\",\n      \"ref_serial_no\": \"..٨\",\n      \"tax_lp\": null,\n      \"tax_mils\": \"..٢\",\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": null,\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": null,\n      \"notes\": null,\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": \"٥\",\n      \"date\": \"\\\"\",\n      \"block_no\": \"\\\"\",\n      \"parcel_no\": \"٩٢\",\n      \"cat_no\": \"١٢\",\n      \"area\": \"٢٥١\",\n      \"nature_of_entry\": {\n        \"arabic\": \"\\\"\",\n        \"english\": \"ditto\"\n      },\n      \"new_serial_no\": null,\n      \"ref_volume_no\": \"✓\",\n      \"ref_serial_no\": \"..٨\",\n      \"tax_lp\": null,\n      \"tax_mils\": \"..٢\",\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": null,\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": null,\n      \"notes\": null,\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": \"٦\",\n      \"date\": \"\\\"\",\n      \"block_no\": \"\\\"\",\n      \"parcel_no\": \"٩٤\",\n      \"cat_no\": \"١٢\",\n      \"area\": \"٨٢١\",\n      \"nature_of_entry\": {\n        \"arabic\": \"\\\"\",\n        \"english\": \"ditto\"\n      },\n      \"new_serial_no\": null,\n      \"ref_volume_no\": \"✓\",\n      \"ref_serial_no\": \"..٨\",\n      \"tax_lp\": null,\n      \"tax_mils\": \"..١\",\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": \"٠٢٢\",\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": null,\n      \"notes\": null,\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": null,\n      \"date\": \"٩٣٩\",\n      \"block_no\": null,\n      \"parcel_no\": null,\n      \"cat_no\": null,\n      \"area\": null,\n      \"nature_of_entry\": null,\n      \"new_serial_no\": null,\n      \"ref_volume_no\": null,\n      \"ref_serial_no\": null,\n      \"tax_lp\": null,\n      \"tax_mils\": \"٠٢٢\",\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": \"٠٢٢\",\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": \"٠٢٢\",\n      \"notes\": null,\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": null,\n      \"date\": \"٩٤٠\",\n      \"block_no\": null,\n      \"parcel_no\": null,\n      \"cat_no\": null,\n      \"area\": null,\n      \"nature_of_entry\": null,\n      \"new_serial_no\": null,\n      \"ref_volume_no\": null,\n      \"ref_serial_no\": null,\n      \"tax_lp\": null,\n      \"tax_mils\": null,\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": \"٠٢٢\",\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": \"٠٢٢\",\n      \"notes\": null,\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": null,\n      \"date\": \"٩٤١\",\n      \"block_no\": null,\n      \"parcel_no\": null,\n      \"cat_no\": null,\n      \"area\": null,\n      \"nature_of_entry\": null,\n      \"new_serial_no\": null,\n      \"ref_volume_no\": null,\n      \"ref_serial_no\": null,\n      \"tax_lp\": null,\n      \"tax_mils\": null,\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": \"٠٢٢\",\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": \"٠٢٢\",\n      \"notes\": null,\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": null,\n      \"date\": \"٤٢ / ٩٤٠\",\n      \"block_no\": null,\n      \"parcel_no\": null,\n      \"cat_no\": null,\n      \"area\": null,\n      \"nature_of_entry\": null,\n      \"new_serial_no\": null,\n      \"ref_volume_no\": null,\n      \"ref_serial_no\": null,\n      \"tax_lp\": null,\n      \"tax_mils\": null,\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": \"٠٥٦\",\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": \"٠٥٦\",\n      \"notes\": null,\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": null,\n      \"date\": \"٩٤٢ / ٩٤٤\",\n      \"block_no\": null,\n      \"parcel_no\": null,\n      \"cat_no\": null,\n      \"area\": null,\n      \"nature_of_entry\": null,\n      \"new_serial_no\": null,\n      \"ref_volume_no\": null,\n      \"ref_serial_no\": null,\n      \"tax_lp\": null,\n      \"tax_mils\": null,\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": \"١١٢\",\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": \"١١٢\",\n      \"notes\": null,\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": null,\n      \"date\": null,\n      \"block_no\": null,\n      \"parcel_no\": null,\n      \"cat_no\": null,\n      \"area\": null,\n      \"nature_of_entry\": null,\n      \"new_serial_no\": null,\n      \"ref_volume_no\": null,\n      \"ref_serial_no\": null,\n      \"tax_lp\": null,\n      \"tax_mils\": null,\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": \"٠٥٦\",\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": \"٠٥٦\",\n      \"notes\": \"Contains pencil notes ١٦٨ / ٢٢٤ below ٥٦\",\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": \"٧\",\n      \"date\": \"٩٤٢ / ٩٤٥\",\n      \"block_no\": \"٤١٤٦\",\n      \"parcel_no\": \"٨٩\",\n      \"cat_no\": \"١٢\",\n      \"area\": \"٨٤٢\",\n      \"nature_of_entry\": {\n        \"arabic\": \"بيع\",\n        \"english\": \"sale\"\n      },\n      \"new_serial_no\": \"٤٢١\",\n      \"ref_volume_no\": null,\n      \"ref_serial_no\": null,\n      \"tax_lp\": null,\n      \"tax_mils\": \"٠٤٨\",\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": null,\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": \"٠٤٨\",\n      \"notes\": \"Contract note: عقد ٤٥/٣/١٥. Contains pencil calculations ١٤٤ / ١٩٢ below ٤٨\",\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": null,\n      \"date\": \"٩٤٦ / ٤٧\",\n      \"block_no\": null,\n      \"parcel_no\": null,\n      \"cat_no\": null,\n      \"area\": null,\n      \"nature_of_entry\": null,\n      \"new_serial_no\": null,\n      \"ref_volume_no\": null,\n      \"ref_serial_no\": null,\n      \"tax_lp\": null,\n      \"tax_mils\": \"٠٤٨\",\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": null,\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": \"٠٤٨\",\n      \"notes\": \"Contains pencil calculations ١٤٤ / ١٩٢ below ٤٨\",\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    },\n    {\n      \"serial_no\": null,\n      \"date\": \"٩٤٨ / ٤٩\",\n      \"block_no\": null,\n      \"parcel_no\": null,\n      \"cat_no\": null,\n      \"area\": null,\n      \"nature_of_entry\": null,\n      \"new_serial_no\": null,\n      \"ref_volume_no\": null,\n      \"ref_serial_no\": null,\n      \"tax_lp\": null,\n      \"tax_mils\": \"٠٤٨\",\n      \"total_tax_lp\": null,\n      \"total_tax_mils\": null,\n      \"exemption_entry_no\": null,\n      \"exemption_amount_lp\": null,\n      \"exemption_amount_mils\": null,\n      \"net_assessment_lp\": null,\n      \"net_assessment_mils\": \"٠٤٨\",\n      \"notes\": \"Contains pencil calculations ١٤٤ / ١٩٢ below ٤٨\",\n      \"confidence\": \"high\",\n      \"reviewer_note\": null\n    }\n  ]\n}"
+          ],
+          "images": []
+        }
+      ],
+      "rows_raw": [
+        {
+          "serial_no": "١",
+          "date": "٩٣٨",
+          "block_no": "٤١٢٩",
+          "parcel_no": "٥١",
+          "cat_no": "١٢",
+          "area": "٢,٢٧٩",
+          "nature_of_entry": {
+            "arabic": "تح",
+            "english": "transfer"
+          },
+          "new_serial_no": null,
+          "ref_volume_no": "✓",
+          "ref_serial_no": "٠٢٤",
+          "tax_lp": null,
+          "tax_mils": "٠١٩",
+          "total_tax_lp": null,
+          "total_tax_mils": null,
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": "٠٢٢",
+          "notes": null,
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": "٢",
+          "date": null,
+          "block_no": null,
+          "parcel_no": null,
+          "cat_no": "١٦",
+          "area": "٢,٠٦٩",
+          "nature_of_entry": null,
+          "new_serial_no": null,
+          "ref_volume_no": "✓",
+          "ref_serial_no": null,
+          "tax_lp": "–",
+          "tax_mils": "–",
+          "total_tax_lp": null,
+          "total_tax_mils": null,
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": null,
+          "notes": null,
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": "٣",
+          "date": "\"",
+          "block_no": "٤١٤٦",
+          "parcel_no": "٨٩",
+          "cat_no": "١٢",
+          "area": "٨٤٢",
+          "nature_of_entry": {
+            "arabic": "\"",
+            "english": "ditto"
+          },
+          "new_serial_no": null,
+          "ref_volume_no": "✓",
+          "ref_serial_no": "..٨",
+          "tax_lp": "–",
+          "tax_mils": "..٧",
+          "total_tax_lp": null,
+          "total_tax_mils": null,
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": null,
+          "notes": null,
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": "٤",
+          "date": "\"",
+          "block_no": "\"",
+          "parcel_no": "٩٥",
+          "cat_no": "١٢",
+          "area": "٢٢١",
+          "nature_of_entry": {
+            "arabic": "\"",
+            "english": "ditto"
+          },
+          "new_serial_no": null,
+          "ref_volume_no": "✓",
+          "ref_serial_no": "..٨",
+          "tax_lp": null,
+          "tax_mils": "..٢",
+          "total_tax_lp": null,
+          "total_tax_mils": null,
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": null,
+          "notes": null,
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": "٥",
+          "date": "\"",
+          "block_no": "\"",
+          "parcel_no": "٩٢",
+          "cat_no": "١٢",
+          "area": "٢٥١",
+          "nature_of_entry": {
+            "arabic": "\"",
+            "english": "ditto"
+          },
+          "new_serial_no": null,
+          "ref_volume_no": "✓",
+          "ref_serial_no": "..٨",
+          "tax_lp": null,
+          "tax_mils": "..٢",
+          "total_tax_lp": null,
+          "total_tax_mils": null,
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": null,
+          "notes": null,
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": "٦",
+          "date": "\"",
+          "block_no": "\"",
+          "parcel_no": "٩٤",
+          "cat_no": "١٢",
+          "area": "٨٢١",
+          "nature_of_entry": {
+            "arabic": "\"",
+            "english": "ditto"
+          },
+          "new_serial_no": null,
+          "ref_volume_no": "✓",
+          "ref_serial_no": "..٨",
+          "tax_lp": null,
+          "tax_mils": "..١",
+          "total_tax_lp": null,
+          "total_tax_mils": "٠٢٢",
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": null,
+          "notes": null,
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": null,
+          "date": "٩٣٩",
+          "block_no": null,
+          "parcel_no": null,
+          "cat_no": null,
+          "area": null,
+          "nature_of_entry": null,
+          "new_serial_no": null,
+          "ref_volume_no": null,
+          "ref_serial_no": null,
+          "tax_lp": null,
+          "tax_mils": "٠٢٢",
+          "total_tax_lp": null,
+          "total_tax_mils": "٠٢٢",
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": "٠٢٢",
+          "notes": null,
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": null,
+          "date": "٩٤٠",
+          "block_no": null,
+          "parcel_no": null,
+          "cat_no": null,
+          "area": null,
+          "nature_of_entry": null,
+          "new_serial_no": null,
+          "ref_volume_no": null,
+          "ref_serial_no": null,
+          "tax_lp": null,
+          "tax_mils": null,
+          "total_tax_lp": null,
+          "total_tax_mils": "٠٢٢",
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": "٠٢٢",
+          "notes": null,
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": null,
+          "date": "٩٤١",
+          "block_no": null,
+          "parcel_no": null,
+          "cat_no": null,
+          "area": null,
+          "nature_of_entry": null,
+          "new_serial_no": null,
+          "ref_volume_no": null,
+          "ref_serial_no": null,
+          "tax_lp": null,
+          "tax_mils": null,
+          "total_tax_lp": null,
+          "total_tax_mils": "٠٢٢",
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": "٠٢٢",
+          "notes": null,
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": null,
+          "date": "٤٢ / ٩٤٠",
+          "block_no": null,
+          "parcel_no": null,
+          "cat_no": null,
+          "area": null,
+          "nature_of_entry": null,
+          "new_serial_no": null,
+          "ref_volume_no": null,
+          "ref_serial_no": null,
+          "tax_lp": null,
+          "tax_mils": null,
+          "total_tax_lp": null,
+          "total_tax_mils": "٠٥٦",
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": "٠٥٦",
+          "notes": null,
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": null,
+          "date": "٩٤٢ / ٩٤٤",
+          "block_no": null,
+          "parcel_no": null,
+          "cat_no": null,
+          "area": null,
+          "nature_of_entry": null,
+          "new_serial_no": null,
+          "ref_volume_no": null,
+          "ref_serial_no": null,
+          "tax_lp": null,
+          "tax_mils": null,
+          "total_tax_lp": null,
+          "total_tax_mils": "١١٢",
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": "١١٢",
+          "notes": null,
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": null,
+          "date": null,
+          "block_no": null,
+          "parcel_no": null,
+          "cat_no": null,
+          "area": null,
+          "nature_of_entry": null,
+          "new_serial_no": null,
+          "ref_volume_no": null,
+          "ref_serial_no": null,
+          "tax_lp": null,
+          "tax_mils": null,
+          "total_tax_lp": null,
+          "total_tax_mils": "٠٥٦",
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": "٠٥٦",
+          "notes": "Contains pencil notes ١٦٨ / ٢٢٤ below ٥٦",
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": "٧",
+          "date": "٩٤٢ / ٩٤٥",
+          "block_no": "٤١٤٦",
+          "parcel_no": "٨٩",
+          "cat_no": "١٢",
+          "area": "٨٤٢",
+          "nature_of_entry": {
+            "arabic": "بيع",
+            "english": "sale"
+          },
+          "new_serial_no": "٤٢١",
+          "ref_volume_no": null,
+          "ref_serial_no": null,
+          "tax_lp": null,
+          "tax_mils": "٠٤٨",
+          "total_tax_lp": null,
+          "total_tax_mils": null,
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": "٠٤٨",
+          "notes": "Contract note: عقد ٤٥/٣/١٥. Contains pencil calculations ١٤٤ / ١٩٢ below ٤٨",
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": null,
+          "date": "٩٤٦ / ٤٧",
+          "block_no": null,
+          "parcel_no": null,
+          "cat_no": null,
+          "area": null,
+          "nature_of_entry": null,
+          "new_serial_no": null,
+          "ref_volume_no": null,
+          "ref_serial_no": null,
+          "tax_lp": null,
+          "tax_mils": "٠٤٨",
+          "total_tax_lp": null,
+          "total_tax_mils": null,
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": "٠٤٨",
+          "notes": "Contains pencil calculations ١٤٤ / ١٩٢ below ٤٨",
+          "confidence": "high",
+          "reviewer_note": null
+        },
+        {
+          "serial_no": null,
+          "date": "٩٤٨ / ٤٩",
+          "block_no": null,
+          "parcel_no": null,
+          "cat_no": null,
+          "area": null,
+          "nature_of_entry": null,
+          "new_serial_no": null,
+          "ref_volume_no": null,
+          "ref_serial_no": null,
+          "tax_lp": null,
+          "tax_mils": "٠٤٨",
+          "total_tax_lp": null,
+          "total_tax_mils": null,
+          "exemption_entry_no": null,
+          "exemption_amount_lp": null,
+          "exemption_amount_mils": null,
+          "net_assessment_lp": null,
+          "net_assessment_mils": "٠٤٨",
+          "notes": "Contains pencil calculations ١٤٤ / ١٩٢ below ٤٨",
+          "confidence": "high",
+          "reviewer_note": null
+        }
+      ],
+      "rows_sinai": [
+        {
+          "Serial_No": "١",
+          "Date": "٩٣٨",
+          "Property_recorded_under_Block_No": "٤١٢٩",
+          "Property_recorded_under_Parcel_No": "٥١",
+          "Parcel_Cat_No": "١٢",
+          "Parcel_Area": "٢,٢٧٩",
+          "Nature_of_Entry": "تح",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "✓",
+          "Reference_to_Register_of_Changes_Serial_No": "٠٢٤",
+          "Tax_LP": "",
+          "Tax_Mils": "٠١٩",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "٠٢٢",
+          "Remarks": "",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "٢",
+          "Date": "",
+          "Property_recorded_under_Block_No": "",
+          "Property_recorded_under_Parcel_No": "",
+          "Parcel_Cat_No": "١٦",
+          "Parcel_Area": "٢,٠٦٩",
+          "Nature_of_Entry": "",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "✓",
+          "Reference_to_Register_of_Changes_Serial_No": "",
+          "Tax_LP": "–",
+          "Tax_Mils": "–",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "",
+          "Remarks": "",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "٣",
+          "Date": "\"",
+          "Property_recorded_under_Block_No": "٤١٤٦",
+          "Property_recorded_under_Parcel_No": "٨٩",
+          "Parcel_Cat_No": "١٢",
+          "Parcel_Area": "٨٤٢",
+          "Nature_of_Entry": "\"",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "✓",
+          "Reference_to_Register_of_Changes_Serial_No": "..٨",
+          "Tax_LP": "–",
+          "Tax_Mils": "..٧",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "",
+          "Remarks": "",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "٤",
+          "Date": "\"",
+          "Property_recorded_under_Block_No": "\"",
+          "Property_recorded_under_Parcel_No": "٩٥",
+          "Parcel_Cat_No": "١٢",
+          "Parcel_Area": "٢٢١",
+          "Nature_of_Entry": "\"",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "✓",
+          "Reference_to_Register_of_Changes_Serial_No": "..٨",
+          "Tax_LP": "",
+          "Tax_Mils": "..٢",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "",
+          "Remarks": "",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "٥",
+          "Date": "\"",
+          "Property_recorded_under_Block_No": "\"",
+          "Property_recorded_under_Parcel_No": "٩٢",
+          "Parcel_Cat_No": "١٢",
+          "Parcel_Area": "٢٥١",
+          "Nature_of_Entry": "\"",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "✓",
+          "Reference_to_Register_of_Changes_Serial_No": "..٨",
+          "Tax_LP": "",
+          "Tax_Mils": "..٢",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "",
+          "Remarks": "",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "٦",
+          "Date": "\"",
+          "Property_recorded_under_Block_No": "\"",
+          "Property_recorded_under_Parcel_No": "٩٤",
+          "Parcel_Cat_No": "١٢",
+          "Parcel_Area": "٨٢١",
+          "Nature_of_Entry": "\"",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "✓",
+          "Reference_to_Register_of_Changes_Serial_No": "..٨",
+          "Tax_LP": "",
+          "Tax_Mils": "..١",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "٠٢٢",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "",
+          "Remarks": "",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "",
+          "Date": "٩٣٩",
+          "Property_recorded_under_Block_No": "",
+          "Property_recorded_under_Parcel_No": "",
+          "Parcel_Cat_No": "",
+          "Parcel_Area": "",
+          "Nature_of_Entry": "",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "",
+          "Reference_to_Register_of_Changes_Serial_No": "",
+          "Tax_LP": "",
+          "Tax_Mils": "٠٢٢",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "٠٢٢",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "٠٢٢",
+          "Remarks": "",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "",
+          "Date": "٩٤٠",
+          "Property_recorded_under_Block_No": "",
+          "Property_recorded_under_Parcel_No": "",
+          "Parcel_Cat_No": "",
+          "Parcel_Area": "",
+          "Nature_of_Entry": "",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "",
+          "Reference_to_Register_of_Changes_Serial_No": "",
+          "Tax_LP": "",
+          "Tax_Mils": "",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "٠٢٢",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "٠٢٢",
+          "Remarks": "",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "",
+          "Date": "٩٤١",
+          "Property_recorded_under_Block_No": "",
+          "Property_recorded_under_Parcel_No": "",
+          "Parcel_Cat_No": "",
+          "Parcel_Area": "",
+          "Nature_of_Entry": "",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "",
+          "Reference_to_Register_of_Changes_Serial_No": "",
+          "Tax_LP": "",
+          "Tax_Mils": "",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "٠٢٢",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "٠٢٢",
+          "Remarks": "",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "",
+          "Date": "٤٢ / ٩٤٠",
+          "Property_recorded_under_Block_No": "",
+          "Property_recorded_under_Parcel_No": "",
+          "Parcel_Cat_No": "",
+          "Parcel_Area": "",
+          "Nature_of_Entry": "",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "",
+          "Reference_to_Register_of_Changes_Serial_No": "",
+          "Tax_LP": "",
+          "Tax_Mils": "",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "٠٥٦",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "٠٥٦",
+          "Remarks": "",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "",
+          "Date": "٩٤٢ / ٩٤٤",
+          "Property_recorded_under_Block_No": "",
+          "Property_recorded_under_Parcel_No": "",
+          "Parcel_Cat_No": "",
+          "Parcel_Area": "",
+          "Nature_of_Entry": "",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "",
+          "Reference_to_Register_of_Changes_Serial_No": "",
+          "Tax_LP": "",
+          "Tax_Mils": "",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "١١٢",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "١١٢",
+          "Remarks": "",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "",
+          "Date": "",
+          "Property_recorded_under_Block_No": "",
+          "Property_recorded_under_Parcel_No": "",
+          "Parcel_Cat_No": "",
+          "Parcel_Area": "",
+          "Nature_of_Entry": "",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "",
+          "Reference_to_Register_of_Changes_Serial_No": "",
+          "Tax_LP": "",
+          "Tax_Mils": "",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "٠٥٦",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "٠٥٦",
+          "Remarks": "Contains pencil notes ١٦٨ / ٢٢٤ below ٥٦",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "٧",
+          "Date": "٩٤٢ / ٩٤٥",
+          "Property_recorded_under_Block_No": "٤١٤٦",
+          "Property_recorded_under_Parcel_No": "٨٩",
+          "Parcel_Cat_No": "١٢",
+          "Parcel_Area": "٨٤٢",
+          "Nature_of_Entry": "بيع",
+          "New_Serial_No": "٤٢١",
+          "Reference_to_Register_of_Changes_Volume_No": "",
+          "Reference_to_Register_of_Changes_Serial_No": "",
+          "Tax_LP": "",
+          "Tax_Mils": "٠٤٨",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "٠٤٨",
+          "Remarks": "Contract note: عقد ٤٥/٣/١٥. Contains pencil calculations ١٤٤ / ١٩٢ below ٤٨",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "",
+          "Date": "٩٤٦ / ٤٧",
+          "Property_recorded_under_Block_No": "",
+          "Property_recorded_under_Parcel_No": "",
+          "Parcel_Cat_No": "",
+          "Parcel_Area": "",
+          "Nature_of_Entry": "",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "",
+          "Reference_to_Register_of_Changes_Serial_No": "",
+          "Tax_LP": "",
+          "Tax_Mils": "٠٤٨",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "٠٤٨",
+          "Remarks": "Contains pencil calculations ١٤٤ / ١٩٢ below ٤٨",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        },
+        {
+          "Serial_No": "",
+          "Date": "٩٤٨ / ٤٩",
+          "Property_recorded_under_Block_No": "",
+          "Property_recorded_under_Parcel_No": "",
+          "Parcel_Cat_No": "",
+          "Parcel_Area": "",
+          "Nature_of_Entry": "",
+          "New_Serial_No": "",
+          "Reference_to_Register_of_Changes_Volume_No": "",
+          "Reference_to_Register_of_Changes_Serial_No": "",
+          "Tax_LP": "",
+          "Tax_Mils": "٠٤٨",
+          "Total_Tax_LP": "",
+          "Total_Tax_Mils": "",
+          "Reference_to_Register_of_Exemptions_Entry_No": "",
+          "Reference_to_Register_of_Exemptions_Amount_LP": "",
+          "Reference_to_Register_of_Exemptions_Amount_Mils": "",
+          "Net_Assessment_LP": "",
+          "Net_Assessment_Mils": "٠٤٨",
+          "Remarks": "Contains pencil calculations ١٤٤ / ١٩٢ below ٤٨",
+          "Row_Confidence": "high",
+          "Red_Ink": "",
+          "Disagreements": ""
+        }
+      ],
+      "zoom_rounds": 20,
+      "usage": {
+        "total_input_tokens": 3541,
+        "total_output_tokens": 6091,
+        "total_thought_tokens": 23817,
+        "total_cached_tokens": 2604,
+        "total_tool_use_tokens": 587775,
+        "total_tokens": 621224
+      },
+      "cost_usd": 0.2709681,
+      "error": null
+    }
+  },
+  "comparison_table": [
+    {
+      "variation": "gemini-3.5-flash__medium",
+      "model": "gemini-3.5-flash",
+      "thinking": "medium",
+      "n_rows": 15,
+      "zoom_rounds": 20,
+      "input_tok": 3541,
+      "output_tok": 6091,
+      "thought_tok": 23817,
+      "cached_tok": 2604,
+      "tool_tok": 587775,
+      "total_tok": 621224,
+      "elapsed_s": 213.72,
+      "cost_usd": 0.2709681,
+      "error": ""
+    },
+    {
+      "variation": "TOTAL",
+      "model": "",
+      "thinking": "",
+      "n_rows": 15,
+      "zoom_rounds": 20,
+      "input_tok": 3541,
+      "output_tok": 6091,
+      "thought_tok": 23817,
+      "cached_tok": 2604,
+      "tool_tok": 587775,
+      "total_tok": 621224,
+      "elapsed_s": 213.72,
+      "cost_usd": 0.2709681,
+      "error": ""
+    }
+  ],
+  "agreement_matrix": {
+    "compared_variations": [
+      "gemini-3.5-flash__medium"
+    ],
+    "row_counts": {
+      "gemini-3.5-flash__medium": 15
+    },
+    "per_field": {
+      "serial_no": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "date": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "block_no": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "parcel_no": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "cat_no": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "area": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "nature_of_entry": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "new_serial_no": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "ref_volume_no": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "ref_serial_no": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "tax_lp": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "tax_mils": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "total_tax_lp": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "total_tax_mils": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "exemption_entry_no": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "exemption_amount_lp": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "exemption_amount_mils": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "net_assessment_lp": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      },
+      "net_assessment_mils": {
+        "rows_compared": 15,
+        "rows_divergent": 0
+      }
+    },
+    "cell_disagreements": []
+  },
+  "narrative": "### 1. Reasoning Behavior\n\nThe single run evaluated, `gemini-3.5-flash__medium`, executed a highly structured and iterative visual analysis of the tax register page, utilizing 20 distinct agentic-vision zoom rounds via Python code. \n\nThe run's logical progression developed as follows:\n*   **Orientation and Contextualization:** The model first established the global context of the page, identifying the document as Folio No. 8, situated in the village of Hadita, with the taxpayer's name as \"امنه ياسين محمد عبيد\" (Amneh Yaseen Muhammad Obeid).\n*   **Systematic Column Segmentation:** To reduce visual distraction and resolve handwriting details, the model wrote Python scripts to crop the left page into distinct functional columns: `serial_date_block_parcel`, `cat_area_nature`, `ref_changes`, `tax_cols`, and `net_assessment`.\n*   **Hierarchical Structural Parsing:** It identified that the first block of numbered rows (serials ١ to ٦) used ditto marks (`\"`) to replicate dates and block numbers, and noticed a multi-category structure where Serial ٢ belonged to the same parcel (٥١) as Serial ١ but featured a separate category (١٦) and area (٢,٠٦٩).\n*   **Handwriting and Arithmetic Cross-Checking:** The model systematically zoomed into the tax columns to reconcile individual row sums against total taxes. It engaged in detailed reasoning regarding digit shapes to distinguish ambiguous numbers (such as \"٢\" vs \"٥\"). It noted pencil annotations below the ink entries, identifying fractions like `١٦٨ / ٢٢٤` and calculations like `١٤٤ / ١٩٢`.\n*   **Chronological Tracking of Unnumbered Rows:** It traced the lower part of the register to find chronological entries after the first block. It identified unnumbered rows containing dates such as `٩٣٩`, `٩٤٠`, and `٩٤١`, a crossed-out date/slashed entry `٤٢ / ٩٤٠`, and a purple-ink entry `٩٤٢ / ٩٤٤`.\n*   **Marginal and Red-Ink Entry Analysis:** The model traced the red-ink Serial ٧ with the blue-ink date `٩٤٢ / ٩٤٥` and successfully tracked subsequent blue-ink marginal entries at the bottom of the page, which it identified as corresponding to dates `٩٤٦ / ٤٧` and `٩٤٨ / ٤٩`. It also parsed related text such as \"ضريبة حرب\" (war tax) and contract details (\"عقد ٤٥/٣/١٥\").\n\n### 2. Cost and Latency\n\nThe execution metrics for this run were as follows:\n*   **Elapsed Time:** 213.72 seconds\n*   **Token Usage:**\n    *   *Input Tokens:* 3,541\n    *   *Output Tokens:* 6,091\n    *   *Thought Tokens:* 23,817\n    *   *Cached Tokens:* 2,604\n    *   *Tool Use Tokens:* 587,775\n    *   *Total Tokens:* 621,224\n*   **Total Cost:** $0.2709681 USD\n\n### 3. Output Agreement and Divergence\n\nBecause only one run was executed, there are no alternative configurations to compare. The provided agreement matrix reflects a self-comparison of the single run `gemini-3.5-flash__medium`:\n\n*   **Total Rows Transcribed:** 15 rows\n*   **Divergent Rows:** 0 (100% internal consistency across all 19 checked fields)\n\n#### Structure of the Final Output:\nThe transcribed output contains a sequence of 15 JSON objects capturing:\n*   **Rows 1–6 (Numbered):** Corresponding to serials ١ through ٦, capturing parcel details, ditto marks translated into standard representations, and specific reference changes (e.g., checkmarks and reference serials like `٠٢٤` and `..٨`).\n*   **Rows 7–9 (Unnumbered):** Capturing chronological annual taxes for the years `٩٣٩`, `٩٤٠`, and `٩٤١`.\n*   **Row 10 (Unnumbered):** Transcribing the slashed date `٤٢ / ٩٤٠` with a total tax and net assessment of `٠٥٦`.\n*   **Row 11 (Unnumbered):** Transcribing the date `٩٤٢ / ٩٤٤` with tax values of `١١٢`.\n*   **Row 12 (Unnumbered):** Transcribing a row without a date containing the pencil notes `١٦٨ / ٢٢٤` below `٥٦` in the `notes` field.\n*   **Row 13 (Numbered):** Transcribing Serial `٧` with the date `٩٤٢ / ٩٤٥`, the sale notation (`بيع` / sale), the new serial number `٤٢١`, and notes regarding contract `عقد ٤٥/٣/١٥` and pencil calculations `١٤٤ / ١٩٢`.\n*   **Rows 14–15 (Unnumbered):** Transcribing the marginal dates `٩٤٦ / ٤٧` and `٩٤٨ / ٤٩` along with their corresponding tax mils (`٠٤٨`) and associated pencil annotations.\n\n### 4. Process Takeaways\n\n*   **Targeted Image Cropping:** The model did not rely on a single global view; instead, it executed 20 separate Python image-cropping scripts to progressively isolate specific areas of interest (such as the date columns, transition regions between the left and right pages, and the tax columns).\n*   **Contextual Annotation Capture:** The model successfully structured both primary ink entries and secondary pencil annotations (such as historical tax calculations and war tax notes) within the `notes` field of the schema rather than omitting them.\n*   **Handling of Logical Hierarchies:** The run demonstrated an ability to map complex ledger relationships, such as multi-category parcels sharing a single parcel identifier, and successfully matched late-period marginal dates to their corresponding tax columns on the right-hand page.",
+  "narrator": {
+    "model": "gemini-3.5-flash",
+    "thinking": "high",
+    "elapsed_s": 19.53,
+    "usage": {
+      "total_input_tokens": 16363,
+      "total_output_tokens": 1346,
+      "total_thought_tokens": 1908,
+      "total_cached_tokens": 0,
+      "total_tool_use_tokens": 0,
+      "total_tokens": 19617
+    },
+    "cost_usd": 0.0538305,
+    "interaction_id": "v1_Chc1cGNZYXNQakRyaWh6N0lQdmNYUXNRYxIXNXBjWWFzUGpEcmloejdJUHZjWFFzUWM"
+  }
+}

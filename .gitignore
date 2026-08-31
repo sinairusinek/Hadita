@@ -29,3 +29,6 @@ kraken_*.csv
 
 # Generated viewer datasets (symlinks into the corpus)
 tools/pagexml-viewer/*/
+
+# Downloaded model weights (7GB, re-fetchable; exceeds GitHub's 100MB file cap)
+models/

@@ -2,8 +2,8 @@
 <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd">
   <Metadata>
     <Creator>segment_unified.py</Creator>
-    <Created>2026-08-29T23:23:01</Created>
-    <LastChange>2026-08-29T23:23:01</LastChange>
+    <Created>2026-08-30T11:05:17</Created>
+    <LastChange>2026-08-30T11:05:17</LastChange>
   </Metadata>
   <Page imageFilename="Hadita_82.jpeg" imageWidth="2560" imageHeight="3869">
     <TextRegion id="taxpayer_name" type="header" custom="structure {type:taxpayer_name;}">
@@ -85,6 +85,11 @@
       </TableCell>
       <TableCell id="cell_r0_c8" row="0" col="8" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Changes_Volume_No;}">
         <Coords points="1347,609 1458,609 1458,733 1347,733"></Coords>
+        <TextLine id="line_cell_r0_c8">
+          <Coords points="1347,609 1458,609 1458,733 1347,733"></Coords>
+          <Baseline points="1347,721 1458,721"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c9" row="0" col="9" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Changes_Serial_No;}">
         <Coords points="1458,609 1570,609 1570,733 1458,733"></Coords>
@@ -96,6 +101,11 @@
       </TableCell>
       <TableCell id="cell_r0_c10" row="0" col="10" rowSpan="1" colSpan="1" custom="structure {type:Tax_LP;}">
         <Coords points="1570,609 1695,609 1696,733 1570,733"></Coords>
+        <TextLine id="line_cell_r0_c10">
+          <Coords points="1570,609 1695,609 1696,733 1570,733"></Coords>
+          <Baseline points="1570,721 1696,721"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r0_c11" row="0" col="11" rowSpan="1" colSpan="1" custom="structure {type:Tax_Mils;}">
         <Coords points="1695,609 1785,609 1786,733 1696,733"></Coords>
@@ -234,9 +244,19 @@
       </TableCell>
       <TableCell id="cell_r1_c17" row="1" col="17" rowSpan="1" colSpan="1" custom="structure {type:Net_Assessment_LP;}">
         <Coords points="2295,733 2407,733 2408,825 2296,825"></Coords>
+        <TextLine id="line_cell_r1_c17">
+          <Coords points="2295,733 2407,733 2408,825 2296,825"></Coords>
+          <Baseline points="2295,816 2408,816"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r1_c18" row="1" col="18" rowSpan="1" colSpan="1" custom="structure {type:Net_Assessment_Mils;}">
         <Coords points="2407,733 2559,733 2559,825 2408,825"></Coords>
+        <TextLine id="line_cell_r1_c18">
+          <Coords points="2407,733 2559,733 2559,825 2408,825"></Coords>
+          <Baseline points="2408,816 2559,816"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c0" row="2" col="0" rowSpan="1" colSpan="1" custom="structure {type:Serial_No;}">
         <Coords points="25,825 445,825 445,918 25,918"></Coords>
@@ -302,9 +322,19 @@
       </TableCell>
       <TableCell id="cell_r2_c14" row="2" col="14" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Exemptions_Entry_No;}">
         <Coords points="1991,825 2089,825 2090,918 1992,918"></Coords>
+        <TextLine id="line_cell_r2_c14">
+          <Coords points="1991,825 2089,825 2090,918 1992,918"></Coords>
+          <Baseline points="1991,909 2089,909"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c15" row="2" col="15" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Exemptions_Amount_LP;}">
         <Coords points="2089,825 2204,825 2205,918 2090,918"></Coords>
+        <TextLine id="line_cell_r2_c15">
+          <Coords points="2089,825 2204,825 2205,918 2090,918"></Coords>
+          <Baseline points="2089,909 2205,909"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r2_c16" row="2" col="16" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Exemptions_Amount_Mils;}">
         <Coords points="2204,825 2296,825 2296,918 2205,918"></Coords>
@@ -570,6 +600,11 @@
       </TableCell>
       <TableCell id="cell_r5_c18" row="5" col="18" rowSpan="1" colSpan="1" custom="structure {type:Net_Assessment_Mils;}">
         <Coords points="2409,1106 2559,1106 2559,1203 2410,1203"></Coords>
+        <TextLine id="line_cell_r5_c18">
+          <Coords points="2409,1106 2559,1106 2559,1203 2410,1203"></Coords>
+          <Baseline points="2410,1193 2559,1193"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r6_c0" row="6" col="0" rowSpan="1" colSpan="1" custom="structure {type:Serial_No;}">
         <Coords points="25,1203 446,1203 446,1297 25,1297"></Coords>
@@ -878,6 +913,11 @@
       </TableCell>
       <TableCell id="cell_r9_c13" row="9" col="13" rowSpan="1" colSpan="1" custom="structure {type:Total_Tax_Mils;}">
         <Coords points="1904,1479 1996,1479 1996,1568 1905,1568"></Coords>
+        <TextLine id="line_cell_r9_c13">
+          <Coords points="1904,1479 1996,1479 1996,1568 1905,1568"></Coords>
+          <Baseline points="1905,1559 1996,1559"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r9_c14" row="9" col="14" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Exemptions_Entry_No;}">
         <Coords points="1996,1479 2094,1479 2095,1568 1996,1568"></Coords>
@@ -930,6 +970,11 @@
       </TableCell>
       <TableCell id="cell_r10_c8" row="10" col="8" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Changes_Volume_No;}">
         <Coords points="1350,1568 1461,1568 1462,1661 1350,1661"></Coords>
+        <TextLine id="line_cell_r10_c8">
+          <Coords points="1350,1568 1461,1568 1462,1661 1350,1661"></Coords>
+          <Baseline points="1350,1652 1461,1652"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r10_c9" row="10" col="9" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Changes_Serial_No;}">
         <Coords points="1461,1568 1574,1568 1574,1661 1462,1661"></Coords>
@@ -1021,6 +1066,11 @@
       </TableCell>
       <TableCell id="cell_r11_c11" row="11" col="11" rowSpan="1" colSpan="1" custom="structure {type:Tax_Mils;}">
         <Coords points="1701,1661 1792,1661 1793,1752 1701,1752"></Coords>
+        <TextLine id="line_cell_r11_c11">
+          <Coords points="1701,1661 1792,1661 1793,1752 1701,1752"></Coords>
+          <Baseline points="1701,1743 1793,1743"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r11_c12" row="11" col="12" rowSpan="1" colSpan="1" custom="structure {type:Total_Tax_LP;}">
         <Coords points="1792,1661 1906,1661 1906,1752 1793,1752"></Coords>
@@ -1062,6 +1112,11 @@
       </TableCell>
       <TableCell id="cell_r12_c4" row="12" col="4" rowSpan="1" colSpan="1" custom="structure {type:Parcel_Cat_No;}">
         <Coords points="825,1752 937,1752 938,1838 826,1838"></Coords>
+        <TextLine id="line_cell_r12_c4">
+          <Coords points="825,1752 937,1752 938,1838 826,1838"></Coords>
+          <Baseline points="826,1829 938,1829"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c5" row="12" col="5" rowSpan="1" colSpan="1" custom="structure {type:Parcel_Area;}">
         <Coords points="937,1752 1048,1752 1049,1838 938,1838"></Coords>
@@ -1073,6 +1128,11 @@
       </TableCell>
       <TableCell id="cell_r12_c6" row="12" col="6" rowSpan="1" colSpan="1" custom="structure {type:Nature_of_Entry;}">
         <Coords points="1048,1752 1220,1752 1221,1838 1049,1838"></Coords>
+        <TextLine id="line_cell_r12_c6">
+          <Coords points="1048,1752 1220,1752 1221,1838 1049,1838"></Coords>
+          <Baseline points="1049,1829 1221,1829"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r12_c7" row="12" col="7" rowSpan="1" colSpan="1" custom="structure {type:New_Serial_No;}">
         <Coords points="1220,1752 1350,1752 1351,1838 1221,1838"></Coords>
@@ -1149,6 +1209,11 @@
       </TableCell>
       <TableCell id="cell_r13_c4" row="13" col="4" rowSpan="1" colSpan="1" custom="structure {type:Parcel_Cat_No;}">
         <Coords points="826,1838 938,1838 938,1932 826,1932"></Coords>
+        <TextLine id="line_cell_r13_c4">
+          <Coords points="826,1838 938,1838 938,1932 826,1932"></Coords>
+          <Baseline points="826,1923 938,1923"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r13_c5" row="13" col="5" rowSpan="1" colSpan="1" custom="structure {type:Parcel_Area;}">
         <Coords points="938,1838 1049,1838 1049,1932 938,1932"></Coords>
@@ -1322,6 +1387,11 @@
       </TableCell>
       <TableCell id="cell_r15_c2" row="15" col="2" rowSpan="1" colSpan="1" custom="structure {type:Property_recorded_under_Block_No;}">
         <Coords points="605,2023 716,2023 717,2112 606,2112"></Coords>
+        <TextLine id="line_cell_r15_c2">
+          <Coords points="605,2023 716,2023 717,2112 606,2112"></Coords>
+          <Baseline points="606,2103 717,2103"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r15_c3" row="15" col="3" rowSpan="1" colSpan="1" custom="structure {type:Property_recorded_under_Parcel_No;}">
         <Coords points="716,2023 827,2023 828,2112 717,2112"></Coords>
@@ -1439,6 +1509,11 @@
       </TableCell>
       <TableCell id="cell_r16_c7" row="16" col="7" rowSpan="1" colSpan="1" custom="structure {type:New_Serial_No;}">
         <Coords points="1223,2112 1354,2112 1355,2208 1223,2208"></Coords>
+        <TextLine id="line_cell_r16_c7">
+          <Coords points="1223,2112 1354,2112 1355,2208 1223,2208"></Coords>
+          <Baseline points="1223,2198 1355,2198"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r16_c8" row="16" col="8" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Changes_Volume_No;}">
         <Coords points="1354,2112 1465,2112 1466,2208 1355,2208"></Coords>
@@ -1463,6 +1538,11 @@
       </TableCell>
       <TableCell id="cell_r16_c15" row="16" col="15" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Exemptions_Amount_LP;}">
         <Coords points="2100,2112 2216,2112 2218,2208 2102,2208"></Coords>
+        <TextLine id="line_cell_r16_c15">
+          <Coords points="2100,2112 2216,2112 2218,2208 2102,2208"></Coords>
+          <Baseline points="2101,2198 2217,2198"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r16_c16" row="16" col="16" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Exemptions_Amount_Mils;}">
         <Coords points="2216,2112 2308,2112 2309,2208 2218,2208"></Coords>
@@ -1485,6 +1565,11 @@
       </TableCell>
       <TableCell id="cell_r17_c0" row="17" col="0" rowSpan="1" colSpan="1" custom="structure {type:Serial_No;}">
         <Coords points="25,2208 451,2208 452,2304 25,2304"></Coords>
+        <TextLine id="line_cell_r17_c0">
+          <Coords points="25,2208 451,2208 452,2304 25,2304"></Coords>
+          <Baseline points="25,2294 452,2294"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r17_c1" row="17" col="1" rowSpan="1" colSpan="1" custom="structure {type:Date;}">
         <Coords points="451,2208 607,2208 608,2304 452,2304"></Coords>
@@ -1630,6 +1715,11 @@
       </TableCell>
       <TableCell id="cell_r18_c16" row="18" col="16" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Exemptions_Amount_Mils;}">
         <Coords points="2219,2304 2310,2304 2311,2397 2220,2397"></Coords>
+        <TextLine id="line_cell_r18_c16">
+          <Coords points="2219,2304 2310,2304 2311,2397 2220,2397"></Coords>
+          <Baseline points="2220,2388 2311,2388"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r18_c17" row="18" col="17" rowSpan="1" colSpan="1" custom="structure {type:Net_Assessment_LP;}">
         <Coords points="2310,2304 2424,2304 2425,2397 2311,2397"></Coords>
@@ -1684,6 +1774,11 @@
       </TableCell>
       <TableCell id="cell_r19_c10" row="19" col="10" rowSpan="1" colSpan="1" custom="structure {type:Tax_LP;}">
         <Coords points="1581,2397 1707,2397 1708,2483 1583,2483"></Coords>
+        <TextLine id="line_cell_r19_c10">
+          <Coords points="1581,2397 1707,2397 1708,2483 1583,2483"></Coords>
+          <Baseline points="1582,2474 1708,2474"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r19_c11" row="19" col="11" rowSpan="1" colSpan="1" custom="structure {type:Tax_Mils;}">
         <Coords points="1707,2397 1800,2397 1801,2483 1708,2483"></Coords>
@@ -1787,6 +1882,11 @@
       </TableCell>
       <TableCell id="cell_r20_c17" row="20" col="17" rowSpan="1" colSpan="1" custom="structure {type:Net_Assessment_LP;}">
         <Coords points="2312,2483 2427,2483 2428,2570 2313,2570"></Coords>
+        <TextLine id="line_cell_r20_c17">
+          <Coords points="2312,2483 2427,2483 2428,2570 2313,2570"></Coords>
+          <Baseline points="2313,2561 2428,2561"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r20_c18" row="20" col="18" rowSpan="1" colSpan="1" custom="structure {type:Net_Assessment_Mils;}">
         <Coords points="2427,2483 2559,2483 2559,2570 2428,2570"></Coords>
@@ -2046,12 +2146,22 @@
       </TableCell>
       <TableCell id="cell_r25_c0" row="25" col="0" rowSpan="1" colSpan="1" custom="structure {type:Serial_No;}">
         <Coords points="25,2940 457,2940 457,3033 25,3033"></Coords>
+        <TextLine id="line_cell_r25_c0">
+          <Coords points="25,2940 457,2940 457,3033 25,3033"></Coords>
+          <Baseline points="25,3024 457,3024"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r25_c1" row="25" col="1" rowSpan="1" colSpan="1" custom="structure {type:Date;}">
         <Coords points="457,2940 616,2940 616,3033 457,3033"></Coords>
       </TableCell>
       <TableCell id="cell_r25_c2" row="25" col="2" rowSpan="1" colSpan="1" custom="structure {type:Property_recorded_under_Block_No;}">
         <Coords points="616,2940 727,2940 728,3033 616,3033"></Coords>
+        <TextLine id="line_cell_r25_c2">
+          <Coords points="616,2940 727,2940 728,3033 616,3033"></Coords>
+          <Baseline points="616,3024 728,3024"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r25_c3" row="25" col="3" rowSpan="1" colSpan="1" custom="structure {type:Property_recorded_under_Parcel_No;}">
         <Coords points="727,2940 837,2940 839,3033 728,3033"></Coords>
@@ -2165,6 +2275,11 @@
       </TableCell>
       <TableCell id="cell_r27_c0" row="27" col="0" rowSpan="1" colSpan="1" custom="structure {type:Serial_No;}">
         <Coords points="25,3125 457,3125 457,3218 25,3218"></Coords>
+        <TextLine id="line_cell_r27_c0">
+          <Coords points="25,3125 457,3125 457,3218 25,3218"></Coords>
+          <Baseline points="25,3209 457,3209"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r27_c1" row="27" col="1" rowSpan="1" colSpan="1" custom="structure {type:Date;}">
         <Coords points="457,3125 617,3125 618,3218 457,3218"></Coords>
@@ -2183,6 +2298,11 @@
       </TableCell>
       <TableCell id="cell_r27_c6" row="27" col="6" rowSpan="1" colSpan="1" custom="structure {type:Nature_of_Entry;}">
         <Coords points="1060,3125 1234,3125 1235,3218 1061,3218"></Coords>
+        <TextLine id="line_cell_r27_c6">
+          <Coords points="1060,3125 1234,3125 1235,3218 1061,3218"></Coords>
+          <Baseline points="1061,3209 1235,3209"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r27_c7" row="27" col="7" rowSpan="1" colSpan="1" custom="structure {type:New_Serial_No;}">
         <Coords points="1234,3125 1365,3125 1366,3218 1235,3218"></Coords>
@@ -2222,6 +2342,11 @@
       </TableCell>
       <TableCell id="cell_r28_c0" row="28" col="0" rowSpan="1" colSpan="1" custom="structure {type:Serial_No;}">
         <Coords points="25,3218 457,3218 456,3310 25,3310"></Coords>
+        <TextLine id="line_cell_r28_c0">
+          <Coords points="25,3218 457,3218 456,3310 25,3310"></Coords>
+          <Baseline points="25,3301 456,3301"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r28_c1" row="28" col="1" rowSpan="1" colSpan="1" custom="structure {type:Date;}">
         <Coords points="457,3218 618,3218 618,3310 456,3310"></Coords>
@@ -2341,6 +2466,11 @@
       </TableCell>
       <TableCell id="cell_r30_c0" row="30" col="0" rowSpan="1" colSpan="1" custom="structure {type:Serial_No;}">
         <Coords points="25,3403 456,3403 455,3495 25,3495"></Coords>
+        <TextLine id="line_cell_r30_c0">
+          <Coords points="25,3403 456,3403 455,3495 25,3495"></Coords>
+          <Baseline points="25,3486 455,3486"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r30_c1" row="30" col="1" rowSpan="1" colSpan="1" custom="structure {type:Date;}">
         <Coords points="456,3403 617,3403 617,3495 455,3495"></Coords>
@@ -2427,6 +2557,11 @@
       </TableCell>
       <TableCell id="cell_r31_c8" row="31" col="8" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Changes_Volume_No;}">
         <Coords points="1370,3495 1483,3495 1485,3588 1371,3588"></Coords>
+        <TextLine id="line_cell_r31_c8">
+          <Coords points="1370,3495 1483,3495 1485,3588 1371,3588"></Coords>
+          <Baseline points="1371,3579 1485,3579"></Baseline>
+          <TextEquiv><Unicode></Unicode></TextEquiv>
+        </TextLine>
       </TableCell>
       <TableCell id="cell_r31_c9" row="31" col="9" rowSpan="1" colSpan="1" custom="structure {type:Reference_to_Register_of_Changes_Serial_No;}">
         <Coords points="1483,3495 1596,3495 1597,3588 1485,3588"></Coords>

@@ -1,0 +1,7 @@
+x_left_col_mode legend
+========================================
+  A = none         — raw morphological detection, no correction
+  B = geometric    — heuristic: pitch-ratio fix for Serial_No width
+  C = gemini       — Gemini 2.5 Flash vision (uses cache if available)
+  D = claude       — Claude Sonnet 4.6 vision (uses cache if available)
+  E = consensus    — average of Gemini+Claude if within 15 px, else Gemini
