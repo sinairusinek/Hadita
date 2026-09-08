@@ -30,6 +30,9 @@ def main():
     ap.add_argument("--description", default="")
     ap.add_argument("--copy", action="store_true",
                     help="copy files instead of symlinking (for deploying)")
+    ap.add_argument("--allow-temp", action="store_true",
+                    help="permit symlinking into /tmp or a scratchpad (these "
+                         "links break when that directory is cleaned up)")
     ap.add_argument("--compare-dir", default=None,
                     help="dir of model outputs named <base>_<model>.xml, exposed "
                          "in the viewer's 'Compare with' picker")
@@ -40,6 +43,20 @@ def main():
     src = os.path.abspath(a.src)
     if not os.path.isdir(src):
         sys.exit(f"no such corpus dir: {src}")
+
+    # Symlinks are only as durable as their target. A previous build pointed
+    # --src at a per-session scratchpad copy of the images; that directory was
+    # cleared a few days later and the whole dataset silently stopped rendering
+    # (manifest and XML intact, every image a dangling link). Refuse to build
+    # from a temporary location unless explicitly forced.
+    if not a.copy and not a.allow_temp:
+        for bad in ("/tmp/", "/private/tmp/", "/var/folders/", "scratchpad"):
+            if bad in src:
+                sys.exit(
+                    f"refusing to symlink into a temporary path:\n  {src}\n"
+                    f"These links break when the directory is cleaned up. Point "
+                    f"--src at the corpus in the repo, or pass --copy (duplicates "
+                    f"the files) or --allow-temp (you accept the breakage).")
 
     dst = os.path.join(HERE, a.name)
     if os.path.isdir(dst):
@@ -101,8 +118,13 @@ def main():
     with open(man_path, "w") as fh:
         json.dump(manuscripts, fh, indent=1)
 
+    dangling = [e["image"] for e in entries
+                if not os.path.exists(os.path.join(dst, e["image"]))]
     print(f"{a.name}: {len(entries)} pages"
           + (f", {len(missing)} xml without image: {missing[:5]}" if missing else ""))
+    if dangling:
+        sys.exit(f"ERROR: {len(dangling)} image links do not resolve, e.g. "
+                 f"{dangling[:3]}. The dataset would render blank.")
 
 
 if __name__ == "__main__":
