@@ -99,7 +99,8 @@ SCHEMA = {
 }
 
 
-def run_page(page: int, model: str, tag: str, thinking: str) -> dict | None:
+def run_page(page: int, model: str, tag: str, thinking: str,
+             fewshot: list | None = None) -> dict | None:
     som_p = SOM_DIR / f"Hadita_{page}_som.jpg"
     xml_p = XML_DIR / f"Hadita_{page}.xml"
     if not som_p.exists() or not xml_p.exists():
@@ -118,7 +119,8 @@ def run_page(page: int, model: str, tag: str, thinking: str) -> dict | None:
     t0 = time.perf_counter()
     resp = client.models.generate_content(
         model=model,
-        contents=[types.Part.from_bytes(data=som_p.read_bytes(), mime_type="image/jpeg"),
+        contents=[*(fewshot or []),
+                  types.Part.from_bytes(data=som_p.read_bytes(), mime_type="image/jpeg"),
                   PROMPT],
         config=cfg)
     elapsed = round(time.perf_counter() - t0, 2)
@@ -202,6 +204,46 @@ DIGIT_BIAS = """
 When you genuinely cannot tell which of the two it is, prefer ٣."""
 
 
+# E15 (Calfa "LLM as annotator"): instead of DESCRIBING the 2/3 letterform, SHOW
+# confirmed crops of this scribe's hand as few-shot examples. Crops come from
+# page 50 -- typed GT, outside the 6-page benchmark, so the eval stays clean.
+FEWSHOT_DIR = Path("fewshot_p50")
+
+
+def build_fewshot(n: int) -> list:
+    """Return [Part, ...] interleaving crop images with their confirmed text.
+
+    Prefers short, unambiguous cells and balances 2-bearing vs 3-bearing
+    examples so the block does not itself bias the model toward one digit.
+    """
+    lab = FEWSHOT_DIR / "labels.json"
+    if n <= 0 or not lab.exists():
+        return []
+    items = json.load(open(lab, encoding="utf-8"))
+    two = sorted([i for i in items if "\u0662" in i["text"] and "\u0663" not in i["text"]],
+                 key=lambda i: len(i["text"]))
+    three = sorted([i for i in items if "\u0663" in i["text"] and "\u0662" not in i["text"]],
+                   key=lambda i: len(i["text"]))
+    both = sorted([i for i in items if "\u0662" in i["text"] and "\u0663" in i["text"]],
+                  key=lambda i: len(i["text"]))
+    picked, pools = [], [two, three, both]
+    while len(picked) < n and any(pools):
+        for pool in pools:
+            if pool and len(picked) < n:
+                picked.append(pool.pop(0))
+    parts = [types.Part.from_text(text=(
+        "Before the page, here are CONFIRMED transcriptions of individual cells "
+        "from this same register, written by the same scribe. Study how this hand "
+        "forms each digit, then apply what you see to the page that follows."))]
+    for i in picked:
+        parts.append(types.Part.from_bytes(
+            data=Path(i["file"]).read_bytes(), mime_type="image/png"))
+        parts.append(types.Part.from_text(text=f"This cell reads: {i['text']}"))
+    parts.append(types.Part.from_text(text=
+        "End of examples. Now transcribe the full page below."))
+    return parts
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("pages", nargs="+", type=int)
@@ -210,6 +252,9 @@ def main() -> None:
     ap.add_argument("--thinking", default="low", choices=["none", "low", "medium", "high"])
     ap.add_argument("--som-dir", help="folder of stamped SoM images (default som/)")
     ap.add_argument("--xml-dir", help="geometry folder (default final2)")
+    ap.add_argument("--fewshot", type=int, default=0,
+                    help="E15: prepend N confirmed cell crops from page 50 as "
+                         "few-shot examples (0 = off, the default).")
     ap.add_argument("--digit-hint", default="off", choices=["off", "shape", "shape+bias"],
                     help="append the 2/3 letterform paragraph (E14). 'shape' describes "
                          "the apex; 'shape+bias' also says to prefer 3 when unsure.")
@@ -225,10 +270,13 @@ def main() -> None:
         if args.digit_hint == "shape+bias":
             PROMPT = PROMPT + DIGIT_BIAS
     tag = args.tag or "som-" + args.model.replace("gemini-", "g").replace("-preview", "").replace(".", "")
+    fewshot_parts = build_fewshot(args.fewshot)
+    if fewshot_parts:
+        print(f"  few-shot: {(len(fewshot_parts)-2)//2} example crops")
     total = 0.0
     for p in args.pages:
         print(f"  page {p}:")
-        rec = run_page(p, args.model, tag, args.thinking)
+        rec = run_page(p, args.model, tag, args.thinking, fewshot_parts)
         if rec:
             total += rec["cost_usd"]
     print(f"total: ${total:.4f}")
