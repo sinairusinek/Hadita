@@ -76,3 +76,59 @@ def normalize_for_compare(s: str) -> str:
     if s.strip() in ("–", "—"):
         s = "-"
     return " ".join(s.split())
+
+
+# ---------------------------------------------------------------------------
+# Encoding-tolerant normalisation (added 2026-09-07).
+#
+# The frozen metric in score_g3_vs_gt._normalize folds the variants that Gemini
+# 3.7 happened to emit. Newer models pick different-but-equivalent codepoints for
+# the SAME glyph, so the frozen scorer charges them for cosmetics and silently
+# favours the incumbent. Measured across exp2608/: Extended Arabic-Indic digits
+# (U+06Fx) in 10 tags, U+3003 DITTO MARK in 3, em-dash mid-string in 11.
+#
+# Deliberately NOT folded: ASCII digits and Latin letters. The GT genuinely
+# contains "T.D.L. 1940" and ASCII serials like "102", so folding ASCII->Arabic
+# would corrupt real content rather than unify an encoding choice.
+# ---------------------------------------------------------------------------
+
+# U+06F0..U+06F9 -> U+0660..U+0669. Same glyphs, different codepoint block.
+_EXT_DIGITS = {chr(0x06F0 + i): chr(0x0660 + i) for i in range(10)}
+
+# Ditto glyphs the frozen normaliser does not already cover.
+_DITTO_EXTRA = {"〃": '"', "″": '"', "‟": '"', "〝": '"', "〞": '"', "«": '"', "»": '"'}
+
+# Dash-family -> ASCII hyphen. The frozen rule only fires when the dash is the
+# WHOLE cell; these appear inside longer strings too.
+_DASHES = {"—": "-", "–": "-", "‐": "-", "‑": "-", "−": "-"}
+
+# A cell that is nothing but tatweel is a written dash, not a letter-stretch.
+_LONE_TATWEEL = "ـ"
+
+# Orthographic equivalents seen in model output but never in the GT.
+_LETTERS = {"ی": "ي", "ک": "ك"}
+
+# Zero-width marks that carry no transcription meaning.
+#
+# NB: tatweel (U+0640) is NOT stripped. Models use a bare tatweel as the nil/dash
+# mark, so stripping it empties the cell and the scorer then charges a full
+# "wrong" (one side empty) instead of a 1-char fix. It is folded to "-" below.
+_STRIP = ("‏", "‎", "​", "­")
+
+
+def encoding_fold(s: str) -> str:
+    """Fold codepoint choices that represent the SAME handwritten glyph.
+
+    Apply BEFORE the frozen _normalize; never changes which glyph was read,
+    only which codepoint spells it.
+    """
+    if not s:
+        return ""
+    for table in (_EXT_DIGITS, _DITTO_EXTRA, _DASHES, _LETTERS):
+        for k, v in table.items():
+            s = s.replace(k, v)
+    for ch in _STRIP:
+        s = s.replace(ch, "")
+    if s.strip(_LONE_TATWEEL) == "" and s.strip():
+        return "-"                      # a cell of only tatweel == a dash
+    return s.replace(_LONE_TATWEEL, "")  # elsewhere it is decorative stretching

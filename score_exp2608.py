@@ -13,6 +13,21 @@ from pathlib import Path
 
 from score_g3_vs_gt import (LEFT_COLS, classify, load_gt, load_trx_xml,
                             ra_cost, _normalize)
+import score_g3_vs_gt as _frozen
+from digit_norm import encoding_fold
+
+
+def enable_tolerant() -> None:
+    """Wrap the frozen normaliser with an encoding fold (opt-in, --tolerant).
+
+    The frozen metric is NOT edited: this composes on top of it, so a run
+    without --tolerant produces byte-identical numbers to before.
+    """
+    if getattr(_frozen, "_tolerant_installed", False):
+        return
+    base = _frozen._normalize
+    _frozen._normalize = lambda s: base(encoding_fold(s))
+    _frozen._tolerant_installed = True
 
 OUT_DIR = Path("exp2608")
 GT_XML = "g3_results/Hadita_{p}_Transkribus_latest.xml"
@@ -139,10 +154,17 @@ def main() -> None:
     ap.add_argument("--ink", action="store_true",
                     help="E2: NW row alignment instead of constant offset")
     ap.add_argument("--pages", nargs="+", type=int, default=PAGES)
+    ap.add_argument("--tolerant", action="store_true",
+                    help="fold equivalent codepoints (Extended Arabic-Indic "
+                         "digits, ditto/dash variants) before scoring, so a "
+                         "model is not charged for cosmetic encoding choices")
     args = ap.parse_args()
 
+    if args.tolerant:
+        enable_tolerant()
     mode = "NW-aligned" if args.ink else "offset-aligned"
-    print(f"\nscoring mode: {mode}\n")
+    print(f"\nscoring mode: {mode}"
+          f"{' + encoding-tolerant' if args.tolerant else ''}\n")
     header = f"{'tag':<18}{'page':>5}{'gt':>4}{'pred':>5}{'perf':>6}{'miss':>6}{'phan':>6}{'ks':>7}"
     grand = {}
     for tag in args.tags:

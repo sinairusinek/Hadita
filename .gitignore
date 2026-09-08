@@ -25,6 +25,7 @@ __pycache__/
 *.jpeg
 *.html
 *.bak
+*.bak.*
 kraken_*.csv
 
 # Generated viewer datasets (symlinks into the corpus)
@@ -32,3 +33,8 @@ tools/pagexml-viewer/*/
 
 # Downloaded model weights (7GB, re-fetchable; exceeds GitHub's 100MB file cap)
 models/
+
+# dinglehopper virtualenv (382MB, re-creatable via pip install dinglehopper)
+.venv-dinglehopper/
+# CERatosaurus upload bundles (regenerated from exp2608 XMLs on demand)
+cerato_upload/
