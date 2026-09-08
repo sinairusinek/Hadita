@@ -78,6 +78,32 @@ base `arabic_best.mlmodel`, 1362 train / 257 val cell crops, 49-char codec.
 - Numerals 33.4% · **words 60% — beats Gemini's 51%**
 - Top digit confusions ٣/٤ (59), ٢/٣ (37), ٤/٦ (25)
 
+**9b. Kraken fine-tune ft4 (synthetic augmentation) — 9319 ks — REJECTED**
+- ft3's data plus 2000 synthetic cells composed from 966 real digit glyphs cut out
+  of the GT crops (`harvest_digits.py` + `synth_cells.py`); val left as the real
+  held-out pages 9/10, so the comparison is not circular
+- Sampling oversampled ٢/٣ to ~41% of characters (vs ~13% real) to attack the
+  known confusion. **This backfired: it shifted the output prior rather than
+  teaching discrimination.** ٤ collapsed 18.4% → 0.1% of emitted digits, ٧ and ٩
+  to ~0, ٣ nearly quadrupled to 30.3%
+- Per-character ٢ **47.0% → 6.5%**, ٣ 46.0% → 69.7% — the pretrained ٢-bias simply
+  flipped into a ٣-bias
+- Early stopping at epoch 6, best epoch 1, val acc 0.139 (ft3: 0.40)
+- Lesson: do not class-balance an HTR mix toward the confused pair. Any retry must
+  keep the corpus digit distribution and hold synthetic to a minority of the mix
+
+**9c. Kraken fine-tune ft5 (synthetic, natural frequencies) — 7885 ks — REJECTED**
+- ft4's compositor but only 340 synthetic cells (**19% of the mix**), sampled at the
+  corpus's own digit frequencies and cell-length distribution instead of rebalanced
+- Fixed ft4's prior collapse — ٠/١/٤/٥/٨ all land near their real rates — but produced
+  a **new skew in the opposite direction**: ٣ fell to 2.5% of emitted digits (GT 11.2%)
+  while ٢ rose to 24.0% (GT 9.1%). Per-char ٢ 68.5% / ٣ 18.4%, mirroring ft4
+- Cell accuracy 26.0% vs ft3's 33.1%; val acc 0.235, best epoch 2
+- **Conclusion: the class balance was not the defect.** Natural-frequency sampling
+  still skews ٢/٣ badly, which points at the compositor — synthetic ink is heavier
+  than real, spacing is uniform, and single glyphs lose neighbouring-stroke context.
+  Any retry must fix the rendering, not the mix
+
 **10. Kraken fine-tune ft2 — 7162 ks**
 - Identical but `--no-augment`; best checkpoint **epoch 1**, val acc 0.34
 - Augmentation alone is worth **9%**
@@ -214,6 +240,52 @@ penalised for encoding conventions the incumbent happens to share with the GT.
 - Cost 2.6× ($0.006 → $0.0145/page). `run_som_ocr.py --fewshot N`, default off.
 - Caveat: the p50 pool is ٢-heavy (25 vs 12), so this is "few-shot from p50
   fails", not "few-shot is impossible".
+
+**Iterative ICL / Calfa's actual loop (E16) — 3441 ks (n=2), 3460 (n=4) vs 4380
+zero-shot — BEST RESULT IN THE LOG**
+- E15 was not a fair test of the method. Calfa's `ICLPool.sample()` sorts by
+  `added_at` DESC and takes the top n, so exemplars are the n most-recently
+  **validated pages** and the set changes for every target. E15 used one FIXED
+  block of p50 cell crops for all six pages. Two differences: recency/curriculum,
+  and whole pages instead of crops.
+- `run_som_iter.py`: page k gets pages k-1..k-n as image + confirmed-transcription
+  pairs, rendered in the same JSON shape the model must emit. Uses each prior
+  page's GT as its "correction" = the OPTIMISTIC BOUND (a perfect RA).
+- Scored on the 5 exemplar-bearing pages (page 3 is zero-shot in every arm and
+  was excluded), 3-4 runs per arm:
+
+  | arm | mean ks | sd | vs base |
+  |-----|---------|----|---------|
+  | zero-shot baseline (4 runs) | 4380 | 385 | -- |
+  | **iter n=2 (4 runs)** | **3441** | 147 | **-21.4%** |
+  | iter n=4 (4 runs) | 3460 | 212 | -21.0% |
+  | iter n=6 (3 runs) | 3675 | 227 | -16.1% |
+
+- **٣ accuracy 28.7% -> 67.2% (n=4) while ٢ ALSO rises 74.4% -> 84.3%.** Both
+  digits improving together is the signature of real discrimination; ft4, ft5 and
+  E15 all traded one for the other, which is a shifted prior. Worst iter run beats
+  best baseline run on ٣ by 22.4 points — **no overlap across 15 runs**.
+- Gain peaks at n=4 and decays by n=6: distant pages dilute the neighbour signal.
+- Also cuts sparse-row overreporting — pp9/10 report 24 rows (GT 24/27) vs the
+  baseline's 34, and page 9 `miss` drops to 0.
+- **Beware the lucky-run trap.** The original `som-f3v2` (3766 ks) turned out to be
+  the BEST of four zero-shot runs; three fresh repeats gave 4351/4638/4766. Judging
+  the first iter run against it showed a +3% edge instead of the true +21%. Never
+  benchmark against a single run of the incumbent.
+- Cost ~2.3x zero-shot ($0.014 vs $0.006/page), trading machine cost for RA time.
+- **This is a prompt pattern, not a model.** There is no artefact to hand to page
+  20; the gain lives in the input and needs corrected pages near the target.
+
+**Fixed 6-page GT pool on an unseen page (E17) — UNSCORABLE, signature positive**
+- The production-shaped question: can the 6 verified pages carry a page with no
+  corrected neighbours? `run_som_iter.py --pool 3 4 5 6 9 10 --pages 11`
+  (a page never exemplifies itself, so the flag stays usable leave-one-out).
+- Page 11 has no GT, so this **cannot be scored**. Indirect signal only, 3 runs:
+  ٢:٣ ratio moves 8:1 -> ~3:1 (41/5 zero-shot vs ~34/11), the same shift that on
+  the GT pages meant ٣ accuracy doubling; and ~25% more cells filled (84 -> 95-111).
+- Consistent with E16 but **not proof** — an unscorable page cannot rule out that
+  the extra ٣s are in the wrong cells. Page 11 is the natural first RA review:
+  confirming it both validates this and seeds the pool for page 12.
 
 **Calfa (`huggingface.co/calfa-ai`) — nothing runnable**
 - Published *models* are Armenian only (`hye-paddle`, `hye-tesseract`).
