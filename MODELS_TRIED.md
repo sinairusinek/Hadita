@@ -287,6 +287,58 @@ zero-shot — BEST RESULT IN THE LOG**
   the extra ٣s are in the wrong cells. Page 11 is the natural first RA review:
   confirming it both validates this and seeds the pool for page 12.
 
+**Column set-of-marks (E18), few-shot+marks (E19), layout-stripped exemplars (E20)
+— ALL REJECTED. Reading and placement measured separately, 45 runs, pages 4-10:**
+
+| arm | reading acc | phantom cells | missed | mean ks |
+|-----|-------------|---------------|--------|---------|
+| **iter4 few-shot (layout)** | **72.5%** | 94 (6.0%) | 144 | **3460** |
+| iter2 few-shot | 70.7% | 101 (6.4%) | 133 | 3441 |
+| few-shot + density-match | 69.8% | 94 (6.1%) | 169 | 3762 |
+| E20 layout-stripped | 61.7% | 101 (6.6%) | 222 | 4920 |
+| zero-shot | 60.1% | 94 (6.1%) | 204 | 4380 |
+| E18 column marks only | 49.0% | **69 (4.5%)** | 241 | 5288 |
+
+- "Reading acc" compares only cells BOTH sides filled, so placement is factored out.
+- **E18** (`make_som_grid.py`, blue column numbers + vertical rules above each column,
+  `run_som_ocr.py --grid`) does suppress phantoms — the best rate measured, 4.5% vs
+  6.1% — but costs **11 points of reading accuracy** and misses the most real cells.
+  The marks compete with the transcription for attention. A misread and a phantom
+  both cost RA time and there are far more misreads, so the trade is not worth it.
+- **E19** (few-shot + column marks together) is WORSE than either parent and
+  unstable: Net_Assessment_LP on p11 came out 10/6/12 across identical runs. The
+  printed column number and the exemplars' column keys give conflicting layout
+  signals and the model resolves them differently each time.
+- **E20** (exemplars rendered as bare values, no column keys, to teach the hand
+  without the layout) won both user-confirmed p11 facts and 3 of 4 p12 spot checks,
+  but does not survive scaling: 61.7% reading, worst missed count, and ks swinging
+  4012/4708/6040. Stripping the column keys also removes the output-format model.
+- **There is no general column problem.** Few-shot and zero-shot hallucinate at the
+  SAME rate (94 cells, 6.0% vs 6.1%). The p11 drift was layout inheritance from
+  dense exemplars shown to a sparse page — `--match-density` addresses that case.
+- **Lesson: spot checks on 1-2 pages mislead.** E20 swept the hand-checked cells and
+  came 5th of 6 when scored. Confirmations are for resolving specific ambiguities,
+  not for ranking configs.
+
+**Human-confirmed readings (p11, p12) — Sinai, 2026-09-09**
+- p11 r0 Date = ٩٣٨ (few-shot right, zero-shot's ٩٢٨ wrong: the ٢/٣ bias)
+- p11 Net_Assessment_LP is EMPTY; the ink there is handwritten row-marks to ignore.
+  **This invalidates any "ink occupancy" metric** — it counts marginalia as content.
+- p11/p12 Parcel_Area really does carry a bare separator with NO leading digit
+  (`،٢٦٠`). Zero-shot "corrects" this to `٠,٢٦٠` and is wrong; few-shot preserves it.
+- p12 areas are 4-digit (`٣,٤٠٨`), not 5-digit (`٣٤,٨٠٠` as zero-shot reads).
+- p12 r7 Parcel_Area = ٦,٧٧٥ — **all 8 runs of all 4 arms failed** it (best 2/4
+  digits). A ٧ problem, not a ٢/٣ one.
+- p12 col 9 rows 4-6 is a DELETED number overwritten with a new one, not Arabic
+  script. Excluded from scoring by request; flag such cells for human handling.
+
+**PRODUCTION (2026-09-09): pages 12-20 transcribed with `--match-density 4`**
+- `run_som_iter.py --pages 12..20 --pool 3 4 5 6 9 10 --match-density 4`
+- Exemplars auto-selected per target: dense pages (12, 16, 20) drew 3,4,5,6; sparse
+  pages (13-15, 17-19) drew 5,6,9,10. $0.1119 for 9 pages (~1.2c/page).
+- Pushed to Transkribus doc 18537955 as `Hadita-ICL-density4-g37flash`. UNSCORED —
+  no GT exists for these pages; they need RA review.
+
 **Calfa (`huggingface.co/calfa-ai`) — nothing runnable**
 - Published *models* are Armenian only (`hye-paddle`, `hye-tesseract`).
 - Six Arabic HTR **datasets** (Baybars 15.5k lines, Iskandar 5.2k, RASAM-1/2,

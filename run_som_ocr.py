@@ -76,6 +76,51 @@ real row and MUST be reported with that one cell filled. Before finishing, scan 
 row numbers in order and confirm you have not silently passed over any number whose row
 carries even a single mark."""
 
+# E18. The row marks removed row-counting; columns were still left to the model,
+# which had to map the 19-name list onto the page by counting cells right-to-left.
+# On sparse pages that drifts (page 11: the money columns landed 4-5 positions
+# off). GRID_PROMPT is the same task with the column indices PRINTED too, so the
+# model reads a column number instead of counting to it. Requires images from
+# make_som_grid.py.
+GRID_PROMPT = f"""This image is a page from a handwritten Arabic tax register (British Mandate
+Palestine, 1930s-40s). We have added two kinds of marks to it, which are NOT part of
+the original document:
+  * a RED ROW NUMBER in both margins beside every table row, with a faint yellow
+    line at each row boundary;
+  * a BLUE COLUMN NUMBER above every table column, with a faint yellow vertical
+    rule at each column boundary.
+
+{COLS_DOC}
+
+The blue numbers printed above the page correspond exactly to those column indices.
+
+Task: for EVERY row that contains any handwriting, output one entry keyed by the RED
+ROW NUMBER printed beside it. For every cell, report the BLUE COLUMN NUMBER printed
+above the column the writing physically sits in. Do not renumber, do not count rows or
+columns yourself, and do not skip a number: read the printed numbers.
+
+Output one object per non-empty row:
+  row   - the printed red row number (integer)
+  cells - object mapping the printed BLUE column number (as a string, e.g. "0", "5")
+          to the text in that cell. Include only cells that contain handwriting.
+
+Transcription rules:
+  * Keep Arabic-Indic digits as written. Do not convert to Latin digits.
+  * Check mark -> the single character U+2713
+  * Ditto mark (same as the cell above) -> a single ASCII double-quote
+  * Nil / dash -> a single hyphen
+  * Thousands separator inside a number -> a comma
+
+IMPORTANT — do not skip sparse rows. Many rows carry only one or two marks, and some
+carry nothing but a single dash or a single check mark in one column. Such a row is a
+real row and MUST be reported with that one cell filled. Before finishing, scan the red
+row numbers in order and confirm you have not silently passed over any number whose row
+carries even a single mark.
+
+IMPORTANT — trace each value up to the blue number directly above it before you write
+the column key. On this page many columns are empty, so a value's column CANNOT be
+inferred by counting filled cells across the row."""
+
 SCHEMA = {
     "type": "object",
     "properties": {
@@ -252,6 +297,9 @@ def main() -> None:
     ap.add_argument("--thinking", default="low", choices=["none", "low", "medium", "high"])
     ap.add_argument("--som-dir", help="folder of stamped SoM images (default som/)")
     ap.add_argument("--xml-dir", help="geometry folder (default final2)")
+    ap.add_argument("--grid", action="store_true",
+                    help="E18: use the 2-D prompt that reads PRINTED column numbers "
+                         "(pair with --som-dir som_grid from make_som_grid.py).")
     ap.add_argument("--fewshot", type=int, default=0,
                     help="E15: prepend N confirmed cell crops from page 50 as "
                          "few-shot examples (0 = off, the default).")
@@ -265,6 +313,8 @@ def main() -> None:
         SOM_DIR = Path(args.som_dir)
     if args.xml_dir:
         XML_DIR = Path(args.xml_dir)
+    if args.grid:
+        PROMPT = GRID_PROMPT
     if args.digit_hint != "off":
         PROMPT = PROMPT + DIGIT_HINT
         if args.digit_hint == "shape+bias":
